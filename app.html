@@ -12,6 +12,7 @@
   <link rel="stylesheet" href="./styles/base.css" />
   <link rel="stylesheet" href="./styles/layout.css" />
   <link rel="stylesheet" href="./styles/components.css" />
+  <link rel="stylesheet" href="./styles/editor.css" />
 </head>
 <body>
   <a class="skip-link" href="#main">Перейти к содержимому</a>
@@ -26,7 +27,7 @@
         </div>
         <div>
           <strong>Stroika</strong>
-          <p>Executive Demo Dashboard</p>
+          <p>Executive Dashboard</p>
         </div>
       </div>
 
@@ -35,6 +36,7 @@
         <button class="nav-link" data-tab="contractors"><i class="ri-group-line"></i><span>Подрядчики</span></button>
         <button class="nav-link" data-tab="contracts"><i class="ri-file-list-3-line"></i><span>Контракты</span></button>
         <button class="nav-link" data-tab="objects"><i class="ri-building-2-line"></i><span>Объекты</span></button>
+        <button class="nav-link" data-tab="editor"><i class="ri-table-line"></i><span>Редактор</span></button>
         <button class="nav-link" data-tab="forms"><i class="ri-add-circle-line"></i><span>Ввод данных</span></button>
       </nav>
 
@@ -44,7 +46,7 @@
           <button class="theme-toggle" data-theme-toggle aria-label="Сменить тему"></button>
         </div>
         <div class="legend-note">
-          Прототип построен на основании Excel и подготовлен для дальнейшего перевода в полноценный web app.
+          Прототип построен на основании Excel (29.05.2026) и подготовлен для перевода в полноценный web app.
         </div>
       </div>
     </aside>
@@ -53,11 +55,11 @@
       <header class="topbar">
         <div>
           <p class="eyebrow">Строительная аналитика</p>
-          <h1>Демонстрационный дашборд по данным Excel: контракты, объекты, подрядчики и лимиты</h1>
+          <h1>Дашборд: контракты, объекты, подрядчики и лимиты</h1>
         </div>
         <div class="topbar-actions">
           <button class="ghost-btn" id="resetFiltersBtn"><i class="ri-refresh-line"></i>Сбросить фильтры</button>
-          <button class="primary-btn" id="demoFillBtn"><i class="ri-magic-line"></i>Добавить демо-данные</button>
+          <button class="primary-btn" id="demoFillBtn"><i class="ri-magic-line"></i>Демо-данные</button>
         </div>
       </header>
 
@@ -76,18 +78,18 @@
             <input id="searchFilter" type="search" placeholder="Объект, контракт, подрядчик" />
           </label>
           <label>
-            <span>Мин. готовность</span>
+            <span>Мин. готовность <span id="readinessValue">0%</span></span>
             <input id="readinessFilter" type="range" min="0" max="100" step="5" value="0" />
-            <small id="readinessValue">0%</small>
           </label>
         </div>
       </section>
 
-      <section id="tab-overview" class="tab-panel active"></section>
-      <section id="tab-contractors" class="tab-panel"></section>
-      <section id="tab-contracts" class="tab-panel"></section>
-      <section id="tab-objects" class="tab-panel"></section>
-      <section id="tab-forms" class="tab-panel"></section>
+      <section id="tab-overview"     class="tab-panel active"></section>
+      <section id="tab-contractors"  class="tab-panel"></section>
+      <section id="tab-contracts"    class="tab-panel"></section>
+      <section id="tab-objects"      class="tab-panel"></section>
+      <section id="tab-editor"       class="tab-panel"></section>
+      <section id="tab-forms"        class="tab-panel"></section>
     </main>
   </div>
 
@@ -96,6 +98,7 @@
   <script src="./js/utils.js"></script>
   <script src="./js/charts.js"></script>
   <script src="./js/renderers.js"></script>
+  <script src="./js/editor.js"></script>
   <script src="./js/forms.js"></script>
   <script src="./js/app.js"></script>
 </body>

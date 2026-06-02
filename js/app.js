@@ -1,11 +1,7 @@
 window.app = {
   async init() {
-    // Загрузка через XMLHttpRequest (работает в Firefox с file://,
-    // в Chrome/Edge надо запустить с --allow-file-access-from-files или использовать локальный сервер
     const loadJSON = (url) => new Promise((resolve, reject) => {
-      // 1) Если данные загружены скриптом (data-loader.js), используем их
       if (window.DASHBOARD_DATA) { resolve(window.DASHBOARD_DATA); return; }
-      // 2) XMLHttpRequest — работает в Firefox и при HTTP-сервере
       const xhr = new XMLHttpRequest();
       xhr.open('GET', url);
       xhr.onload  = () => { try { resolve(JSON.parse(xhr.responseText)); } catch(e) { reject(e); } };
@@ -52,6 +48,10 @@ window.app = {
   refresh() {
     this.populateFilters(true);
     renderers.renderAll();
+    // Редактор перерендерим только если он уже был открыт (чтобы не грузить зря)
+    if (window.dashboardState.ui.activeTab === 'editor') {
+      editor.render();
+    }
   },
 
   setupThemeToggle() {
@@ -76,8 +76,11 @@ window.app = {
         document.querySelectorAll('.nav-link').forEach(x => x.classList.remove('active'));
         document.querySelectorAll('.tab-panel').forEach(x => x.classList.remove('active'));
         btn.classList.add('active');
-        document.getElementById('tab-' + btn.dataset.tab).classList.add('active');
-        window.dashboardState.ui.activeTab = btn.dataset.tab;
+        const tabId = btn.dataset.tab;
+        document.getElementById('tab-' + tabId).classList.add('active');
+        window.dashboardState.ui.activeTab = tabId;
+        // Лениво рендерим редактор при первом открытии
+        if (tabId === 'editor') editor.render();
       });
     });
   },
