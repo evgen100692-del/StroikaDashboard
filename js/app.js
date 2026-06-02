@@ -1,9 +1,20 @@
 window.app = {
   async init() {
+    // Загрузка через XMLHttpRequest (работает в Firefox с file://,
+    // в Chrome/Edge надо запустить с --allow-file-access-from-files или использовать локальный сервер
+    const loadJSON = (url) => new Promise((resolve, reject) => {
+      // 1) Если данные загружены скриптом (data-loader.js), используем их
+      if (window.DASHBOARD_DATA) { resolve(window.DASHBOARD_DATA); return; }
+      // 2) XMLHttpRequest — работает в Firefox и при HTTP-сервере
+      const xhr = new XMLHttpRequest();
+      xhr.open('GET', url);
+      xhr.onload  = () => { try { resolve(JSON.parse(xhr.responseText)); } catch(e) { reject(e); } };
+      xhr.onerror = () => reject(new Error('XHR failed: ' + xhr.status));
+      xhr.send();
+    });
+
     try {
-      const res = await fetch('./data/dashboard-data.json');
-      if (!res.ok) throw new Error('HTTP ' + res.status);
-      const data = await res.json();
+      const data = await loadJSON('./data/dashboard-data.json');
       data.svod      = data.svod      || [];
       data.contracts = data.contracts || [];
       data.objects   = data.objects   || [];
@@ -11,9 +22,11 @@ window.app = {
       const s = data.meta?.summary || {};
       console.info(`[Dashboard] Загружено: ${s.contractors || 0} подрядчиков, ${s.contracts || 0} контрактов, ${s.objects || 0} объектов`);
     } catch (e) {
-      console.error('Ошибка загрузки данных:', e);
+      console.error('Ошибка загрузки данных:', e.message);
+      this._showCorsNotice();
       window.dashboardState.rawData = { svod: [], contracts: [], objects: [] };
     }
+
     document.documentElement.setAttribute('data-theme', window.dashboardState.ui.theme);
     this.setupThemeToggle();
     this.setupTabs();
@@ -21,6 +34,19 @@ window.app = {
     this.populateFilters();
     this.setupActions();
     this.refresh();
+  },
+
+  _showCorsNotice() {
+    const div = document.createElement('div');
+    div.style.cssText = 'position:fixed;top:0;left:0;right:0;padding:12px 20px;background:#c0392b;color:#fff;font:14px/1.4 sans-serif;z-index:9999;display:flex;gap:16px;align-items:center';
+    div.innerHTML = `
+      <strong>⚠️ CORS-ошибка:</strong>
+      Файл открыт через <code>file://</code>. Используйте локальный сервер:
+      <code style="background:rgba(0,0,0,.3);padding:2px 8px;border-radius:4px">npx serve .</code>
+      или <code style="background:rgba(0,0,0,.3);padding:2px 8px;border-radius:4px">python -m http.server 8080</code>
+      &mdash; затем откройте <b>http://localhost:8080/app.html</b>
+      <button onclick="this.parentNode.remove()" style="margin-left:auto;background:none;border:1px solid #fff;color:#fff;padding:4px 12px;cursor:pointer;border-radius:4px">Закрыть</button>`;
+    document.body.prepend(div);
   },
 
   refresh() {
@@ -119,7 +145,6 @@ window.app = {
         finishPlan: '2027-12-31', limit2026: 95000
       });
       this.refresh();
-      // Авто-переключение на «Объекты» для демонстрации
       const objTab = document.querySelector('[data-tab="objects"]');
       if (objTab) objTab.click();
     });
