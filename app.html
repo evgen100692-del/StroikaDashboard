@@ -13,6 +13,7 @@
   <link rel="stylesheet" href="./styles/layout.css" />
   <link rel="stylesheet" href="./styles/components.css" />
   <link rel="stylesheet" href="./styles/editor.css" />
+  <link rel="stylesheet" href="./styles/dynamics.css" />
 </head>
 <body>
   <a class="skip-link" href="#main">Перейти к содержимому</a>
@@ -36,6 +37,7 @@
         <button class="nav-link" data-tab="contractors"><i class="ri-group-line"></i><span>Подрядчики</span></button>
         <button class="nav-link" data-tab="contracts"><i class="ri-file-list-3-line"></i><span>Контракты</span></button>
         <button class="nav-link" data-tab="objects"><i class="ri-building-2-line"></i><span>Объекты</span></button>
+        <button class="nav-link" data-tab="dynamics"><i class="ri-line-chart-line"></i><span>Динамика</span></button>
         <button class="nav-link" data-tab="editor"><i class="ri-table-line"></i><span>Редактор</span></button>
         <button class="nav-link" data-tab="forms"><i class="ri-add-circle-line"></i><span>Ввод данных</span></button>
       </nav>
@@ -46,7 +48,7 @@
           <button class="theme-toggle" data-theme-toggle aria-label="Сменить тему"></button>
         </div>
         <div class="legend-note">
-          Прототип построен на основании Excel (29.05.2026) и подготовлен для перевода в полноценный web app.
+          Дашборд строительной аналитики · данные на 29.05.2026
         </div>
       </div>
     </aside>
@@ -88,6 +90,7 @@
       <section id="tab-contractors"  class="tab-panel"></section>
       <section id="tab-contracts"    class="tab-panel"></section>
       <section id="tab-objects"      class="tab-panel"></section>
+      <section id="tab-dynamics"     class="tab-panel"></section>
       <section id="tab-editor"       class="tab-panel"></section>
       <section id="tab-forms"        class="tab-panel"></section>
     </main>
@@ -96,8 +99,10 @@
   <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
   <script src="./js/state.js"></script>
   <script src="./js/utils.js"></script>
+  <script src="./js/history.js"></script>
   <script src="./js/charts.js"></script>
   <script src="./js/renderers.js"></script>
+  <script src="./js/dynamics.js"></script>
   <script src="./js/editor.js"></script>
   <script src="./js/forms.js"></script>
   <script src="./js/app.js"></script>

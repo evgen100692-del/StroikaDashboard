@@ -1,4 +1,3 @@
-
 window.dashboardState = {
   rawData: null,
   filters: { contractor: 'all', workType: 'all', search: '', readiness: 0 },

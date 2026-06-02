@@ -37,10 +37,9 @@ window.app = {
     div.style.cssText = 'position:fixed;top:0;left:0;right:0;padding:12px 20px;background:#c0392b;color:#fff;font:14px/1.4 sans-serif;z-index:9999;display:flex;gap:16px;align-items:center';
     div.innerHTML = `
       <strong>⚠️ CORS-ошибка:</strong>
-      Файл открыт через <code>file://</code>. Используйте локальный сервер:
-      <code style="background:rgba(0,0,0,.3);padding:2px 8px;border-radius:4px">npx serve .</code>
-      или <code style="background:rgba(0,0,0,.3);padding:2px 8px;border-radius:4px">python -m http.server 8080</code>
-      &mdash; затем откройте <b>http://localhost:8080/app.html</b>
+      Файл открыт через <code>file://</code>.
+      Используйте: <code style="background:rgba(0,0,0,.3);padding:2px 8px;border-radius:4px">npx serve .</code>
+      затем <b>http://localhost:3000/app.html</b>
       <button onclick="this.parentNode.remove()" style="margin-left:auto;background:none;border:1px solid #fff;color:#fff;padding:4px 12px;cursor:pointer;border-radius:4px">Закрыть</button>`;
     document.body.prepend(div);
   },
@@ -48,10 +47,9 @@ window.app = {
   refresh() {
     this.populateFilters(true);
     renderers.renderAll();
-    // Редактор перерендерим только если он уже был открыт (чтобы не грузить зря)
-    if (window.dashboardState.ui.activeTab === 'editor') {
-      editor.render();
-    }
+    const tab = window.dashboardState.ui.activeTab;
+    if (tab === 'editor')   editor.render();
+    if (tab === 'dynamics') dynamics.render();
   },
 
   setupThemeToggle() {
@@ -79,8 +77,8 @@ window.app = {
         const tabId = btn.dataset.tab;
         document.getElementById('tab-' + tabId).classList.add('active');
         window.dashboardState.ui.activeTab = tabId;
-        // Лениво рендерим редактор при первом открытии
-        if (tabId === 'editor') editor.render();
+        if (tabId === 'editor')   editor.render();
+        if (tabId === 'dynamics') dynamics.render();
       });
     });
   },
@@ -102,15 +100,12 @@ window.app = {
     const raw = state.rawData || {};
     const contractors = utils.uniq([...(raw.svod || []), ...state.additions.contractors].map(x => x.contractor));
     const workTypes   = utils.uniq([...(raw.contracts || []), ...state.additions.contracts].map(x => x.workType || 'СМР'));
-
     const cf = document.getElementById('contractorFilter');
     const wf = document.getElementById('workTypeFilter');
     const prevC = cf.value || state.filters.contractor;
     const prevW = wf.value || state.filters.workType;
-
     cf.innerHTML = `<option value="all">Все подрядчики</option>${contractors.map(v => `<option value="${v}">${v}</option>`).join('')}`;
     wf.innerHTML = `<option value="all">Все типы работ</option>${workTypes.map(v => `<option value="${v}">${v}</option>`).join('')}`;
-
     if (keepValue) {
       cf.value = contractors.includes(prevC) ? prevC : 'all';
       wf.value = workTypes.includes(prevW)   ? prevW : 'all';
@@ -126,30 +121,12 @@ window.app = {
       document.getElementById('readinessValue').textContent = '0%';
       this.refresh();
     });
-
     document.getElementById('demoFillBtn').addEventListener('click', () => {
-      window.dashboardState.additions.contractors.push({
-        contractor: 'Демо-Строй (тест)', contractsTotal: 2, contractSum: 185000,
-        paidTotal: 72000, paidPct: 0.39, doneTotal: 61000, donePct: 0.33,
-        advanceOutstanding: 18500, limit2026: 95000, limit2027: 90000
-      });
-      window.dashboardState.additions.contracts.push({
-        project: 'Строительство развязки — ДЕМО', contractor: 'Демо-Строй (тест)',
-        contractNo: 'DEMO-2026-01', workType: 'СМР', contractValue: 185000,
-        paidTotal: 72000, doneTotal: 61000, donePct: 0.33,
-        paid2026: 35000, balance2026: 60000, limit2026: 95000,
-        finishPlan: 'да', contractDeadline: '2027-06-30'
-      });
-      window.dashboardState.additions.objects.push({
-        object: 'Развязка ул. Ленина — ДЕМО', omsu: 'Красногорск',
-        contractor: 'Демо-Строй (тест)', readinessNow: 0.42,
-        readinessMay22: 0.39, weekDelta: 0.03,
-        workers: 68, machines: 14, financeSource: 'ФБ',
-        finishPlan: '2027-12-31', limit2026: 95000
-      });
+      window.dashboardState.additions.contractors.push({ contractor: 'Демо-Строй (тест)', contractsTotal: 2, contractSum: 185000, paidTotal: 72000, paidPct: 0.39, doneTotal: 61000, donePct: 0.33, advanceOutstanding: 18500, limit2026: 95000, limit2027: 90000 });
+      window.dashboardState.additions.contracts.push({ project: 'Строительство развязки — ДЕМО', contractor: 'Демо-Строй (тест)', contractNo: 'DEMO-2026-01', workType: 'СМР', contractValue: 185000, paidTotal: 72000, doneTotal: 61000, donePct: 0.33, paid2026: 35000, balance2026: 60000, limit2026: 95000, finishPlan: 'да', contractDeadline: '2027-06-30' });
+      window.dashboardState.additions.objects.push({ object: 'Развязка ул. Ленина — ДЕМО', omsu: 'Красногорск', contractor: 'Демо-Строй (тест)', readinessNow: 0.42, readinessMay22: 0.39, weekDelta: 0.03, workers: 68, machines: 14, financeSource: 'ФБ', finishPlan: '2027-12-31', limit2026: 95000 });
       this.refresh();
-      const objTab = document.querySelector('[data-tab="objects"]');
-      if (objTab) objTab.click();
+      document.querySelector('[data-tab="objects"]')?.click();
     });
   }
 };
