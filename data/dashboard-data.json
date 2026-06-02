@@ -1,1 +1,14 @@
-PLACEHOLDER_REPLACED_BY_FULL_JSON
+{
+  "meta": {
+    "sourceFile": "Stroika_-ot-29.05.xlsx",
+    "generatedAt": "2026-06-02T07:46:00",
+    "summary": {
+      "contractors": 28,
+      "contracts": 103,
+      "objects": 130
+    }
+  },
+  "svod": [],
+  "contracts": [],
+  "objects": []
+}
