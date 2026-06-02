@@ -1,9 +1,19 @@
-
 window.app = {
-  async init(){
-    const res = await fetch('./data/dashboard-data.json');
-    const data = await res.json();
-    window.dashboardState.rawData = data;
+  async init() {
+    try {
+      const res = await fetch('./data/dashboard-data.json');
+      if (!res.ok) throw new Error('HTTP ' + res.status);
+      const data = await res.json();
+      data.svod      = data.svod      || [];
+      data.contracts = data.contracts || [];
+      data.objects   = data.objects   || [];
+      window.dashboardState.rawData = data;
+      const s = data.meta?.summary || {};
+      console.info(`[Dashboard] Загружено: ${s.contractors || 0} подрядчиков, ${s.contracts || 0} контрактов, ${s.objects || 0} объектов`);
+    } catch (e) {
+      console.error('Ошибка загрузки данных:', e);
+      window.dashboardState.rawData = { svod: [], contracts: [], objects: [] };
+    }
     document.documentElement.setAttribute('data-theme', window.dashboardState.ui.theme);
     this.setupThemeToggle();
     this.setupTabs();
@@ -13,12 +23,12 @@ window.app = {
     this.refresh();
   },
 
-  refresh(){
+  refresh() {
     this.populateFilters(true);
     renderers.renderAll();
   },
 
-  setupThemeToggle(){
+  setupThemeToggle() {
     const btn = document.querySelector('[data-theme-toggle]');
     const setIcon = () => {
       const dark = document.documentElement.getAttribute('data-theme') === 'dark';
@@ -34,7 +44,7 @@ window.app = {
     });
   },
 
-  setupTabs(){
+  setupTabs() {
     document.querySelectorAll('.nav-link').forEach(btn => {
       btn.addEventListener('click', () => {
         document.querySelectorAll('.nav-link').forEach(x => x.classList.remove('active'));
@@ -46,54 +56,72 @@ window.app = {
     });
   },
 
-  setupFilters(){
-    const contractorFilter = document.getElementById('contractorFilter');
-    const workTypeFilter = document.getElementById('workTypeFilter');
-    const searchFilter = document.getElementById('searchFilter');
-    const readinessFilter = document.getElementById('readinessFilter');
-    const readinessValue = document.getElementById('readinessValue');
-
-    contractorFilter.addEventListener('change', e => { window.dashboardState.filters.contractor = e.target.value; this.refresh(); });
-    workTypeFilter.addEventListener('change', e => { window.dashboardState.filters.workType = e.target.value; this.refresh(); });
-    searchFilter.addEventListener('input', e => { window.dashboardState.filters.search = e.target.value; this.refresh(); });
-    readinessFilter.addEventListener('input', e => { window.dashboardState.filters.readiness = Number(e.target.value); readinessValue.textContent = e.target.value + '%'; this.refresh(); });
+  setupFilters() {
+    const get = id => document.getElementById(id);
+    get('contractorFilter').addEventListener('change', e => { window.dashboardState.filters.contractor = e.target.value; this.refresh(); });
+    get('workTypeFilter').addEventListener('change',   e => { window.dashboardState.filters.workType   = e.target.value; this.refresh(); });
+    get('searchFilter').addEventListener('input',      e => { window.dashboardState.filters.search     = e.target.value; this.refresh(); });
+    get('readinessFilter').addEventListener('input',   e => {
+      window.dashboardState.filters.readiness = Number(e.target.value);
+      get('readinessValue').textContent = e.target.value + '%';
+      this.refresh();
+    });
   },
 
-  populateFilters(keepValue = false){
+  populateFilters(keepValue = false) {
     const state = window.dashboardState;
-    const contractors = utils.uniq([...(state.rawData?.svod || []), ...state.additions.contractors].map(x => x.contractor));
-    const workTypes = utils.uniq([...(state.rawData?.contracts || []), ...state.additions.contracts].map(x => x.workType));
-    const contractorFilter = document.getElementById('contractorFilter');
-    const workTypeFilter = document.getElementById('workTypeFilter');
+    const raw = state.rawData || {};
+    const contractors = utils.uniq([...(raw.svod || []), ...state.additions.contractors].map(x => x.contractor));
+    const workTypes   = utils.uniq([...(raw.contracts || []), ...state.additions.contracts].map(x => x.workType || 'СМР'));
 
-    const prevContractor = contractorFilter.value || state.filters.contractor;
-    const prevWorkType = workTypeFilter.value || state.filters.workType;
+    const cf = document.getElementById('contractorFilter');
+    const wf = document.getElementById('workTypeFilter');
+    const prevC = cf.value || state.filters.contractor;
+    const prevW = wf.value || state.filters.workType;
 
-    contractorFilter.innerHTML = `<option value="all">Все подрядчики</option>${contractors.map(v=>`<option value="${v}">${v}</option>`).join('')}`;
-    workTypeFilter.innerHTML = `<option value="all">Все типы работ</option>${workTypes.map(v=>`<option value="${v}">${v}</option>`).join('')}`;
+    cf.innerHTML = `<option value="all">Все подрядчики</option>${contractors.map(v => `<option value="${v}">${v}</option>`).join('')}`;
+    wf.innerHTML = `<option value="all">Все типы работ</option>${workTypes.map(v => `<option value="${v}">${v}</option>`).join('')}`;
 
-    if(keepValue){
-      contractorFilter.value = contractors.includes(prevContractor) ? prevContractor : 'all';
-      workTypeFilter.value = workTypes.includes(prevWorkType) ? prevWorkType : 'all';
+    if (keepValue) {
+      cf.value = contractors.includes(prevC) ? prevC : 'all';
+      wf.value = workTypes.includes(prevW)   ? prevW : 'all';
     }
   },
 
-  setupActions(){
+  setupActions() {
     document.getElementById('resetFiltersBtn').addEventListener('click', () => {
       window.dashboardState.filters = { contractor: 'all', workType: 'all', search: '', readiness: 0 };
-      document.getElementById('contractorFilter').value = 'all';
-      document.getElementById('workTypeFilter').value = 'all';
-      document.getElementById('searchFilter').value = '';
+      ['contractorFilter','workTypeFilter'].forEach(id => document.getElementById(id).value = 'all');
+      document.getElementById('searchFilter').value    = '';
       document.getElementById('readinessFilter').value = 0;
       document.getElementById('readinessValue').textContent = '0%';
       this.refresh();
     });
 
     document.getElementById('demoFillBtn').addEventListener('click', () => {
-      window.dashboardState.additions.contractors.push({ contractor:'Новый подрядчик demo', contractsTotal:2, contractSum:125000, paidTotal:46500, paidPct:.37, limit2026:60000, advanceOutstanding:12000, doneTotal:39000 });
-      window.dashboardState.additions.contracts.push({ project:'Демо проект', contractor:'Новый подрядчик demo', contractNo:'DEMO-001', workType:'СМР', contractValue:125000, paidTotal:46500, doneTotal:39000, donePct:.31, paid2026:20000, balance2026:40000, contractDeadline:'2027-12-01' });
-      window.dashboardState.additions.objects.push({ object:'Демо объект', contractor:'Новый подрядчик demo', readinessNow:42, workers:56, machines:12, cashGap:8300 });
+      window.dashboardState.additions.contractors.push({
+        contractor: 'Демо-Строй (тест)', contractsTotal: 2, contractSum: 185000,
+        paidTotal: 72000, paidPct: 0.39, doneTotal: 61000, donePct: 0.33,
+        advanceOutstanding: 18500, limit2026: 95000, limit2027: 90000
+      });
+      window.dashboardState.additions.contracts.push({
+        project: 'Строительство развязки — ДЕМО', contractor: 'Демо-Строй (тест)',
+        contractNo: 'DEMO-2026-01', workType: 'СМР', contractValue: 185000,
+        paidTotal: 72000, doneTotal: 61000, donePct: 0.33,
+        paid2026: 35000, balance2026: 60000, limit2026: 95000,
+        finishPlan: 'да', contractDeadline: '2027-06-30'
+      });
+      window.dashboardState.additions.objects.push({
+        object: 'Развязка ул. Ленина — ДЕМО', omsu: 'Красногорск',
+        contractor: 'Демо-Строй (тест)', readinessNow: 0.42,
+        readinessMay22: 0.39, weekDelta: 0.03,
+        workers: 68, machines: 14, financeSource: 'ФБ',
+        finishPlan: '2027-12-31', limit2026: 95000
+      });
       this.refresh();
+      // Авто-переключение на «Объекты» для демонстрации
+      const objTab = document.querySelector('[data-tab="objects"]');
+      if (objTab) objTab.click();
     });
   }
 };
