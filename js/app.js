@@ -1,49 +1,67 @@
 window.app = {
+
   async init() {
-    const loadJSON = (url) => new Promise((resolve, reject) => {
-      if (window.DASHBOARD_DATA) { resolve(window.DASHBOARD_DATA); return; }
-      const xhr = new XMLHttpRequest();
-      xhr.open('GET', url);
-      xhr.onload  = () => { try { resolve(JSON.parse(xhr.responseText)); } catch(e) { reject(e); } };
-      xhr.onerror = () => reject(new Error('XHR failed: ' + xhr.status));
-      xhr.send();
-    });
+    // 1. Загружаем JSON-файл
+    const raw = await this._loadJSON('./data/dashboard-data.json');
+    raw.svod      = raw.svod      || [];
+    raw.contracts = raw.contracts || [];
+    raw.objects   = raw.objects   || [];
 
-    try {
-      const data = await loadJSON('./data/dashboard-data.json');
-      data.svod      = data.svod      || [];
-      data.contracts = data.contracts || [];
-      data.objects   = data.objects   || [];
-      window.dashboardState.rawData = data;
-      const s = data.meta?.summary || {};
-      console.info(`[Dashboard] Загружено: ${s.contractors || 0} подрядчиков, ${s.contracts || 0} контрактов, ${s.objects || 0} объектов`);
-    } catch (e) {
-      console.error('Ошибка загрузки данных:', e.message);
-      this._showCorsNotice();
-      window.dashboardState.rawData = { svod: [], contracts: [], objects: [] };
-    }
+    // 2. Накладываем сохранённые правки Из БД поверх JSON
+    window.dashboardState.rawData = window.db.applyOverrides(raw);
 
+    const s = raw.meta?.summary || {};
+    console.info(`[Dashboard] JSON: ${s.contractors||0} подрядчиков, ${s.contracts||0} контрактов, ${s.objects||0} объектов`);
+
+    // 3. Инициализация UI
     document.documentElement.setAttribute('data-theme', window.dashboardState.ui.theme);
     this.setupThemeToggle();
     this.setupTabs();
     this.setupFilters();
     this.populateFilters();
     this.setupActions();
+    this._renderDbStatus();
     this.refresh();
   },
 
-  _showCorsNotice() {
-    const div = document.createElement('div');
-    div.style.cssText = 'position:fixed;top:0;left:0;right:0;padding:12px 20px;background:#c0392b;color:#fff;font:14px/1.4 sans-serif;z-index:9999;display:flex;gap:16px;align-items:center';
-    div.innerHTML = `
-      <strong>⚠️ CORS-ошибка:</strong>
-      Файл открыт через <code>file://</code>.
-      Используйте: <code style="background:rgba(0,0,0,.3);padding:2px 8px;border-radius:4px">npx serve .</code>
-      затем <b>http://localhost:3000/app.html</b>
-      <button onclick="this.parentNode.remove()" style="margin-left:auto;background:none;border:1px solid #fff;color:#fff;padding:4px 12px;cursor:pointer;border-radius:4px">Закрыть</button>`;
-    document.body.prepend(div);
+  /* ── Загрузка JSON ───────────────────────────────────── */
+  async _loadJSON(url) {
+    if (window.DASHBOARD_DATA) return window.DASHBOARD_DATA;
+    try {
+      const res = await fetch(url);
+      if (!res.ok) throw new Error('HTTP ' + res.status);
+      return await res.json();
+    } catch (e) {
+      console.error('Ошибка загрузки данных:', e.message);
+      this._showCorsNotice();
+      return { svod: [], contracts: [], objects: [] };
+    }
   },
 
+  /* ── Индикатор БД в сайдбаре ────────────────────────── */
+  _renderDbStatus() {
+    const bar  = document.getElementById('dbStatusBar');
+    const text = document.getElementById('dbStatusText');
+    const btn  = document.getElementById('dbResetBtn');
+    if (!bar) return;
+
+    const m = window.db.meta();
+    if (!m) { bar.style.display = 'none'; return; }
+
+    const dt = new Date(m.savedAt).toLocaleString('ru-RU', { day:'2-digit', month:'2-digit', hour:'2-digit', minute:'2-digit' });
+    text.textContent = `БД: правки от ${dt}`;
+    bar.style.display = 'flex';
+    bar.style.alignItems = 'center';
+    bar.style.gap = '6px';
+
+    btn.onclick = () => {
+      if (!confirm('Сбросить все правки БД и загрузить оригинальный JSON?')) return;
+      window.db.clear();
+      location.reload();
+    };
+  },
+
+  /* ── Обновить весь дашборд ────────────────────────────── */
   refresh() {
     this.populateFilters(true);
     renderers.renderAll();
@@ -52,6 +70,7 @@ window.app = {
     if (tab === 'dynamics') dynamics.render();
   },
 
+  /* ── Тема ──────────────────────────────────────────────── */
   setupThemeToggle() {
     const btn = document.querySelector('[data-theme-toggle]');
     const setIcon = () => {
@@ -68,6 +87,7 @@ window.app = {
     });
   },
 
+  /* ── Табы ────────────────────────────────────────────────── */
   setupTabs() {
     document.querySelectorAll('.nav-link').forEach(btn => {
       btn.addEventListener('click', () => {
@@ -83,6 +103,7 @@ window.app = {
     });
   },
 
+  /* ── Фильтры ──────────────────────────────────────────────── */
   setupFilters() {
     const get = id => document.getElementById(id);
     get('contractorFilter').addEventListener('change', e => { window.dashboardState.filters.contractor = e.target.value; this.refresh(); });
@@ -97,9 +118,9 @@ window.app = {
 
   populateFilters(keepValue = false) {
     const state = window.dashboardState;
-    const raw = state.rawData || {};
-    const contractors = utils.uniq([...(raw.svod || []), ...state.additions.contractors].map(x => x.contractor));
-    const workTypes   = utils.uniq([...(raw.contracts || []), ...state.additions.contracts].map(x => x.workType || 'СМР'));
+    const raw   = state.rawData || {};
+    const contractors = utils.uniq([...(raw.svod      || []), ...state.additions.contractors].map(x => x.contractor));
+    const workTypes   = utils.uniq([...(raw.contracts || []), ...state.additions.contracts  ].map(x => x.workType || 'СМР'));
     const cf = document.getElementById('contractorFilter');
     const wf = document.getElementById('workTypeFilter');
     const prevC = cf.value || state.filters.contractor;
@@ -112,6 +133,7 @@ window.app = {
     }
   },
 
+  /* ── Действия кнопок ────────────────────────────────────────── */
   setupActions() {
     document.getElementById('resetFiltersBtn').addEventListener('click', () => {
       window.dashboardState.filters = { contractor: 'all', workType: 'all', search: '', readiness: 0 };
@@ -121,6 +143,7 @@ window.app = {
       document.getElementById('readinessValue').textContent = '0%';
       this.refresh();
     });
+
     document.getElementById('demoFillBtn').addEventListener('click', () => {
       window.dashboardState.additions.contractors.push({ contractor: 'Демо-Строй (тест)', contractsTotal: 2, contractSum: 185000, paidTotal: 72000, paidPct: 0.39, doneTotal: 61000, donePct: 0.33, advanceOutstanding: 18500, limit2026: 95000, limit2027: 90000 });
       window.dashboardState.additions.contracts.push({ project: 'Строительство развязки — ДЕМО', contractor: 'Демо-Строй (тест)', contractNo: 'DEMO-2026-01', workType: 'СМР', contractValue: 185000, paidTotal: 72000, doneTotal: 61000, donePct: 0.33, paid2026: 35000, balance2026: 60000, limit2026: 95000, finishPlan: 'да', contractDeadline: '2027-06-30' });
@@ -128,7 +151,19 @@ window.app = {
       this.refresh();
       document.querySelector('[data-tab="objects"]')?.click();
     });
-  }
+  },
+
+  _showCorsNotice() {
+    const div = document.createElement('div');
+    div.style.cssText = 'position:fixed;top:0;left:0;right:0;padding:12px 20px;background:#c0392b;color:#fff;font:14px/1.4 sans-serif;z-index:9999;display:flex;gap:16px;align-items:center';
+    div.innerHTML = `
+      <strong>⚠️ CORS-ошибка:</strong>
+      Файл открыт через <code>file://</code>.
+      Используйте: <code style="background:rgba(0,0,0,.3);padding:2px 8px;border-radius:4px">npx serve .</code>
+      затем <b>http://localhost:3000/app.html</b>
+      <button onclick="this.parentNode.remove()" style="margin-left:auto;background:none;border:1px solid #fff;color:#fff;padding:4px 12px;cursor:pointer;border-radius:4px">Закрыть</button>`;
+    document.body.prepend(div);
+  },
 };
 
 document.addEventListener('DOMContentLoaded', () => window.app.init());
