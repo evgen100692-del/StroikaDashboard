@@ -1,19 +1,16 @@
 window.app = {
 
   async init() {
-    // 1. Загружаем JSON-файл
     const raw = await this._loadJSON('./data/dashboard-data.json');
     raw.svod      = raw.svod      || [];
     raw.contracts = raw.contracts || [];
     raw.objects   = raw.objects   || [];
 
-    // 2. Накладываем сохранённые правки Из БД поверх JSON
     window.dashboardState.rawData = window.db.applyOverrides(raw);
 
     const s = raw.meta?.summary || {};
     console.info(`[Dashboard] JSON: ${s.contractors||0} подрядчиков, ${s.contracts||0} контрактов, ${s.objects||0} объектов`);
 
-    // 3. Инициализация UI
     document.documentElement.setAttribute('data-theme', window.dashboardState.ui.theme);
     this.setupThemeToggle();
     this.setupTabs();
@@ -24,7 +21,6 @@ window.app = {
     this.refresh();
   },
 
-  /* ── Загрузка JSON ───────────────────────────────────── */
   async _loadJSON(url) {
     if (window.DASHBOARD_DATA) return window.DASHBOARD_DATA;
     try {
@@ -38,7 +34,6 @@ window.app = {
     }
   },
 
-  /* ── Индикатор БД в сайдбаре ────────────────────────── */
   _renderDbStatus() {
     const bar  = document.getElementById('dbStatusBar');
     const text = document.getElementById('dbStatusText');
@@ -61,16 +56,15 @@ window.app = {
     };
   },
 
-  /* ── Обновить весь дашборд ────────────────────────────── */
   refresh() {
     this.populateFilters(true);
     renderers.renderAll();
     const tab = window.dashboardState.ui.activeTab;
     if (tab === 'editor')   editor.render();
     if (tab === 'dynamics') dynamics.render();
+    if (tab === 'input')    window.inputEditor?.render();
   },
 
-  /* ── Тема ──────────────────────────────────────────────── */
   setupThemeToggle() {
     const btn = document.querySelector('[data-theme-toggle]');
     const setIcon = () => {
@@ -87,7 +81,6 @@ window.app = {
     });
   },
 
-  /* ── Табы ────────────────────────────────────────────────── */
   setupTabs() {
     document.querySelectorAll('.nav-link').forEach(btn => {
       btn.addEventListener('click', () => {
@@ -99,11 +92,11 @@ window.app = {
         window.dashboardState.ui.activeTab = tabId;
         if (tabId === 'editor')   editor.render();
         if (tabId === 'dynamics') dynamics.render();
+        if (tabId === 'input')    window.inputEditor?.render();
       });
     });
   },
 
-  /* ── Фильтры ──────────────────────────────────────────────── */
   setupFilters() {
     const get = id => document.getElementById(id);
     get('contractorFilter').addEventListener('change', e => { window.dashboardState.filters.contractor = e.target.value; this.refresh(); });
@@ -133,7 +126,6 @@ window.app = {
     }
   },
 
-  /* ── Действия кнопок ────────────────────────────────────────── */
   setupActions() {
     document.getElementById('resetFiltersBtn').addEventListener('click', () => {
       window.dashboardState.filters = { contractor: 'all', workType: 'all', search: '', readiness: 0 };
