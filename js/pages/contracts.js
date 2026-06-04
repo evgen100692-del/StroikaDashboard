@@ -124,7 +124,7 @@ const ContractsPage = (() => {
       try {
         await AppData.deleteContract(id);
         renderTable();
-        DashboardPage.refresh();
+        DashboardPage.render();
         ContractorsPage.render();
         Toast.success('Контракт удалён');
       } catch(e) {
@@ -197,7 +197,7 @@ const ContractsPage = (() => {
       closeModal('contract-modal');
       renderTable();
       populateTableFilters();
-      DashboardPage.refresh();
+      DashboardPage.render();
       ContractorsPage.render();
     } catch(e) {
       Toast.error('Ошибка сохранения: ' + e.message);
