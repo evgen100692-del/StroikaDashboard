@@ -7,8 +7,9 @@ const ContractorsPage = (() => {
 
   function init() {
     Router.register('contractors', render);
-    // Sort headers
     setTimeout(() => {
+
+      // ── Сортировка по клику на заголовок ──
       document.querySelectorAll('#contractors-table th[data-col]').forEach(th => {
         th.addEventListener('click', () => {
           if (sortCol === th.dataset.col) sortDir *= -1;
@@ -16,7 +17,19 @@ const ContractorsPage = (() => {
           renderTable();
         });
       });
-    }, 100);
+
+      // ── Контекстное меню по ПКМ ──
+      const tbody = document.getElementById('contractors-tbody');
+      ContextMenu.bind(tbody, [
+        {
+          key: 'contracts',
+          label: 'Показать контракты',
+          icon: '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>',
+          action: (name) => showContracts(name)
+        }
+      ], row => row.dataset.name);  // передаём имя подрядчика из атрибута строки
+
+    }, 200);
   }
 
   function render() {
@@ -35,15 +48,15 @@ const ContractorsPage = (() => {
       return String(va||'').localeCompare(String(vb||''), 'ru') * sortDir;
     });
 
-    // Update sort indicators
     document.querySelectorAll('#contractors-table th[data-col]').forEach(th => {
       th.classList.toggle('sorted', th.dataset.col === sortCol);
       const icon = th.querySelector('.sort-icon');
       if (icon) icon.textContent = th.dataset.col===sortCol ? (sortDir===1?'▲':'▼') : '⇅';
     });
 
+    // Было colspan="10" — убрали 1 колонку «Действия», стало 9
     if (list.length === 0) {
-      tbody.innerHTML = `<tr><td colspan="10"><div class="empty-state">
+      tbody.innerHTML = `<tr><td colspan="9"><div class="empty-state">
         <div class="empty-state-icon">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
         </div>
@@ -54,8 +67,10 @@ const ContractorsPage = (() => {
       return;
     }
 
-    tbody.innerHTML = list.map(m => `<tr>
-      <td><strong>${esc(m.name)}</strong></td>
+    // data-ctx — маркер для ContextMenu что строка кликабельна по ПКМ
+    // data-name — имя подрядчика, которое передаётся в action контекстного меню
+    tbody.innerHTML = list.map(m => `<tr data-ctx data-name="${esc(m.name)}">
+      <td title="${esc(m.name)}"><strong>${esc(m.name)}</strong></td>
       <td class="num">${formatMoneyShort(m.totalGK)}</td>
       <td class="num" style="text-align:center">${m.count}</td>
       <td class="num">${formatMoneyShort(m.advanceGK)}<div style="font-size:10px;color:var(--color-text-muted)">${formatPct(m.advanceGKPct)}</div></td>
@@ -71,24 +86,20 @@ const ContractorsPage = (() => {
           <span style="color:var(--color-text-faint)">2029</span><span class="num">${formatMoneyShort(m.limit2029cur)}</span>
         </div>
       </td>
-      <td>
-        <button class="btn btn-ghost btn-sm" onclick="ContractorsPage.showContracts('${esc(m.name)}')">
-          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
-          Контракты
-        </button>
-      </td>
     </tr>`).join('');
+    // ☝️ последняя <td> с кнопкой «Контракты» удалена — теперь это ПКМ
   }
 
   function showContracts(name) {
-    // Navigate to contracts tab and filter by contractor
     Router.navigate('contracts');
-    const cf = document.getElementById('ct-contractor-filter');
-    if (cf) { cf.value = name; cf.dispatchEvent(new Event('change')); }
+    setTimeout(() => {
+      const cf = document.getElementById('ct-contractor-filter');
+      if (cf) { cf.value = name; cf.dispatchEvent(new Event('change')); }
+    }, 50);
   }
 
   function esc(s) {
-    return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+    return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
   }
 
   return { init, render, renderTable, showContracts };
