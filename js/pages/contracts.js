@@ -21,15 +21,21 @@ const ContractsPage = (() => {
   function populateTableFilters() {
     const cf = document.getElementById('ct-contractor-filter');
     if (cf) {
-      const names = AppData.getContractorNames();
       cf.innerHTML = '<option value="">Все подрядчики</option>' +
-        names.map(n=>`<option value="${n}">${n}</option>`).join('');
+        AppData.getContractorNames().map(n => {
+          const opt = document.createElement('option');
+          opt.value = n; opt.textContent = n;
+          return opt.outerHTML;
+        }).join('');
     }
     const sf = document.getElementById('ct-source-filter');
     if (sf) {
-      const sources = AppData.getFinancingSources();
       sf.innerHTML = '<option value="">Все источники</option>' +
-        sources.map(s=>`<option value="${s}">${s}</option>`).join('');
+        AppData.getFinancingSources().map(s => {
+          const opt = document.createElement('option');
+          opt.value = s; opt.textContent = s;
+          return opt.outerHTML;
+        }).join('');
     }
   }
 

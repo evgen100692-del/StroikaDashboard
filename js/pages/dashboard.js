@@ -14,20 +14,34 @@ const DashboardPage = (() => {
     applyFilters();
   }
 
-  function populateFilters() {
+    function populateFilters() {
     const contractorSel = document.getElementById('f-contractor');
     const yearSel       = document.getElementById('f-year');
     const sourceSel     = document.getElementById('f-source');
     if (!contractorSel) return;
+
     const contractors = AppData.getContractorNames();
     const years       = AppData.getOpeningYears();
     const sources     = AppData.getFinancingSources();
+
+    function makeOptions(items, current) {
+      return items.map(v => {
+        const opt = document.createElement('option');
+        opt.value    = v;          // DOM-свойство — безопасно для любых символов
+        opt.textContent = v;
+        opt.selected = String(v) === String(current);
+        return opt.outerHTML;
+      }).join('');
+    }
+
     contractorSel.innerHTML = '<option value="">Все подрядчики</option>' +
-      contractors.map(n => `<option value="${n}" ${currentFilters.contractor===n?'selected':''}>${n}</option>`).join('');
+      makeOptions(contractors, currentFilters.contractor);
+
     yearSel.innerHTML = '<option value="">Все годы</option>' +
-      years.map(y => `<option value="${y}" ${String(currentFilters.year)===String(y)?'selected':''}>${y}</option>`).join('');
+      makeOptions(years, currentFilters.year);
+
     sourceSel.innerHTML = '<option value="">Все источники</option>' +
-      sources.map(s => `<option value="${s}" ${currentFilters.source===s?'selected':''}>${s}</option>`).join('');
+      makeOptions(sources, currentFilters.source);
   }
 
   function applyFilters() {
