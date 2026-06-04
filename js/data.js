@@ -142,11 +142,15 @@ const AppData = (() => {
   }
 
   function getContractorNames() {
-    return [...new Set(state.contracts.map(c => (c.contractor||'').trim()).filter(Boolean))].sort();
+    return [...new Set(
+      state.contracts.map(c => (c.contractor || '').trim()).filter(Boolean)
+    )].sort();
   }
 
   function getFinancingSources() {
-    return [...new Set(state.contracts.map(c => (c.financingSource||'').trim()).filter(Boolean))].sort();
+    return [...new Set(
+      state.contracts.map(c => (c.financingSource || '').trim()).filter(Boolean)
+    )].sort();
   }
 
   function getOpeningYears() {
@@ -159,16 +163,18 @@ const AppData = (() => {
   }
 
   function filterContracts({ contractor, year, source, search } = {}) {
+    // Нормализуем строку: убираем лишние пробелы, приводим к нижнему регистру
+    const norm = s => String(s || '').trim().toLowerCase();
+
     return state.contracts.filter(c => {
-      if (contractor && c.contractor !== contractor) return false;
-      if (source && c.financingSource !== source) return false;
+      if (contractor && norm(c.contractor) !== norm(contractor)) return false;
+      if (source && norm(c.financingSource) !== norm(source)) return false;
       if (year) {
         const y = c.plannedOpenDate ? new Date(c.plannedOpenDate).getFullYear() : null;
         if (String(y) !== String(year)) return false;
       }
       if (search) {
-        const q = search.toLowerCase();
-        if (!(c.objectName || '').toLowerCase().includes(q)) return false;
+        if (!norm(c.objectName).includes(norm(search))) return false;
       }
       return true;
     });
