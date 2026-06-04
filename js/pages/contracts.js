@@ -7,17 +7,21 @@ const ContractsPage = (() => {
   let sortCol = 'objectName', sortDir = 1;
   let tableFilters = { search: '', contractor: '', source: '' };
 
+  // Контекстное меню — Изменить / Удалить
   const CTX_ITEMS = [
     {
-      key: 'edit', label: 'Изменить',
+      key: 'edit',
+      label: 'Изменить',
       icon: '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>',
       action: (id) => openEdit(Number(id))
     },
     { divider: true },
     {
-      key: 'delete', label: 'Удалить',
+      key: 'delete',
+      label: 'Удалить',
       icon: '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6M14 11v6"/><path d="M9 6V4h6v2"/></svg>',
-      danger: true, action: (id) => confirmDelete(Number(id))
+      danger: true,
+      action: (id) => confirmDelete(Number(id))
     }
   ];
 
@@ -26,6 +30,7 @@ const ContractsPage = (() => {
     bindModal();
     bindTableFilters();
     setTimeout(() => {
+      // Привязать контекстное меню к tbody
       ContextMenu.bind(document.getElementById('contracts-tbody'), CTX_ITEMS);
     }, 200);
   }
@@ -60,30 +65,32 @@ const ContractsPage = (() => {
     const tbody = document.getElementById('contracts-tbody');
     if (!tbody) return;
     let list = AppData.getContracts();
-    // Apply filters
+
+    // Фильтры
     if (tableFilters.search) {
       const q = tableFilters.search.toLowerCase();
       list = list.filter(c => (c.objectName||'').toLowerCase().includes(q) || (c.contractNum||'').toLowerCase().includes(q));
     }
     if (tableFilters.contractor) list = list.filter(c => c.contractor === tableFilters.contractor);
-    if (tableFilters.source) list = list.filter(c => c.financingSource === tableFilters.source);
+    if (tableFilters.source)     list = list.filter(c => c.financingSource === tableFilters.source);
 
-    // Sort
+    // Сортировка
     list = [...list].sort((a,b) => {
       let va = a[sortCol], vb = b[sortCol];
       if (typeof va === 'number') return (va - vb) * sortDir;
       return String(va||'').localeCompare(String(vb||''), 'ru') * sortDir;
     });
 
-    // Update sort indicators
+    // Индикаторы сортировки
     document.querySelectorAll('#contracts-table th[data-col]').forEach(th => {
       th.classList.toggle('sorted', th.dataset.col === sortCol);
       const icon = th.querySelector('.sort-icon');
       if (icon) icon.textContent = th.dataset.col===sortCol ? (sortDir===1?'▲':'▼') : '⇅';
     });
 
+    // Пустое состояние — colspan="11" (было 12, убрали колонку «Действия»)
     if (list.length === 0) {
-      tbody.innerHTML = `<tr><td colspan="12"><div class="empty-state">
+      tbody.innerHTML = `<tr><td colspan="11"><div class="empty-state">
         <div class="empty-state-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M9 12h6m-6 4h6m2 5H7a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5.586a1 1 0 0 1 .707.293l5.414 5.414a1 1 0 0 1 .293.707V19a2 2 0 0 1-2 2z"/></svg></div>
         <h3>Контракты не найдены</h3>
         <p>Добавьте первый контракт или измените фильтры</p>
@@ -92,7 +99,10 @@ const ContractsPage = (() => {
       return;
     }
 
-    tbody.innerHTML = list.map(c => `<tr>
+    // data-ctx  — маркер для ContextMenu
+    // data-id   — ID контракта, передаётся в action при ПКМ
+    // ❌ последняя <td> с .row-actions УДАЛЕНА
+    tbody.innerHTML = list.map(c => `<tr data-ctx data-id="${c.id}">
       <td class="wrap"><strong style="display:block;line-height:1.3">${esc(c.objectName||'—')}</strong><div style="color:var(--color-text-muted);font-size:10px;margin-top:2px">${esc(c.contractNum||'')}</div></td>
       <td title="${esc(c.financingSource||'')}">${esc(c.financingSource||'—')}</td>
       <td title="${esc(c.contractor||'')}">${esc(c.contractor||'—')}</td>
@@ -109,16 +119,6 @@ const ContractsPage = (() => {
       <td>${formatDate(c.contractEndDate)}</td>
       <td>${formatDate(c.plannedOpenDate)}</td>
       <td title="${esc(c.dptStatus||'')}"><span style="font-size:10px">${esc(c.dptStatus||'—')}</span></td>
-      <td>
-        <div class="row-actions">
-          <button class="btn btn-ghost btn-sm btn-icon" title="Редактировать" onclick="ContractsPage.openEdit(${c.id})">
-            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
-          </button>
-          <button class="btn btn-ghost btn-sm btn-icon" title="Удалить" onclick="ContractsPage.confirmDelete(${c.id})">
-            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6M14 11v6"/><path d="M9 6V4h6v2"/></svg>
-          </button>
-        </div>
-      </td>
     </tr>`).join('');
   }
 
@@ -230,18 +230,18 @@ const ContractsPage = (() => {
   }
 
   function updatePercentBadges() {
-    const priceGK       = AppData.num(document.getElementById('cf-priceGK')?.value);
-    const advanceGK     = AppData.num(document.getElementById('cf-advanceGK')?.value);
-    const advancePaid   = AppData.num(document.getElementById('cf-advancePaid')?.value);
-    const unworked      = AppData.num(document.getElementById('cf-unworkedAdvance')?.value);
-    const paidTotal     = AppData.num(document.getElementById('cf-paidTotal')?.value);
-    const completed     = AppData.num(document.getElementById('cf-completed')?.value);
+    const priceGK     = AppData.num(document.getElementById('cf-priceGK')?.value);
+    const advanceGK   = AppData.num(document.getElementById('cf-advanceGK')?.value);
+    const advancePaid = AppData.num(document.getElementById('cf-advancePaid')?.value);
+    const unworked    = AppData.num(document.getElementById('cf-unworkedAdvance')?.value);
+    const paidTotal   = AppData.num(document.getElementById('cf-paidTotal')?.value);
+    const completed   = AppData.num(document.getElementById('cf-completed')?.value);
 
-    setBadge('pct-advanceGK',      priceGK     ? AppData.pct(advanceGK, priceGK)     : null);
-    setBadge('pct-advancePaid',    advanceGK   ? AppData.pct(advancePaid, advanceGK) : null);
-    setBadge('pct-unworkedAdvance',advancePaid ? AppData.pct(unworked, advancePaid)  : null);
-    setBadge('pct-paidTotal',      priceGK     ? AppData.pct(paidTotal, priceGK)     : null);
-    setBadge('pct-completed',      priceGK     ? AppData.pct(completed, priceGK)     : null);
+    setBadge('pct-advanceGK',       priceGK     ? AppData.pct(advanceGK, priceGK)     : null);
+    setBadge('pct-advancePaid',     advanceGK   ? AppData.pct(advancePaid, advanceGK) : null);
+    setBadge('pct-unworkedAdvance', advancePaid ? AppData.pct(unworked, advancePaid)  : null);
+    setBadge('pct-paidTotal',       priceGK     ? AppData.pct(paidTotal, priceGK)     : null);
+    setBadge('pct-completed',       priceGK     ? AppData.pct(completed, priceGK)     : null);
   }
 
   function setBadge(id, val) {
@@ -298,13 +298,11 @@ const ContractsPage = (() => {
     const saveBtn = document.getElementById('contract-save-btn');
     if (saveBtn) saveBtn.addEventListener('click', saveForm);
 
-    // Percent live-update
     ['cf-priceGK','cf-advanceGK','cf-advancePaid','cf-unworkedAdvance','cf-paidTotal','cf-completed'].forEach(id => {
       const el = document.getElementById(id);
       if (el) el.addEventListener('input', updatePercentBadges);
     });
 
-    // Sort headers
     document.querySelectorAll('#contracts-table th[data-col]').forEach(th => {
       th.addEventListener('click', () => {
         if (sortCol === th.dataset.col) sortDir *= -1;
@@ -315,7 +313,7 @@ const ContractsPage = (() => {
   }
 
   function esc(s) {
-    return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+    return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
   }
 
   return { init, render, openAdd, openEdit, confirmDelete, renderTable };
