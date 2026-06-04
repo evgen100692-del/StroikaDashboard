@@ -1,0 +1,167 @@
+/* =============================================
+   TOKENS.CSS — Design System Variables
+   Art direction: Construction finance dashboard
+   Palette: warm neutrals + teal accent
+   Typography: Satoshi (body/UI)
+   Density: balanced/dense
+   ============================================= */
+
+:root, [data-theme="light"] {
+  /* Surfaces */
+  --color-bg:               #f4f4f2;
+  --color-surface:          #f9f9f7;
+  --color-surface-2:        #ffffff;
+  --color-surface-offset:   #eeeeed;
+  --color-surface-offset-2: #e8e8e6;
+  --color-surface-dynamic:  #e0e0dd;
+  --color-divider:          #d8d8d5;
+  --color-border:           #cecece;
+
+  /* Text */
+  --color-text:             #1e1e1c;
+  --color-text-muted:       #6b6b68;
+  --color-text-faint:       #b0b0ac;
+  --color-text-inverse:     #f9f9f7;
+
+  /* Primary Accent — teal */
+  --color-primary:          #01696f;
+  --color-primary-hover:    #0c4e54;
+  --color-primary-active:   #0f3638;
+  --color-primary-highlight:#cedcd8;
+  --color-primary-subtle:   #e8f3f3;
+
+  /* Status */
+  --color-success:          #3b7a1e;
+  --color-success-bg:       #e8f0e4;
+  --color-warning:          #b05a0a;
+  --color-warning-bg:       #f5e8da;
+  --color-error:            #9a2222;
+  --color-error-bg:         #f5e4e4;
+  --color-info:             #1a5f8a;
+  --color-info-bg:          #deeef8;
+
+  /* Chart palette */
+  --chart-1: #01696f;
+  --chart-2: #3b7a1e;
+  --chart-3: #b07000;
+  --chart-4: #1a5f8a;
+  --chart-5: #7a2a8a;
+  --chart-6: #b05a0a;
+
+  /* Spacing */
+  --space-1:  0.25rem;
+  --space-2:  0.5rem;
+  --space-3:  0.75rem;
+  --space-4:  1rem;
+  --space-5:  1.25rem;
+  --space-6:  1.5rem;
+  --space-8:  2rem;
+  --space-10: 2.5rem;
+  --space-12: 3rem;
+  --space-16: 4rem;
+
+  /* Typography */
+  --text-xs:   clamp(0.75rem, 0.7rem + 0.25vw, 0.875rem);
+  --text-sm:   clamp(0.875rem, 0.8rem + 0.35vw, 1rem);
+  --text-base: clamp(1rem, 0.95rem + 0.25vw, 1.125rem);
+  --text-lg:   clamp(1.125rem, 1rem + 0.75vw, 1.5rem);
+  --text-xl:   clamp(1.5rem, 1.2rem + 1.25vw, 2.25rem);
+
+  --font-body: 'Satoshi', 'Inter', system-ui, sans-serif;
+
+  /* Radius */
+  --radius-sm: 0.375rem;
+  --radius-md: 0.5rem;
+  --radius-lg: 0.75rem;
+  --radius-xl: 1rem;
+  --radius-full: 9999px;
+
+  /* Shadows */
+  --shadow-sm: 0 1px 2px oklch(0.2 0.01 80 / 0.06);
+  --shadow-md: 0 4px 12px oklch(0.2 0.01 80 / 0.09);
+  --shadow-lg: 0 12px 32px oklch(0.2 0.01 80 / 0.13);
+
+  /* Sidebar */
+  --sidebar-width: 220px;
+  --sidebar-collapsed: 56px;
+  --header-height: 56px;
+
+  /* Transition */
+  --transition: 180ms cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+[data-theme="dark"] {
+  --color-bg:               #131312;
+  --color-surface:          #1a1a18;
+  --color-surface-2:        #1f1f1d;
+  --color-surface-offset:   #222220;
+  --color-surface-offset-2: #282826;
+  --color-surface-dynamic:  #2e2e2c;
+  --color-divider:          #2a2a28;
+  --color-border:           #343432;
+  --color-text:             #d8d8d4;
+  --color-text-muted:       #7a7a76;
+  --color-text-faint:       #4e4e4c;
+  --color-text-inverse:     #1a1a18;
+  --color-primary:          #4f98a3;
+  --color-primary-hover:    #227f8b;
+  --color-primary-active:   #1a626b;
+  --color-primary-highlight:#2a3d3e;
+  --color-primary-subtle:   #1e3032;
+  --color-success:          #6daa45;
+  --color-success-bg:       #2a3a22;
+  --color-warning:          #e8902a;
+  --color-warning-bg:       #3a2c18;
+  --color-error:            #d96060;
+  --color-error-bg:         #3a2222;
+  --color-info:             #5591c7;
+  --color-info-bg:          #1e2e3e;
+  --chart-1: #4f98a3;
+  --chart-2: #6daa45;
+  --chart-3: #e8902a;
+  --chart-4: #5591c7;
+  --chart-5: #a86fdf;
+  --chart-6: #dd6974;
+  --shadow-sm: 0 1px 2px oklch(0 0 0 / 0.25);
+  --shadow-md: 0 4px 12px oklch(0 0 0 / 0.35);
+  --shadow-lg: 0 12px 32px oklch(0 0 0 / 0.45);
+}
+
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme]) {
+    --color-bg:               #131312;
+    --color-surface:          #1a1a18;
+    --color-surface-2:        #1f1f1d;
+    --color-surface-offset:   #222220;
+    --color-surface-offset-2: #282826;
+    --color-surface-dynamic:  #2e2e2c;
+    --color-divider:          #2a2a28;
+    --color-border:           #343432;
+    --color-text:             #d8d8d4;
+    --color-text-muted:       #7a7a76;
+    --color-text-faint:       #4e4e4c;
+    --color-text-inverse:     #1a1a18;
+    --color-primary:          #4f98a3;
+    --color-primary-hover:    #227f8b;
+    --color-primary-active:   #1a626b;
+    --color-primary-highlight:#2a3d3e;
+    --color-primary-subtle:   #1e3032;
+    --color-success:          #6daa45;
+    --color-success-bg:       #2a3a22;
+    --color-warning:          #e8902a;
+    --color-warning-bg:       #3a2c18;
+    --color-error:            #d96060;
+    --color-error-bg:         #3a2222;
+    --color-info:             #5591c7;
+    --color-info-bg:          #1e2e3e;
+    --chart-1: #4f98a3;
+    --chart-2: #6daa45;
+    --chart-3: #e8902a;
+    --chart-4: #5591c7;
+    --chart-5: #a86fdf;
+    --chart-6: #dd6974;
+    --shadow-sm: 0 1px 2px oklch(0 0 0 / 0.25);
+    --shadow-md: 0 4px 12px oklch(0 0 0 / 0.35);
+    --shadow-lg: 0 12px 32px oklch(0 0 0 / 0.45);
+  }
+}
