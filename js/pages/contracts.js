@@ -120,11 +120,16 @@ const ContractsPage = (() => {
 
   function confirmDelete(id) {
     const c = AppData.getContractById(id);
-    confirmDialog(`Удалить контракт "${c?.objectName || id}"? Это действие нельзя отменить.`, () => {
-      AppData.deleteContract(id);
-      renderTable();
-      DashboardPage.refresh();
-      Toast.success('Контракт удалён');
+    confirmDialog(`Удалить контракт "${c?.objectName || id}"? Это действие нельзя отменить.`, async () => {
+      try {
+        await AppData.deleteContract(id);
+        renderTable();
+        DashboardPage.refresh();
+        ContractorsPage.render();
+        Toast.success('Контракт удалён');
+      } catch(e) {
+        Toast.error('Ошибка удаления: ' + e.message);
+      }
     });
   }
 
@@ -176,21 +181,29 @@ const ContractsPage = (() => {
     return true;
   }
 
-  function saveForm() {
+  async function saveForm() {
     const data = getFormData();
     if (!validateForm(data)) return;
-    if (editingId !== null) {
-      AppData.updateContract(editingId, data);
-      Toast.success('Контракт обновлён');
-    } else {
-      AppData.addContract(data);
-      Toast.success('Контракт добавлен');
+    const btn = document.getElementById('contract-save-btn');
+    if (btn) { btn.disabled = true; btn.textContent = 'Сохранение…'; }
+    try {
+      if (editingId !== null) {
+        await AppData.updateContract(editingId, data);
+        Toast.success('Контракт обновлён');
+      } else {
+        await AppData.addContract(data);
+        Toast.success('Контракт добавлен');
+      }
+      closeModal('contract-modal');
+      renderTable();
+      populateTableFilters();
+      DashboardPage.refresh();
+      ContractorsPage.render();
+    } catch(e) {
+      Toast.error('Ошибка сохранения: ' + e.message);
+    } finally {
+      if (btn) { btn.disabled = false; btn.textContent = 'Сохранить'; }
     }
-    closeModal('contract-modal');
-    renderTable();
-    populateTableFilters();
-    DashboardPage.refresh();
-    ContractorsPage.render();
   }
 
   function updatePercentBadges() {

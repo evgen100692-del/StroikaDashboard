@@ -571,8 +571,11 @@
   <script src="./js/pages/contractors.js"></script>
 
   <script>
-    document.addEventListener('DOMContentLoaded', () => {
+    document.addEventListener('DOMContentLoaded', async () => {
       Theme.init();
+
+      // Загружаем данные с сервера (или из localStorage при работе без сервера)
+      await AppData.load();
 
       DashboardPage.init();
       ContractsPage.init();
