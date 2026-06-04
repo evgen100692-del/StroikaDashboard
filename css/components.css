@@ -287,28 +287,32 @@
 }
 .data-table {
   width: 100%;
-  font-size: var(--text-xs);
+  table-layout: fixed;           /* ключевое: фиксированная раскладка */
+  font-size: 11px;               /* компактнее чем text-xs */
   border-collapse: collapse;
   font-variant-numeric: tabular-nums lining-nums;
 }
 .data-table thead th {
-  padding: var(--space-3) var(--space-4);
+  padding: var(--space-2) var(--space-3);
   text-align: left;
   font-weight: 700;
   text-transform: uppercase;
-  letter-spacing: 0.05em;
+  letter-spacing: 0.04em;
   color: var(--color-text-muted);
   background: var(--color-surface);
   border-bottom: 1px solid var(--color-border);
   white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
   cursor: pointer;
   user-select: none;
   position: sticky;
   top: 0;
+  z-index: 2;
 }
 .data-table thead th:hover { color: var(--color-text); }
 .data-table thead th.sorted { color: var(--color-primary); }
-.data-table thead th .sort-icon { opacity: 0.4; font-size: 10px; margin-left: 4px; }
+.data-table thead th .sort-icon { opacity: 0.4; font-size: 9px; margin-left: 3px; }
 .data-table thead th.sorted .sort-icon { opacity: 1; }
 
 .data-table tbody tr {
@@ -318,14 +322,50 @@
 .data-table tbody tr:last-child { border-bottom: none; }
 .data-table tbody tr:hover { background: var(--color-surface-offset); }
 .data-table td {
-  padding: var(--space-3) var(--space-4);
+  padding: var(--space-2) var(--space-3);
   color: var(--color-text);
   vertical-align: middle;
+  overflow: hidden;
+  text-overflow: ellipsis;
   white-space: nowrap;
 }
-.data-table td.wrap { white-space: normal; min-width: 160px; }
-.data-table td.num { text-align: right; font-weight: 600; }
+/* Колонка с названием объекта — переносится, не обрезается */
+.data-table td.wrap {
+  white-space: normal;
+  word-break: break-word;
+  overflow: visible;
+}
+.data-table td.num  { text-align: right; font-weight: 600; }
 .data-table td.muted { color: var(--color-text-muted); }
+
+/* Row actions */
+.row-actions { display: flex; gap: 2px; opacity: 0; transition: opacity var(--transition); }
+.data-table tbody tr:hover .row-actions { opacity: 1; }
+
+/* Ширины колонок таблицы контрактов (12 колонок) */
+#contracts-table th:nth-child(1)  { width: 22%; }  /* Объект */
+#contracts-table th:nth-child(2)  { width: 9%; }   /* Источник */
+#contracts-table th:nth-child(3)  { width: 12%; }  /* Подрядчик */
+#contracts-table th:nth-child(4)  { width: 7%; }   /* Стоимость ГК */
+#contracts-table th:nth-child(5)  { width: 7%; }   /* Аванс */
+#contracts-table th:nth-child(6)  { width: 7%; }   /* Оплачено */
+#contracts-table th:nth-child(7)  { width: 7%; }   /* Выполнено */
+#contracts-table th:nth-child(8)  { width: 8%; }   /* Стройготовность */
+#contracts-table th:nth-child(9)  { width: 7%; }   /* Срок контракта */
+#contracts-table th:nth-child(10) { width: 7%; }   /* Плановое открытие */
+#contracts-table th:nth-child(11) { width: 5%; }   /* Статус ДПТ */
+#contracts-table th:nth-child(12) { width: 5%; }   /* Действия */
+
+/* Ширины колонок таблицы подрядчиков */
+#contractors-table th:nth-child(1)  { width: 18%; }
+#contractors-table th:nth-child(2)  { width: 11%; }
+#contractors-table th:nth-child(3)  { width: 6%; }
+#contractors-table th:nth-child(4)  { width: 11%; }
+#contractors-table th:nth-child(5)  { width: 11%; }
+#contractors-table th:nth-child(6)  { width: 11%; }
+#contractors-table th:nth-child(7)  { width: 11%; }
+#contractors-table th:nth-child(8)  { width: 11%; }
+#contractors-table th:nth-child(9)  { width: 10%; }
 
 /* Row actions */
 .row-actions { display: flex; gap: var(--space-1); opacity: 0; transition: opacity var(--transition); }

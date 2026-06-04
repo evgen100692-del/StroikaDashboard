@@ -76,29 +76,29 @@ const ContractsPage = (() => {
     }
 
     tbody.innerHTML = list.map(c => `<tr>
-      <td class="wrap" style="min-width:200px"><strong>${esc(c.objectName||'—')}</strong><div style="color:var(--color-text-muted);font-size:var(--text-xs);margin-top:2px">${esc(c.contractNum||'')}</div></td>
-      <td>${esc(c.financingSource||'—')}</td>
-      <td>${esc(c.contractor||'—')}</td>
+      <td class="wrap"><strong style="display:block;line-height:1.3">${esc(c.objectName||'—')}</strong><div style="color:var(--color-text-muted);font-size:10px;margin-top:2px">${esc(c.contractNum||'')}</div></td>
+      <td title="${esc(c.financingSource||'')}">${esc(c.financingSource||'—')}</td>
+      <td title="${esc(c.contractor||'')}">${esc(c.contractor||'—')}</td>
       <td class="num">${formatMoneyShort(c.priceGK)}</td>
-      <td class="num">${formatMoneyShort(c.advanceGK)}<div class="muted" style="font-size:10px">${formatPct(c.priceGK ? c.advanceGK/c.priceGK*100 : 0)}</div></td>
-      <td class="num">${formatMoneyShort(c.paidTotal)}<div class="muted" style="font-size:10px">${formatPct(c.priceGK ? c.paidTotal/c.priceGK*100 : 0)}</div></td>
-      <td class="num">${formatMoneyShort(c.completed)}<div class="muted" style="font-size:10px">${formatPct(c.priceGK ? c.completed/c.priceGK*100 : 0)}</div></td>
+      <td class="num">${formatMoneyShort(c.advanceGK)}<div style="color:var(--color-text-muted);font-size:10px">${formatPct(c.priceGK ? c.advanceGK/c.priceGK*100 : 0)}</div></td>
+      <td class="num">${formatMoneyShort(c.paidTotal)}<div style="color:var(--color-text-muted);font-size:10px">${formatPct(c.priceGK ? c.paidTotal/c.priceGK*100 : 0)}</div></td>
+      <td class="num">${formatMoneyShort(c.completed)}<div style="color:var(--color-text-muted);font-size:10px">${formatPct(c.priceGK ? c.completed/c.priceGK*100 : 0)}</div></td>
       <td>
-        <div style="display:flex;align-items:center;gap:6px">
-          <div class="progress-wrap" style="width:52px"><div class="progress-fill ${c.readinessPct>=75?'success':c.readinessPct>=40?'':'warning'}" style="width:${Math.min(c.readinessPct||0,100)}%"></div></div>
-          <span style="font-size:var(--text-xs);font-weight:600">${c.readinessPct||0}%</span>
+        <div style="display:flex;align-items:center;gap:4px">
+          <div class="progress-wrap" style="width:40px"><div class="progress-fill ${c.readinessPct>=75?'success':c.readinessPct>=40?'':'warning'}" style="width:${Math.min(c.readinessPct||0,100)}%"></div></div>
+          <span style="font-size:10px;font-weight:600">${c.readinessPct||0}%</span>
         </div>
       </td>
       <td>${formatDate(c.contractEndDate)}</td>
       <td>${formatDate(c.plannedOpenDate)}</td>
-      <td><span style="font-size:var(--text-xs)">${esc(c.dptStatus||'—')}</span></td>
+      <td title="${esc(c.dptStatus||'')}"><span style="font-size:10px">${esc(c.dptStatus||'—')}</span></td>
       <td>
         <div class="row-actions">
           <button class="btn btn-ghost btn-sm btn-icon" title="Редактировать" onclick="ContractsPage.openEdit(${c.id})">
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
           </button>
           <button class="btn btn-ghost btn-sm btn-icon" title="Удалить" onclick="ContractsPage.confirmDelete(${c.id})">
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6M14 11v6"/><path d="M9 6V4h6v2"/></svg>
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6M14 11v6"/><path d="M9 6V4h6v2"/></svg>
           </button>
         </div>
       </td>
