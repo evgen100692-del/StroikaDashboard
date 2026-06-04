@@ -1,0 +1,48 @@
+# ── База данных (рабочие данные сервера) ────────────────────────────────
+data/
+
+# ── Node.js ─────────────────────────────────────────────────────────────
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+package-lock.json
+
+# ── Логи ────────────────────────────────────────────────────────────────
+logs/
+*.log
+
+# ── Системные файлы ─────────────────────────────────────────────────────
+
+# Windows
+Thumbs.db
+desktop.ini
+$RECYCLE.BIN/
+
+# macOS
+.DS_Store
+.AppleDouble
+.LSOverride
+
+# Linux
+*~
+
+# ── Редакторы ────────────────────────────────────────────────────────────
+
+# VS Code
+.vscode/
+!.vscode/extensions.json
+
+# JetBrains (WebStorm, IntelliJ)
+.idea/
+*.iml
+
+# Sublime Text
+*.sublime-project
+*.sublime-workspace
+
+# ── Бэкапы и временные файлы ─────────────────────────────────────────────
+*.bak
+*.tmp
+*.swp
+*.orig
