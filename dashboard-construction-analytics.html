@@ -637,9 +637,7 @@
     </div>
   </div>
 
-  <!-- ════════════════════════════════════════════
-       CONTRACT MODAL
-  ════════════════════════════════════════════ -->
+  <!-- CONTRACT MODAL -->
   <div class="modal-overlay" id="contract-modal" aria-hidden="true">
     <div class="modal" role="dialog" aria-modal="true" aria-labelledby="contract-modal-title">
       <div class="modal-header">
@@ -697,9 +695,7 @@
     </div>
   </div>
 
-  <!-- ════════════════════════════════════════════
-       UPLOAD MODAL (Ямочный ремонт)
-  ════════════════════════════════════════════ -->
+  <!-- UPLOAD MODAL -->
   <div class="modal-overlay" id="upload-modal" aria-hidden="true">
     <div class="modal" role="dialog" aria-modal="true" aria-labelledby="upload-modal-title">
       <div class="modal-header">
@@ -739,12 +735,26 @@
     </div>
   </div>
 
+  <!-- confirm dialog -->
+  <div class="modal-overlay" id="confirm-overlay">
+    <div class="modal" style="max-width:400px" role="dialog" aria-modal="true">
+      <div class="modal-header"><div class="modal-title">Подтверждение</div></div>
+      <div class="modal-body"><p id="confirm-message"></p></div>
+      <div class="modal-footer">
+        <button class="btn btn-secondary" id="confirm-no" type="button">Отмена</button>
+        <button class="btn btn-primary" id="confirm-yes" type="button">Удалить</button>
+      </div>
+    </div>
+  </div>
+
   <!-- toast container -->
   <div id="toast-container" style="position:fixed;bottom:var(--space-6);right:var(--space-6);z-index:9999;display:flex;flex-direction:column;gap:var(--space-2);"></div>
 
-  <!-- ════════ Scripts ════════ -->
+  <!-- ════════ Scripts — ПОРЯДОК ВАЖЕН ════════ -->
   <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
   <script src="js/utils.js"></script>
+  <script src="js/data.js"></script>
+  <script src="js/charts.js"></script>
   <script src="js/charts-pothole.js"></script>
   <script src="js/pages/dashboard.js"></script>
   <script src="js/pages/contracts.js"></script>
