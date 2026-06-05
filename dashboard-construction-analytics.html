@@ -14,6 +14,8 @@
   <link rel="stylesheet" href="./css/layout.css" />
   <link rel="stylesheet" href="./css/components.css" />
   <link rel="stylesheet" href="css/context-menu.css">
+  <!-- pothole-fix.css подключается ПОСЛЕДНИМ чтобы перекрыть inline-стили -->
+  <link rel="stylesheet" href="css/pothole-fix.css">
 
   <style>
     /* ── skip-link ── */
@@ -197,17 +199,13 @@
     }
 
     /* ══════════════════════════════════════════════════
-       POTHOLE KPI CARDS — ФИКС переполнения
+       POTHOLE KPI CARDS
     ══════════════════════════════════════════════════ */
     .ph-kpi-card {
       background: var(--color-surface-2);
       border: 1px solid var(--color-border);
       border-radius: var(--radius-lg);
       padding: var(--space-4);
-      /* FIX: не даём содержимому вылезать за границу */
-      overflow: hidden;
-      min-width: 0;
-      box-sizing: border-box;
     }
     .ph-kpi-label {
       font-size: var(--text-xs);
@@ -216,40 +214,24 @@
       letter-spacing: .05em;
       color: var(--color-text-faint);
       margin-bottom: var(--space-2);
-      /* FIX: длинные заголовки переносятся, не вылезают */
-      white-space: normal;
-      word-break: break-word;
     }
     .ph-kpi-row {
       display: flex;
-      /* FIX: flex-start вместо baseline — не даёт строке рваться при переносе */
-      align-items: flex-start;
+      align-items: center;
       gap: var(--space-2);
-      flex-wrap: wrap;
       margin-bottom: var(--space-1);
     }
     .ph-kpi-value {
-      /* FIX: уменьшен шрифт — text-xl (24-36px) был слишком крупным для 1/3 ширины */
-      font-size: clamp(1.25rem, 2vw + 0.5rem, 1.75rem);
+      font-size: var(--text-xl);
       font-weight: 700;
       color: var(--color-text);
       font-variant-numeric: tabular-nums;
-      line-height: 1.1;
-      /* FIX: не позволяем числу вылезать за карточку */
-      min-width: 0;
-      overflow: hidden;
-      text-overflow: ellipsis;
-      white-space: nowrap;
     }
     .ph-kpi-delta {
       font-size: var(--text-xs);
       font-weight: 700;
       padding: 2px 7px;
       border-radius: var(--radius-full);
-      /* FIX: дельта-бейдж выравнивается по середине числа */
-      align-self: center;
-      white-space: nowrap;
-      flex-shrink: 0;
     }
     .ph-kpi-delta.up   { background: var(--color-success-highlight); color: var(--color-success); }
     .ph-kpi-delta.down { background: var(--color-error-highlight);   color: var(--color-error); }
@@ -327,40 +309,447 @@
       flex-wrap: wrap;
     }
 
-    /* ══════════════════════════════════════════════════
-       DONUT CARDS — ФИКС: chart-container заполняет
-       оставшееся место ВНУТРИ card-body, не дублируя высоту
-    ══════════════════════════════════════════════════ */
-    .ph-donut-grid .card {
-      display: flex;
-      flex-direction: column;
-    }
-    .ph-donut-grid .card-body {
-      /* FIX: card-body растягивается на всё доступное место карточки */
-      flex: 1;
-      /* FIX: фиксированная высота убрана — задаём только на обёртке карточки */
-      height: auto !important;
-      min-height: 0;
-      padding: var(--space-3);
-      /* FIX: canvas не должен вылезать */
-      overflow: hidden;
-      position: relative;
-    }
-    .ph-donut-grid .chart-container {
-      /* FIX: занимаем 100% card-body, НЕ фиксированную высоту */
-      width: 100%;
-      height: 100% !important;
-      position: absolute;
-      inset: var(--space-3);
-      width: calc(100% - var(--space-6));
-    }
-    /* FIX: фиксируем высоту на самой карточке пончика, а не на внутренних элементах */
-    .ph-donut-grid .card {
-      height: 300px;
-    }
-
     /* ── no-data state ── */
     .ph-no-data {
       display: flex;
       flex-direction: column;
-      align-items: cen
+      align-items: center;
+      justify-content: center;
+      padding: var(--space-16) var(--space-8);
+      text-align: center;
+      color: var(--color-text-muted);
+    }
+    .ph-no-data svg { color: var(--color-text-faint); margin-bottom: var(--space-4); }
+    .ph-no-data h3 { color: var(--color-text); margin-bottom: var(--space-2); }
+    .ph-no-data p  { max-width: 36ch; margin-bottom: var(--space-5); }
+
+    /* ── responsive ── */
+    @media (max-width:1200px) {
+      .kpi-grid   { grid-template-columns:repeat(2,1fr); }
+      .kpi-grid-3 { grid-template-columns:repeat(2,1fr); }
+      .dashboard-grid, .dashboard-grid-2 { grid-template-columns:1fr; }
+      .ph-layout  { grid-template-columns:1fr; }
+      .ph-donut-grid { grid-template-columns:repeat(2,1fr); }
+    }
+    @media (max-width:768px) {
+      .mobile-menu-btn { display:inline-flex; }
+      .kpi-grid, .kpi-grid-3 { grid-template-columns:1fr; }
+      .ph-donut-grid { grid-template-columns:1fr; }
+      .top-header { padding:0 var(--space-4); }
+      .header-chip { display:none; }
+      .page-title { font-size:var(--text-lg); }
+      .chart-fixed, .chart-fixed-sm, .chart-fixed-xs { height:240px; }
+      .upload-type-grid { grid-template-columns:1fr; }
+    }
+  </style>
+</head>
+<body>
+  <a href="#main-content" class="skip-link">Перейти к содержимому</a>
+
+  <div class="app-shell">
+    <!-- ════════════════════════════════════════════
+         SIDEBAR
+    ════════════════════════════════════════════ -->
+    <aside class="sidebar" id="sidebar">
+      <div class="sidebar-logo">
+        <svg class="sidebar-logo-icon" viewBox="0 0 32 32" aria-label="Логотип" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M4 25h24"/><path d="M7 25V15l5-4 4 3 8-7v18"/><path d="M20 8h5v5"/>
+        </svg>
+        <div class="sidebar-logo-text" id="sidebar-logo-text">Контракты / Аналитика</div>
+      </div>
+
+      <!-- ── Навигация Строительство ── -->
+      <nav class="sidebar-nav" id="nav-construction" aria-label="Строительство">
+        <div class="nav-section-label">Строительство</div>
+        <button class="nav-item active" data-nav="dashboard" type="button">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="9" rx="1"/><rect x="14" y="3" width="7" height="5" rx="1"/><rect x="14" y="12" width="7" height="9" rx="1"/><rect x="3" y="16" width="7" height="5" rx="1"/></svg>
+          <span class="nav-item-label">Дашборд</span>
+        </button>
+        <button class="nav-item" data-nav="contracts" type="button">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6"/><path d="M16 13H8"/><path d="M16 17H8"/><path d="M10 9H8"/></svg>
+          <span class="nav-item-label">Контракты</span>
+        </button>
+        <button class="nav-item" data-nav="contractors" type="button">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+          <span class="nav-item-label">Подрядчики</span>
+        </button>
+      </nav>
+
+      <!-- ── Навигация Ямочный ремонт ── -->
+      <nav class="sidebar-nav" id="nav-pothole" aria-label="Ямочный ремонт" style="display:none">
+        <div class="nav-section-label">Ямочный ремонт</div>
+        <button class="nav-item active" data-nav="pothole-dashboard" type="button">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="9" rx="1"/><rect x="14" y="3" width="7" height="5" rx="1"/><rect x="14" y="12" width="7" height="9" rx="1"/><rect x="3" y="16" width="7" height="5" rx="1"/></svg>
+          <span class="nav-item-label">Дашборд</span>
+        </button>
+        <button class="nav-item" data-nav="pothole-reports" type="button">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6"/><path d="M9 15l2 2 4-4"/></svg>
+          <span class="nav-item-label">Отчёты</span>
+        </button>
+      </nav>
+
+      <button class="sidebar-collapse-btn" id="sidebar-collapse-btn" type="button" aria-label="Свернуть меню">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M15 18l-6-6 6-6"/></svg>
+      </button>
+    </aside>
+
+    <div class="main-area">
+      <!-- ════════════════════════════════════════════
+           HEADER
+      ════════════════════════════════════════════ -->
+      <header class="top-header">
+        <button class="btn btn-ghost btn-icon mobile-menu-btn" id="mobile-menu-btn" type="button" aria-label="Открыть меню">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="18" x2="21" y2="18"/></svg>
+        </button>
+        <div class="header-title" id="header-title">Дашборд</div>
+        <div class="header-actions">
+          <div class="header-chip" id="header-chip">Интерактивная аналитика</div>
+          <button class="btn btn-secondary btn-icon" id="theme-toggle" type="button" aria-label="Переключить тему"></button>
+
+          <!-- Переключатель дашбордов -->
+          <div class="dashboard-switcher" id="dashboard-switcher">
+            <button class="dashboard-switcher-btn" id="switcher-btn" type="button" aria-haspopup="true" aria-expanded="false">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="9" rx="1"/><rect x="14" y="3" width="7" height="5" rx="1"/><rect x="14" y="12" width="7" height="9" rx="1"/><rect x="3" y="16" width="7" height="5" rx="1"/></svg>
+              <span id="switcher-label">Строительство</span>
+              <svg class="chevron" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"/></svg>
+            </button>
+            <div class="dashboard-switcher-dropdown" id="switcher-dropdown">
+              <button class="switcher-option active" data-dashboard="construction" type="button">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>
+                Строительство
+              </button>
+              <div class="switcher-divider"></div>
+              <button class="switcher-option" data-dashboard="pothole" type="button">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M3 12h3M18 12h3M12 3v3M12 18v3"/></svg>
+                Ямочный ремонт
+              </button>
+            </div>
+          </div>
+        </div>
+      </header>
+
+      <main class="content-area" id="main-content">
+
+        <!-- ════════════════════════════════════════
+             ДАШБОРД — СТРОИТЕЛЬСТВО
+        ════════════════════════════════════════ -->
+        <section class="page active" id="page-dashboard">
+          <div class="page-intro">
+            <div>
+              <h1 class="page-title">Дашборд исполнения контрактов</h1>
+              <p class="page-desc">Данные рассчитываются автоматически на основе таблицы контрактов.</p>
+            </div>
+          </div>
+          <div class="filters-bar">
+            <div class="filter-group">
+              <label class="filter-label" for="f-contractor">Подрядчик</label>
+              <select class="filter-select" id="f-contractor"></select>
+            </div>
+            <div class="filter-group">
+              <label class="filter-label" for="f-year">Год открытия</label>
+              <select class="filter-select" id="f-year"></select>
+            </div>
+            <div class="filter-group">
+              <label class="filter-label" for="f-source">Источник финансирования</label>
+              <select class="filter-select" id="f-source"></select>
+            </div>
+            <div class="filter-group" style="min-width:260px;flex:1">
+              <label class="filter-label" for="f-search">Наименование объекта</label>
+              <input class="filter-input" id="f-search" type="text" placeholder="Поиск по объекту..." />
+            </div>
+            <button class="btn btn-secondary filter-reset" id="f-reset" type="button">Сбросить</button>
+          </div>
+          <div class="kpi-grid">
+            <div class="kpi-card"><div class="kpi-label">Объектов в выборке</div><div class="kpi-value" id="kpi-count">0</div><div class="kpi-sub">Количество контрактов после фильтрации</div></div>
+            <div class="kpi-card"><div class="kpi-label">Заключено ГК на сумму</div><div class="kpi-value" id="kpi-total-gk">0</div><div class="kpi-sub">Суммарная стоимость выбранных контрактов</div></div>
+            <div class="kpi-card"><div class="kpi-label">Оплачено всего</div><div class="kpi-value" id="kpi-paid">0</div><div class="kpi-sub"><span id="kpi-paid-pct">0%</span></div><div class="progress-wrap"><div class="progress-fill" id="prog-paid" style="width:0%"></div></div></div>
+            <div class="kpi-card"><div class="kpi-label">Выполнено</div><div class="kpi-value" id="kpi-completed">0</div><div class="kpi-sub"><span id="kpi-completed-pct">0%</span>, средняя стройготовность: <span id="kpi-avg-readiness">0%</span></div><div class="progress-wrap"><div class="progress-fill" id="prog-completed" style="width:0%"></div></div></div>
+          </div>
+          <div class="dashboard-grid">
+            <article class="card"><div class="card-header"><div><div class="card-title">График лимитов по годам</div><div class="card-subtitle">Сопоставление плановых и текущих лимитов 2026–2029</div></div></div><div class="card-body chart-fixed"><div class="chart-container chart-fixed"><canvas id="chart-limits"></canvas></div></div></article>
+            <article class="card"><div class="card-header"><div><div class="card-title">Структура финансирования</div><div class="card-subtitle">Оплачено, не оплачено и остаток</div></div></div><div class="card-body chart-fixed-sm"><div class="chart-container chart-fixed-sm"><canvas id="chart-financing"></canvas></div></div></article>
+          </div>
+          <div class="dashboard-grid-2">
+            <article class="card"><div class="card-header"><div><div class="card-title">Динамика стройготовности</div><div class="card-subtitle">Топ объектов по текущей готовности</div></div></div><div class="card-body chart-fixed"><div class="chart-container chart-fixed"><canvas id="chart-readiness"></canvas></div></div></article>
+            <article class="card"><div class="card-header"><div><div class="card-title">Структура по подрядчикам</div><div class="card-subtitle">Доля стоимости ГК по основным исполнителям</div></div></div><div class="card-body chart-fixed-sm"><div class="chart-container chart-fixed-sm"><canvas id="chart-by-contractor"></canvas></div></div></article>
+          </div>
+          <article class="card">
+            <div class="card-header">
+              <div><div class="card-title">Список всех объектов</div><div class="card-subtitle">Текущая выборка по фильтрам</div></div>
+              <div class="inline-stats"><div class="inline-stat"><span>Неотработанный аванс</span><span id="kpi-unworked">0 ₽</span></div></div>
+            </div>
+            <div class="card-body" style="padding:0">
+              <div class="data-table-wrap"><table class="data-table"><thead><tr><th>Объект</th><th>Подрядчик</th><th>Источник</th><th>Стоимость ГК</th><th>Стройготовность</th><th>Год открытия</th><th>Статус</th></tr></thead><tbody id="objects-tbody"></tbody></table></div>
+            </div>
+          </article>
+        </section>
+
+        <!-- ════════════════════════════════════════
+             КОНТРАКТЫ
+        ════════════════════════════════════════ -->
+        <section class="page" id="page-contracts">
+          <div class="page-intro"><div><h1 class="page-title">Таблица «Контракты»</h1><p class="page-desc">Ручной ввод исходных данных.</p></div></div>
+          <div class="toolbar-row">
+            <div class="filters-bar" style="margin-bottom:0;flex:1">
+              <div class="filter-group" style="min-width:240px;flex:1"><label class="filter-label" for="ct-search">Поиск</label><input class="filter-input" id="ct-search" type="text" placeholder="Объект или номер контракта" /></div>
+              <div class="filter-group"><label class="filter-label" for="ct-contractor-filter">Подрядчик</label><select class="filter-select" id="ct-contractor-filter"></select></div>
+              <div class="filter-group"><label class="filter-label" for="ct-source-filter">Источник</label><select class="filter-select" id="ct-source-filter"></select></div>
+            </div>
+            <button class="btn btn-primary" type="button" onclick="ContractsPage.openAdd()">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+              Добавить контракт
+            </button>
+          </div>
+          <article class="card"><div class="card-body" style="padding:0"><div class="data-table-wrap"><table class="data-table" id="contracts-table"><thead><tr><th data-col="objectName">Объект <span class="sort-icon">⇅</span></th><th data-col="financingSource">Источник <span class="sort-icon">⇅</span></th><th data-col="contractor">Подрядчик <span class="sort-icon">⇅</span></th><th data-col="priceGK">Стоимость ГК <span class="sort-icon">⇅</span></th><th data-col="advanceGK">Аванс по ГК <span class="sort-icon">⇅</span></th><th data-col="paidTotal">Оплачено всего <span class="sort-icon">⇅</span></th><th data-col="completed">Выполнено <span class="sort-icon">⇅</span></th><th data-col="readinessPct">Стройготовность <span class="sort-icon">⇅</span></th><th data-col="contractEndDate">Срок контракта <span class="sort-icon">⇅</span></th><th data-col="plannedOpenDate">Открытие <span class="sort-icon">⇅</span></th><th data-col="dptStatus">Статус ДПТ <span class="sort-icon">⇅</span></th></tr></thead><tbody id="contracts-tbody"></tbody></table></div></div></article>
+        </section>
+
+        <!-- ════════════════════════════════════════
+             ПОДРЯДЧИКИ
+        ════════════════════════════════════════ -->
+        <section class="page" id="page-contractors">
+          <div class="page-intro"><div><h1 class="page-title">Таблица «Подрядчики»</h1><p class="page-desc">Агрегация по связанным контрактам.</p></div></div>
+          <article class="card"><div class="card-body" style="padding:0"><div class="data-table-wrap"><table class="data-table" id="contractors-table"><thead><tr><th data-col="name">Подрядчик <span class="sort-icon">⇅</span></th><th data-col="totalGK">Заключено ГК <span class="sort-icon">⇅</span></th><th data-col="count">Кол-во объектов <span class="sort-icon">⇅</span></th><th data-col="advanceGK">Аванс по ГК <span class="sort-icon">⇅</span></th><th data-col="advancePaid">Выданный аванс <span class="sort-icon">⇅</span></th><th data-col="unworkedAdvance">Неотработанный аванс <span class="sort-icon">⇅</span></th><th data-col="paidTotal">Оплачено всего <span class="sort-icon">⇅</span></th><th data-col="completed">Выполнено <span class="sort-icon">⇅</span></th><th>Лимиты 2026–2029</th></tr></thead><tbody id="contractors-tbody"></tbody></table></div></div></article>
+        </section>
+
+        <!-- ════════════════════════════════════════
+             ЯМОЧНЫЙ РЕМОНТ — ДАШБОРД
+        ════════════════════════════════════════ -->
+        <section class="page" id="page-pothole-dashboard">
+          <div class="page-intro">
+            <div>
+              <h1 class="page-title">Ямочный ремонт — Дашборд</h1>
+              <p class="page-desc">Сводная аналитика по зарегистрированным ямам, устранению и жалобам по муниципальным и региональным дорогам.</p>
+            </div>
+            <button class="btn btn-primary" type="button" id="ph-upload-btn">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+              Загрузить отчёт
+            </button>
+          </div>
+
+          <!-- no-data stub -->
+          <div id="ph-no-data" class="ph-no-data" style="display:none">
+            <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+            <h3>Нет данных</h3>
+            <p>Загрузите первый отчёт чтобы увидеть аналитику</p>
+            <button class="btn btn-primary" type="button" id="ph-no-data-upload-btn">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+              Загрузить первый отчёт
+            </button>
+          </div>
+
+          <!-- data content -->
+          <div id="ph-data-content">
+            <!-- KPI row -->
+            <div class="kpi-grid-3" id="ph-kpi-grid">
+              <div class="ph-kpi-card">
+                <div class="ph-kpi-label">Зарегистрировано ям за 7 дней</div>
+                <div class="ph-kpi-row">
+                  <div class="ph-kpi-value" id="ph-kpi-reg">—</div>
+                  <div class="ph-kpi-delta neu" id="ph-kpi-reg-delta">нет данных</div>
+                </div>
+                <div class="ph-kpi-sub">Муниципальные + региональные</div>
+                <div class="ph-kpi-date" id="ph-kpi-reg-date"></div>
+              </div>
+              <div class="ph-kpi-card">
+                <div class="ph-kpi-label">Устранено ям за 7 дней</div>
+                <div class="ph-kpi-row">
+                  <div class="ph-kpi-value" id="ph-kpi-fix">—</div>
+                  <div class="ph-kpi-delta neu" id="ph-kpi-fix-delta">нет данных</div>
+                </div>
+                <div class="ph-kpi-sub">Муниципальные + региональные</div>
+                <div class="ph-kpi-date" id="ph-kpi-fix-date"></div>
+              </div>
+              <div class="ph-kpi-card">
+                <div class="ph-kpi-label">Жалобы всего</div>
+                <div class="ph-kpi-row">
+                  <div class="ph-kpi-value" id="ph-kpi-comp">—</div>
+                  <div class="ph-kpi-delta neu" id="ph-kpi-comp-delta">нет данных</div>
+                </div>
+                <div class="ph-kpi-sub">ОМС + МАД</div>
+                <div class="ph-kpi-date" id="ph-kpi-comp-date"></div>
+              </div>
+            </div>
+
+            <!-- Donuts -->
+            <div class="ph-donut-grid">
+              <article class="card">
+                <div class="card-header"><div><div class="card-title">Зарегистрированные ямы</div><div class="card-subtitle">Муниципальные / региональные</div></div></div>
+                <div class="card-body"><div class="chart-container"><canvas id="ph-chart-reg-donut"></canvas></div></div>
+              </article>
+              <article class="card">
+                <div class="card-header"><div><div class="card-title">Устранённые ямы</div><div class="card-subtitle">Муниципальные / региональные</div></div></div>
+                <div class="card-body"><div class="chart-container"><canvas id="ph-chart-fix-donut"></canvas></div></div>
+              </article>
+              <article class="card">
+                <div class="card-header"><div><div class="card-title">Жалобы</div><div class="card-subtitle">ОМС / МАД</div></div></div>
+                <div class="card-body"><div class="chart-container"><canvas id="ph-chart-comp-donut"></canvas></div></div>
+              </article>
+            </div>
+
+            <!-- Weekly bar chart -->
+            <article class="card ph-bar-row">
+              <div class="card-header">
+                <div>
+                  <div class="card-title">Динамика за неделю</div>
+                  <div class="card-subtitle">Регистрация ям, устранение, жалобы — по неделям месяца</div>
+                </div>
+                <div class="ph-week-controls">
+                  <select class="filter-select" id="ph-week-month" style="min-width:160px"></select>
+                </div>
+              </div>
+              <div class="card-body chart-fixed"><div class="chart-container chart-fixed"><canvas id="ph-chart-weekly"></canvas></div></div>
+            </article>
+          </div>
+        </section>
+
+        <!-- ════════════════════════════════════════
+             ЯМОЧНЫЙ РЕМОНТ — ОТЧЁТЫ
+        ════════════════════════════════════════ -->
+        <section class="page" id="page-pothole-reports">
+          <div class="page-intro">
+            <div>
+              <h1 class="page-title">Ямочный ремонт — Отчёты</h1>
+              <p class="page-desc">История загруженных отчётов по ямочному ремонту.</p>
+            </div>
+            <button class="btn btn-primary" type="button" id="ph-upload-btn-2">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+              Загрузить отчёт
+            </button>
+          </div>
+          <div class="ph-layout">
+            <div class="ph-reports-panel">
+              <div class="ph-reports-header">
+                <span class="ph-reports-title">Отчёты</span>
+              </div>
+              <div class="ph-reports-list" id="ph-reports-sidebar"></div>
+            </div>
+            <div id="ph-report-detail">
+              <div class="ph-no-data">
+                <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6"/></svg>
+                <h3>Выберите отчёт</h3>
+                <p>Нажмите на отчёт слева чтобы просмотреть его содержимое</p>
+              </div>
+            </div>
+          </div>
+        </section>
+
+      </main>
+    </div>
+  </div>
+
+  <!-- ════════════════════════════════════════════
+       CONTRACT MODAL
+  ════════════════════════════════════════════ -->
+  <div class="modal-overlay" id="contract-modal" aria-hidden="true">
+    <div class="modal" role="dialog" aria-modal="true" aria-labelledby="contract-modal-title">
+      <div class="modal-header">
+        <div class="modal-title" id="contract-modal-title">Новый контракт</div>
+        <button class="btn btn-ghost btn-icon" type="button" onclick="closeModal('contract-modal')" aria-label="Закрыть"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button>
+      </div>
+      <div class="modal-body">
+        <form id="contract-form" onsubmit="event.preventDefault()">
+          <div class="form-divider">Основные данные</div>
+          <div class="form-row cols-2">
+            <div class="form-group"><label class="form-label required" for="cf-objectName">Наименование объекта</label><input class="form-input" id="cf-objectName" type="text" required /></div>
+            <div class="form-group"><label class="form-label" for="cf-financingSource">Источник финансирования</label><input class="form-input" id="cf-financingSource" type="text" /></div>
+          </div>
+          <div class="form-row cols-3" style="margin-top:var(--space-4)">
+            <div class="form-group autocomplete-wrap"><label class="form-label required" for="cf-contractor">Подрядчик</label><input class="form-input" id="cf-contractor" type="text" autocomplete="off" required /><div class="autocomplete-list" id="contractor-autocomplete"></div></div>
+            <div class="form-group"><label class="form-label" for="cf-contractNum">Контракт №</label><input class="form-input" id="cf-contractNum" type="text" /></div>
+            <div class="form-group"><label class="form-label" for="cf-contractDate">Дата заключения</label><input class="form-input" id="cf-contractDate" type="date" /></div>
+          </div>
+          <div class="form-divider">Финансовые показатели</div>
+          <div class="form-row cols-3">
+            <div class="form-group"><label class="form-label" for="cf-priceGK">Стоимость ГК</label><input class="form-input" id="cf-priceGK" type="number" step="0.01" min="0" /></div>
+            <div class="form-group input-with-badge"><label class="form-label" for="cf-advanceGK">Аванс по ГК</label><input class="form-input" id="cf-advanceGK" type="number" step="0.01" min="0" /><span class="input-badge" id="cf-advanceGK-pct">0%</span></div>
+            <div class="form-group"><label class="form-label" for="cf-advancePaid">Выданный аванс</label><input class="form-input" id="cf-advancePaid" type="number" step="0.01" min="0" /></div>
+          </div>
+          <div class="form-row cols-3" style="margin-top:var(--space-4)">
+            <div class="form-group"><label class="form-label" for="cf-paidTotal">Оплачено всего</label><input class="form-input" id="cf-paidTotal" type="number" step="0.01" min="0" /></div>
+            <div class="form-group"><label class="form-label" for="cf-completed">Выполнено</label><input class="form-input" id="cf-completed" type="number" step="0.01" min="0" /></div>
+            <div class="form-group"><label class="form-label" for="cf-readinessPct">Стройготовность %</label><input class="form-input" id="cf-readinessPct" type="number" step="0.1" min="0" max="100" /></div>
+          </div>
+          <div class="form-divider">Лимиты по годам (план / текущий)</div>
+          <div class="form-row cols-4">
+            <div class="form-group"><label class="form-label" for="cf-limit2026p">2026 план</label><input class="form-input" id="cf-limit2026p" type="number" step="0.01" min="0" /></div>
+            <div class="form-group"><label class="form-label" for="cf-limit2026c">2026 текущий</label><input class="form-input" id="cf-limit2026c" type="number" step="0.01" min="0" /></div>
+            <div class="form-group"><label class="form-label" for="cf-limit2027p">2027 план</label><input class="form-input" id="cf-limit2027p" type="number" step="0.01" min="0" /></div>
+            <div class="form-group"><label class="form-label" for="cf-limit2027c">2027 текущий</label><input class="form-input" id="cf-limit2027c" type="number" step="0.01" min="0" /></div>
+          </div>
+          <div class="form-row cols-4" style="margin-top:var(--space-4)">
+            <div class="form-group"><label class="form-label" for="cf-limit2028p">2028 план</label><input class="form-input" id="cf-limit2028p" type="number" step="0.01" min="0" /></div>
+            <div class="form-group"><label class="form-label" for="cf-limit2028c">2028 текущий</label><input class="form-input" id="cf-limit2028c" type="number" step="0.01" min="0" /></div>
+            <div class="form-group"><label class="form-label" for="cf-limit2029p">2029 план</label><input class="form-input" id="cf-limit2029p" type="number" step="0.01" min="0" /></div>
+            <div class="form-group"><label class="form-label" for="cf-limit2029c">2029 текущий</label><input class="form-input" id="cf-limit2029c" type="number" step="0.01" min="0" /></div>
+          </div>
+          <div class="form-divider">Прочие данные</div>
+          <div class="form-row cols-3">
+            <div class="form-group"><label class="form-label" for="cf-contractEndDate">Срок окончания контракта</label><input class="form-input" id="cf-contractEndDate" type="date" /></div>
+            <div class="form-group"><label class="form-label" for="cf-plannedOpenDate">Планируемое открытие</label><input class="form-input" id="cf-plannedOpenDate" type="date" /></div>
+            <div class="form-group"><label class="form-label" for="cf-dptStatus">Статус ДПТ</label><input class="form-input" id="cf-dptStatus" type="text" /></div>
+          </div>
+        </form>
+      </div>
+      <div class="modal-footer">
+        <button class="btn btn-secondary" type="button" onclick="closeModal('contract-modal')">Отмена</button>
+        <button class="btn btn-primary" type="button" id="contract-save-btn">Сохранить</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ════════════════════════════════════════════
+       UPLOAD MODAL (Ямочный ремонт)
+  ════════════════════════════════════════════ -->
+  <div class="modal-overlay" id="upload-modal" aria-hidden="true">
+    <div class="modal" role="dialog" aria-modal="true" aria-labelledby="upload-modal-title">
+      <div class="modal-header">
+        <div class="modal-title" id="upload-modal-title">Загрузить отчёт</div>
+        <button class="btn btn-ghost btn-icon" type="button" onclick="closeModal('upload-modal')" aria-label="Закрыть"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button>
+      </div>
+      <div class="modal-body">
+        <div class="upload-type-grid">
+          <button class="upload-type-btn" data-type="complaints" type="button">
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
+            Жалобы
+          </button>
+          <button class="upload-type-btn" data-type="regional" type="button">
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/></svg>
+            Региональный ремонт
+          </button>
+          <button class="upload-type-btn" data-type="municipal" type="button">
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="7" width="20" height="14" rx="2"/><path d="M16 7V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v2"/></svg>
+            Муниципальный ремонт
+          </button>
+        </div>
+        <div class="form-group" style="margin-bottom:var(--space-4)">
+          <label class="form-label required" for="upload-date">Дата отчёта</label>
+          <input class="form-input" id="upload-date" type="date" required />
+        </div>
+        <div class="upload-drop-zone" id="upload-drop-zone">
+          <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+          <p><strong>Нажмите для выбора</strong> или перетащите файл Excel (.xlsx)</p>
+          <input type="file" id="upload-file-input" accept=".xlsx,.xls" style="display:none" />
+          <div class="upload-file-name" id="upload-file-name"></div>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn btn-secondary" type="button" onclick="closeModal('upload-modal')">Отмена</button>
+        <button class="btn btn-primary" type="button" id="upload-submit-btn" disabled>Загрузить</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- toast container -->
+  <div id="toast-container" style="position:fixed;bottom:var(--space-6);right:var(--space-6);z-index:9999;display:flex;flex-direction:column;gap:var(--space-2);"></div>
+
+  <!-- ════════ Scripts ════════ -->
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+  <script src="js/utils.js"></script>
+  <script src="js/charts-pothole.js"></script>
+  <script src="js/pages/dashboard.js"></script>
+  <script src="js/pages/contracts.js"></script>
+  <script src="js/pages/contractors.js"></script>
+  <script src="js/pages/pothole.js"></script>
+  <script src="js/app.js"></script>
+</body>
+</html>
