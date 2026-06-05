@@ -35,12 +35,12 @@
         o.classList.toggle('active', o.dataset.dashboard === dashboard);
       });
       if (dashboard === 'construction') {
-        label.textContent = '\u0421\u0442\u0440\u043e\u0438\u0442\u0435\u043b\u044c\u0441\u0442\u0432\u043e';
+        label.textContent = 'Строительство';
         navConstruction.style.display = '';
         navPothole.style.display      = 'none';
         Router.navigate('dashboard');
       } else {
-        label.textContent = '\u042f\u043c\u043e\u0447\u043d\u044b\u0439 \u0440\u0435\u043c\u043e\u043d\u0442';
+        label.textContent = 'Ямочный ремонт';
         navConstruction.style.display = 'none';
         navPothole.style.display      = '';
         Router.navigate('pothole-dashboard');
@@ -149,7 +149,9 @@
     DashboardSwitcher.init();
     initModalBackdrop();
     initSidebar();
-    observeCards();
+    // NOTE: observeCards() убран — IntersectionObserver ставил opacity:0 на все
+    // карточки пока страницы были display:none, и они никогда не восстанавливались.
+    // Анимация появления карточек теперь через CSS transition в layout.css.
 
     // 5. Первый экран
     Router.navigate('dashboard');
