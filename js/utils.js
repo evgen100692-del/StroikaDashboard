@@ -123,9 +123,11 @@ const Router = (() => {
 
     // Update header title
     const titleMap = {
-      dashboard: 'Дашборд',
-      contracts: 'Контракты',
-      contractors: 'Подрядчики',
+      dashboard:          'Дашборд',
+      contracts:          'Контракты',
+      contractors:        'Подрядчики',
+      'pothole-dashboard': 'Ямочный ремонт — Дашборд',
+      'pothole-reports':   'Ямочный ремонт — Отчёты',
     };
     const headerTitle = document.getElementById('header-title');
     if (headerTitle) headerTitle.textContent = titleMap[id] || id;
