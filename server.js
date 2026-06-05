@@ -58,7 +58,7 @@ db.exec(`
     contractEndDate   TEXT
   );
 
-  -- Отчёты ямочного ремонта: каждый загрузенный файл = одна запись с датой
+  -- Отчёты ямочного ремонта: каждый загруженный файл = одна запись с датой
   CREATE TABLE IF NOT EXISTS pothole_reports (
     id          INTEGER PRIMARY KEY AUTOINCREMENT,
     report_type TEXT NOT NULL,   -- 'complaints' | 'regional' | 'municipal'
@@ -90,7 +90,6 @@ function json(res, code, data) {
   res.end(JSON.stringify(data));
 }
 
-// Читаем JSON-тело запроса
 async function readBodyJSON(req) {
   return new Promise((resolve, reject) => {
     let body = '';
@@ -103,7 +102,6 @@ async function readBodyJSON(req) {
   });
 }
 
-// Читаем raw буффер (для multipart)
 async function readBodyRaw(req) {
   return new Promise((resolve, reject) => {
     const chunks = [];
@@ -113,7 +111,7 @@ async function readBodyRaw(req) {
   });
 }
 
-// ── Парсер multipart/form-data (минимальный, без multer) ──────────────
+// ── Парсер multipart/form-data ──────────────────────────────────────
 function parseMultipart(buffer, boundary) {
   const boundaryBuf = Buffer.from('--' + boundary);
   const parts = [];
@@ -123,9 +121,7 @@ function parseMultipart(buffer, boundary) {
     const bndIdx = buffer.indexOf(boundaryBuf, start);
     if (bndIdx === -1) break;
     const after = bndIdx + boundaryBuf.length;
-    // Возможный финальный boundary
     if (buffer.slice(after, after + 2).toString() === '--') break;
-    // Пропускаем \r\n
     const headerStart = after + 2;
     const headerEnd   = buffer.indexOf(Buffer.from('\r\n\r\n'), headerStart);
     if (headerEnd === -1) break;
@@ -135,7 +131,6 @@ function parseMultipart(buffer, boundary) {
     const bodyEnd   = nextBnd === -1 ? buffer.length : nextBnd - 2;
     const body      = buffer.slice(bodyStart, bodyEnd);
 
-    // Парсим Content-Disposition
     const cdMatch = headerStr.match(/Content-Disposition:[^\r\n]*/i);
     if (cdMatch) {
       const nameMatch = cdMatch[0].match(/name="([^"]*)"/);
@@ -153,83 +148,140 @@ function parseMultipart(buffer, boundary) {
 }
 
 // ── Парсер Excel-файлов ─────────────────────────────────────────────
-function parseExcel(buffer, reportType) {
-  const workbook = XLSX.read(buffer, { type: 'buffer', cellDates: true });
+// Структура файлов определена по реальным образцам:
+//
+// РЕГИОНАЛЬНЫЙ (Проект_Региональный_ямочный_ремонт_*):
+//   Строка [0] — заголовок файла
+//   Строка [1] — дата
+//   Строка [2] — пустая
+//   Строка [3] — заголовки столбцов:
+//     col[1] = «РУАД», col[4] = «Регистрация ям за 7 дней», col[9] = «Устранено ям за 7 дней»
+//   Строки [4..N] — данные по каждому РУАД (нет итоговой строки)
+//
+// МУНИЦИПАЛЬНЫЙ (Проект_Муниципальный_ямочный_ремонт_*):
+//   Аналогичная структура:
+//     col[1] = «Муниципальное образование», col[4] = «Регистрация ям за 7 дней», col[9] = «Устранено ям за 7 дней»
+//   Строки [4..N] — данные (61 МО)
+//
+// ЖАЛОБЫ (Ямы на *):
+//   Лист «Свод общий»:
+//     Строка [2] — заголовок таблицы (сводная), строка [3] начало данных
+//     col[0] = «Названия строк», col[1] = кол-во
+//     Структура: сначала блок ОМС (первая строка = «ОМС» — итог блока, затем районы),
+//                потом блок МАД (первая строка = «МАД» — итог, затем РУАД)
+//     Берём только строку «ОМС» (итог) и строку «МАД» (итог) — это агрегаты
+//
+//   Лист «Свод за 7 дней»:
+//     Строка [3] — заголовки: col[0]='Названия строк', col[1..7]=даты, col[8]='Общий итог'
+//     Строки [4..N] — данные аналогично «Свод общий»
+//     Берём «Общий итог» (последний столбец) для каждой строки
 
+function parseExcel(buffer, reportType) {
+  const workbook = XLSX.read(buffer, { type: 'buffer', cellDates: false });
+
+  // ─── РЕГИОНАЛЬНЫЙ ───────────────────────────────────────────────
   if (reportType === 'regional') {
-    // Лист 1 (первый)
     const sheet = workbook.Sheets[workbook.SheetNames[0]];
-    const rows  = XLSX.utils.sheet_to_json(sheet, { defval: '' });
+    // Получаем как массив массивов (не объектов) чтобы работать по индексам столбцов
+    const rows = XLSX.utils.sheet_to_json(sheet, { header: 1, defval: null });
+
+    // Строка [3] — заголовки, строки [4..] — данные
+    // col[1]=РУАД, col[4]=рег7, col[9]=устранено7
     const result = [];
-    for (const row of rows) {
-      // Ищем колонки по частичному совпадению названия
-      const ruadKey  = Object.keys(row).find(k => /руад/i.test(k));
-      const regKey   = Object.keys(row).find(k => /регистрац/i.test(k) && /7/i.test(k));
-      const fixKey   = Object.keys(row).find(k => /устран/i.test(k) && /7/i.test(k));
-      if (!ruadKey) continue;
-      const name = String(row[ruadKey] || '').trim();
+    for (let i = 4; i < rows.length; i++) {
+      const row  = rows[i];
+      if (!row || row.length < 2) continue;
+      const name = String(row[1] || '').trim();
       if (!name) continue;
       result.push({
-        name:       name,
-        registered: toNum(ruadKey ? row[regKey] : 0),
-        fixed:      toNum(fixKey  ? row[fixKey]  : 0),
+        name,
+        registered: toNum(row[4]),
+        fixed:      toNum(row[9]),
       });
     }
     return result;
   }
 
+  // ─── МУНИЦИПАЛЬНЫЙ ──────────────────────────────────────────────
   if (reportType === 'municipal') {
     const sheet = workbook.Sheets[workbook.SheetNames[0]];
-    const rows  = XLSX.utils.sheet_to_json(sheet, { defval: '' });
+    const rows  = XLSX.utils.sheet_to_json(sheet, { header: 1, defval: null });
+
+    // col[1]=МО, col[4]=рег7, col[9]=устранено7
     const result = [];
-    for (const row of rows) {
-      const moKey  = Object.keys(row).find(k => /муницип/i.test(k));
-      const regKey = Object.keys(row).find(k => /регистрац/i.test(k) && /7/i.test(k));
-      const fixKey = Object.keys(row).find(k => /устран/i.test(k) && /7/i.test(k));
-      if (!moKey) continue;
-      const name = String(row[moKey] || '').trim();
+    for (let i = 4; i < rows.length; i++) {
+      const row  = rows[i];
+      if (!row || row.length < 2) continue;
+      const name = String(row[1] || '').trim();
       if (!name) continue;
       result.push({
-        name:       name,
-        registered: toNum(regKey ? row[regKey] : 0),
-        fixed:      toNum(fixKey ? row[fixKey]  : 0),
+        name,
+        registered: toNum(row[4]),
+        fixed:      toNum(row[9]),
       });
     }
     return result;
   }
 
+  // ─── ЖАЛОБЫ ─────────────────────────────────────────────────────
   if (reportType === 'complaints') {
     const result = { total: [], week: [] };
 
-    // Лист "Свод общий"
+    // ── Лист «Свод общий» ──
+    // Сводная таблица Excel: строки [2]=мета, [3]=заголовок, [4..N]=данные
+    // col[0]=название, col[1]=количество
+    // Структура данных: строка «ОМС» = итог ОМС-блока; строка «МАД» = итог МАД-блока
     const totalSheetName = workbook.SheetNames.find(n => /свод.*общ/i.test(n));
     if (totalSheetName) {
       const sheet = workbook.Sheets[totalSheetName];
-      const rows  = XLSX.utils.sheet_to_json(sheet, { defval: '' });
-      for (const row of rows) {
-        const execKey  = Object.keys(row).find(k => /исполн/i.test(k));
-        const countKey = Object.keys(row).find(k => /колич/i.test(k) || /жалоб/i.test(k) || /поступ/i.test(k));
-        if (!execKey) continue;
-        const name = String(row[execKey] || '').trim();
-        if (!name) continue;
-        result.total.push({ name, count: toNum(countKey ? row[countKey] : 0) });
+      const rows  = XLSX.utils.sheet_to_json(sheet, { header: 1, defval: null });
+
+      let inOms = false;
+      let inMad = false;
+
+      for (let i = 3; i < rows.length; i++) {
+        const row  = rows[i];
+        if (!row || !row[0]) continue;
+        const name  = String(row[0]).trim();
+        const count = toNum(row[1]);
+
+        if (name === 'ОМС')  { inOms = true;  inMad = false; result.total.push({ name: 'ОМС',  type: 'oms', count }); continue; }
+        if (name === 'МАД')  { inMad = true;  inOms = false; result.total.push({ name: 'МАД',  type: 'mad', count }); continue; }
+        if (name === 'Общий итог') break;
+
+        if (inOms) result.total.push({ name, type: 'oms', count });
+        if (inMad) result.total.push({ name, type: 'mad', count });
       }
     }
 
-    // Лист "Свод за 7 дней"
-    const weekSheetName = workbook.SheetNames.find(n => /7.*дн/i.test(n) || /недел/i.test(n));
+    // ── Лист «Свод за 7 дней» ──
+    // col[0]=название, col[1..7]=даты, последний столбец=«Общий итог»
+    const weekSheetName = workbook.SheetNames.find(n => /7.*дн/i.test(n) || /недел/i.test(n) || /свод за 7/i.test(n));
     if (weekSheetName) {
       const sheet = workbook.Sheets[weekSheetName];
-      const rows  = XLSX.utils.sheet_to_json(sheet, { defval: '' });
-      for (const row of rows) {
-        const execKey  = Object.keys(row).find(k => /исполн/i.test(k));
-        const countKey = Object.keys(row).find(k => /колич/i.test(k) || /жалоб/i.test(k) || /поступ/i.test(k));
-        if (!execKey) continue;
-        const name = String(row[execKey] || '').trim();
-        if (!name) continue;
-        result.week.push({ name, count: toNum(countKey ? row[countKey] : 0) });
+      const rows  = XLSX.utils.sheet_to_json(sheet, { header: 1, defval: null });
+
+      // Строка [3] — заголовки, данные с [4]
+      // Последний не-null столбец = «Общий итог»
+      let inOms = false;
+      let inMad = false;
+
+      for (let i = 4; i < rows.length; i++) {
+        const row  = rows[i];
+        if (!row || !row[0]) continue;
+        const name = String(row[0]).trim();
+        // Последний столбец в строке = «Общий итог»
+        const count = toNum(row[row.length - 1]);
+
+        if (name === 'ОМС')  { inOms = true;  inMad = false; result.week.push({ name: 'ОМС',  type: 'oms', count }); continue; }
+        if (name === 'МАД')  { inMad = true;  inOms = false; result.week.push({ name: 'МАД',  type: 'mad', count }); continue; }
+        if (name === 'Общий итог') break;
+
+        if (inOms) result.week.push({ name, type: 'oms', count });
+        if (inMad) result.week.push({ name, type: 'mad', count });
       }
     }
+
     return result;
   }
 
@@ -296,7 +348,6 @@ const server = http.createServer(async (req, res) => {
   //  API: ЯМОЧНЫЙ РЕМОНТ — ОТЧЁТЫ
   // ════════════════════════════════════════════════════════════════
 
-  // GET /api/pothole/reports — список всех отчётов (без data_json, только мета)
   if (url === '/api/pothole/reports' && req.method === 'GET') {
     const rows = db.prepare(
       'SELECT id, report_type, report_date, uploaded_at FROM pothole_reports ORDER BY report_date DESC, uploaded_at DESC'
@@ -305,7 +356,6 @@ const server = http.createServer(async (req, res) => {
     return;
   }
 
-  // GET /api/pothole/reports/:id — полные данные отчёта
   const reportGetMatch = url.match(/^\/api\/pothole\/reports\/(\d+)$/);
   if (reportGetMatch && req.method === 'GET') {
     const row = db.prepare('SELECT * FROM pothole_reports WHERE id = ?').get(parseInt(reportGetMatch[1]));
@@ -315,7 +365,6 @@ const server = http.createServer(async (req, res) => {
     return;
   }
 
-  // DELETE /api/pothole/reports/:id
   const reportDelMatch = url.match(/^\/api\/pothole\/reports\/(\d+)$/);
   if (reportDelMatch && req.method === 'DELETE') {
     db.prepare('DELETE FROM pothole_reports WHERE id = ?').run(parseInt(reportDelMatch[1]));
@@ -342,7 +391,7 @@ const server = http.createServer(async (req, res) => {
     return;
   }
 
-  // GET /api/pothole/history?type=regional — все отчёты типа для динамики
+  // GET /api/pothole/history?type=regional
   if (url.startsWith('/api/pothole/history') && req.method === 'GET') {
     const qtype = new URL('http://x' + req.url).searchParams.get('type') || '';
     const rows = db.prepare(
@@ -353,7 +402,7 @@ const server = http.createServer(async (req, res) => {
     return;
   }
 
-  // POST /api/pothole/upload — загрузка Excel-файла
+  // POST /api/pothole/upload
   if (url === '/api/pothole/upload' && req.method === 'POST') {
     try {
       const contentType = req.headers['content-type'] || '';
@@ -378,11 +427,15 @@ const server = http.createServer(async (req, res) => {
 
       const parsed = parseExcel(filePart.body, reportType);
 
+      const rowCount = Array.isArray(parsed)
+        ? parsed.length
+        : (parsed.total ? parsed.total.length : 0);
+
       db.prepare(
         'INSERT INTO pothole_reports (report_type, report_date, uploaded_at, data_json) VALUES (?, ?, ?, ?)'
       ).run(reportType, reportDate, new Date().toISOString(), JSON.stringify(parsed));
 
-      json(res, 200, { ok: true, type: reportType, date: reportDate, rows: Array.isArray(parsed) ? parsed.length : Object.keys(parsed).length });
+      json(res, 200, { ok: true, type: reportType, date: reportDate, rows: rowCount });
     } catch (e) {
       console.error('[upload] Ошибка:', e);
       json(res, 500, { error: 'Ошибка обработки файла: ' + e.message });
