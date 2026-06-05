@@ -1,7 +1,5 @@
 /* ================================================================
-   pothole-fix.css — патч для дашборда «Ямочный ремонт»
-   Решает: выпадение данных за границы KPI-карточек и
-           переполнение canvas в карточках пончиков.
+   pothole-fix.css — полные стили дашборда «Ямочный ремонт»
    Подключается ПОСЛЕДНИМ чтобы перекрыть inline-стили HTML.
 ================================================================ */
 
@@ -9,7 +7,6 @@
    1. KPI-КАРТОЧКИ — числа и дельта не вылезают за рамку
 ────────────────────────────────────────────────────────────── */
 
-/* Карточка: строгие границы, нет overflow */
 .ph-kpi-card {
   overflow: hidden;
   min-width: 0;
@@ -18,7 +15,6 @@
   flex-direction: column;
 }
 
-/* Заголовок: переносится, не обрезается */
 .ph-kpi-label {
   white-space: normal;
   word-break: break-word;
@@ -26,15 +22,13 @@
   line-height: 1.3;
 }
 
-/* Строка «значение + дельта»: не рвётся при переносе */
 .ph-kpi-row {
-  align-items: center;   /* center вместо baseline/flex-start — ровно по оси */
-  flex-wrap: nowrap;     /* не переносим — иначе дельта уходит на следующую строку */
+  align-items: center;
+  flex-wrap: nowrap;
   gap: 8px;
   min-width: 0;
 }
 
-/* Число: адаптивный размер, не вылезает */
 .ph-kpi-value {
   font-size: clamp(1.1rem, 1.5vw + 0.5rem, 1.6rem) !important;
   line-height: 1.15;
@@ -42,17 +36,15 @@
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
-  flex-shrink: 1;        /* уступает место дельте при нехватке ширины */
+  flex-shrink: 1;
 }
 
-/* Дельта-бейдж: не сжимается, не переносится */
 .ph-kpi-delta {
   flex-shrink: 0;
   white-space: nowrap;
   align-self: center;
 }
 
-/* Подпись и дата: нормальный перенос */
 .ph-kpi-sub,
 .ph-kpi-date {
   white-space: normal;
@@ -61,59 +53,749 @@
 }
 
 /* ──────────────────────────────────────────────────────────────
-   2. КАРТОЧКИ ПОНЧИКОВ — canvas строго внутри card-body
-   Проблема: .card-body и .chart-container оба имели height:240px
-   → canvas рендерился с высотой 240+padding.
-   Решение: высота задаётся ТОЛЬКО на .card, остальное заполняет пространство.
+   2. КАРТОЧКИ ПОНЧИКОВ
 ────────────────────────────────────────────────────────────── */
 
-/* Карточка пончика: фиксированная высота на самом верхнем уровне */
 .ph-donut-grid .card {
   height: 310px;
   display: flex;
   flex-direction: column;
-  overflow: hidden;      /* clip всего что вылезет */
+  overflow: hidden;
 }
 
-/* Шапка карточки: авто-высота */
 .ph-donut-grid .card-header {
   flex-shrink: 0;
 }
 
-/* card-body: занимает всё оставшееся место */
 .ph-donut-grid .card-body {
   flex: 1 1 0;
-  min-height: 0;          /* ключевое: flex-child не раздувается сверх flex-parent */
+  min-height: 0;
   height: auto !important;
   padding: 12px;
   position: relative;
   overflow: hidden;
 }
 
-/* chart-container: заполняет card-body БЕЗ дублирования высоты */
 .ph-donut-grid .card-body .chart-container {
   position: absolute !important;
-  inset: 12px !important; /* отступ = padding card-body */
+  inset: 12px !important;
   width: calc(100% - 24px) !important;
   height: calc(100% - 24px) !important;
 }
 
-/* canvas внутри: тоже 100% своего контейнера */
 .ph-donut-grid .card-body .chart-container canvas {
   width: 100% !important;
   height: 100% !important;
 }
 
 /* ──────────────────────────────────────────────────────────────
-   3. KPI-СЕТКА — равная высота карточек в строке
+   3. KPI-СЕТКА
 ────────────────────────────────────────────────────────────── */
 .kpi-grid-3 {
-  align-items: stretch;  /* все карточки одной высоты */
+  align-items: stretch;
 }
 
 /* ──────────────────────────────────────────────────────────────
-   4. АДАПТИВ — на узких экранах пончики в 1 колонку
+   4. ПЕРЕКЛЮЧАТЕЛЬ ДАШБОРДОВ (dropdown в шапке)
 ────────────────────────────────────────────────────────────── */
+
+.dashboard-switcher {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+}
+
+.dashboard-switcher-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 16px;
+  background: var(--color-primary, #01696f);
+  color: #fff;
+  border: none;
+  border-radius: 8px;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 180ms ease, box-shadow 180ms ease;
+  white-space: nowrap;
+}
+
+.dashboard-switcher-btn:hover {
+  background: var(--color-primary-hover, #0c4e54);
+  box-shadow: 0 4px 12px rgba(1,105,111,.25);
+}
+
+.dashboard-switcher-btn .chevron {
+  transition: transform 200ms ease;
+  flex-shrink: 0;
+}
+
+.dashboard-switcher.open .chevron {
+  transform: rotate(180deg);
+}
+
+.dashboard-switcher-dropdown {
+  position: absolute;
+  top: calc(100% + 6px);
+  right: 0;
+  min-width: 210px;
+  background: var(--color-surface, #fff);
+  border: 1px solid var(--color-border, #d4d1ca);
+  border-radius: 10px;
+  box-shadow: 0 8px 24px rgba(0,0,0,.12);
+  overflow: hidden;
+  z-index: 9999;
+  opacity: 0;
+  transform: translateY(-6px) scale(.98);
+  pointer-events: none;
+  transition: opacity 160ms ease, transform 160ms ease;
+}
+
+.dashboard-switcher.open .dashboard-switcher-dropdown {
+  opacity: 1;
+  transform: translateY(0) scale(1);
+  pointer-events: auto;
+}
+
+.dashboard-switcher-dropdown button {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  padding: 10px 16px;
+  background: none;
+  border: none;
+  text-align: left;
+  font-size: 14px;
+  color: var(--color-text, #28251d);
+  cursor: pointer;
+  transition: background 140ms ease;
+}
+
+.dashboard-switcher-dropdown button:hover {
+  background: var(--color-surface-offset, #f3f0ec);
+}
+
+.dashboard-switcher-dropdown button.active {
+  background: var(--color-primary-highlight, #cedcd8);
+  color: var(--color-primary, #01696f);
+  font-weight: 600;
+}
+
+.dashboard-switcher-dropdown button .dash-icon {
+  font-size: 16px;
+  flex-shrink: 0;
+}
+
+/* ──────────────────────────────────────────────────────────────
+   5. КОНТЕЙНЕРЫ ДАШБОРДОВ
+────────────────────────────────────────────────────────────── */
+
+.dashboard-view {
+  display: none;
+  width: 100%;
+}
+
+.dashboard-view.active {
+  display: block;
+}
+
+/* ──────────────────────────────────────────────────────────────
+   6. ШАПКА ДАШБОРДА «ЯМОЧНЫЙ РЕМОНТ»
+────────────────────────────────────────────────────────────── */
+
+.pothole-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 12px;
+  margin-bottom: 20px;
+}
+
+.pothole-header h2 {
+  font-size: 20px;
+  font-weight: 700;
+  color: var(--color-text, #28251d);
+  margin: 0;
+}
+
+.btn-upload-report {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 9px 18px;
+  background: var(--color-primary, #01696f);
+  color: #fff;
+  border: none;
+  border-radius: 8px;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 180ms ease, box-shadow 180ms ease;
+}
+
+.btn-upload-report:hover {
+  background: var(--color-primary-hover, #0c4e54);
+  box-shadow: 0 4px 12px rgba(1,105,111,.25);
+}
+
+/* ──────────────────────────────────────────────────────────────
+   7. ЛЕЙАУТ: САЙДБАР + ОСНОВНОЙ КОНТЕНТ
+────────────────────────────────────────────────────────────── */
+
+.pothole-layout {
+  display: grid;
+  grid-template-columns: 260px 1fr;
+  gap: 20px;
+  align-items: start;
+}
+
+@media (max-width: 900px) {
+  .pothole-layout {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* ──────────────────────────────────────────────────────────────
+   8. САЙДБАР «ОТЧЁТЫ»
+────────────────────────────────────────────────────────────── */
+
+.reports-sidebar {
+  background: var(--color-surface, #fff);
+  border: 1px solid var(--color-border, #d4d1ca);
+  border-radius: 12px;
+  overflow: hidden;
+  position: sticky;
+  top: 80px;
+}
+
+.reports-sidebar-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 14px 16px;
+  border-bottom: 1px solid var(--color-border, #d4d1ca);
+  background: var(--color-surface-offset, #f3f0ec);
+}
+
+.reports-sidebar-header h3 {
+  font-size: 13px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: .06em;
+  color: var(--color-text-muted, #7a7974);
+  margin: 0;
+}
+
+.reports-sidebar-body {
+  padding: 8px;
+  max-height: 60vh;
+  overflow-y: auto;
+}
+
+.reports-sidebar-body::-webkit-scrollbar { width: 4px; }
+.reports-sidebar-body::-webkit-scrollbar-track { background: transparent; }
+.reports-sidebar-body::-webkit-scrollbar-thumb { background: var(--color-border, #d4d1ca); border-radius: 4px; }
+
+.report-group {
+  margin-bottom: 4px;
+}
+
+.report-group-label {
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: .07em;
+  color: var(--color-text-faint, #bab9b4);
+  padding: 8px 8px 4px;
+  display: block;
+}
+
+.report-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+  padding: 8px 10px;
+  border-radius: 7px;
+  background: none;
+  border: none;
+  text-align: left;
+  cursor: pointer;
+  transition: background 140ms ease;
+  gap: 8px;
+}
+
+.report-item:hover {
+  background: var(--color-surface-offset, #f3f0ec);
+}
+
+.report-item.active {
+  background: var(--color-primary-highlight, #cedcd8);
+}
+
+.report-item-info {
+  flex: 1;
+  min-width: 0;
+}
+
+.report-item-name {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--color-text, #28251d);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.report-item-date {
+  font-size: 11px;
+  color: var(--color-text-muted, #7a7974);
+  margin-top: 2px;
+}
+
+.report-item-badge {
+  font-size: 10px;
+  font-weight: 700;
+  padding: 2px 7px;
+  border-radius: 20px;
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+
+.badge-complaints {
+  background: rgba(161,44,123,.12);
+  color: #a12c7b;
+}
+
+.badge-regional {
+  background: rgba(0,100,148,.12);
+  color: #006494;
+}
+
+.badge-municipal {
+  background: rgba(67,122,34,.12);
+  color: #437a22;
+}
+
+.reports-empty {
+  text-align: center;
+  padding: 24px 16px;
+  color: var(--color-text-muted, #7a7974);
+  font-size: 13px;
+}
+
+/* ──────────────────────────────────────────────────────────────
+   9. ГРАФИКИ — СЕТКА
+────────────────────────────────────────────────────────────── */
+
+.pothole-charts-grid {
+  display: grid;
+  gap: 16px;
+}
+
+.pothole-donuts {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 16px;
+}
+
+@media (max-width: 1200px) {
+  .pothole-donuts {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+
+@media (max-width: 700px) {
+  .pothole-donuts {
+    grid-template-columns: 1fr;
+  }
+}
+
+.chart-card {
+  background: var(--color-surface, #fff);
+  border: 1px solid var(--color-border, #d4d1ca);
+  border-radius: 12px;
+  padding: 18px;
+}
+
+.chart-card-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 14px;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.chart-card-title {
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--color-text, #28251d);
+  margin: 0;
+}
+
+.chart-card-subtitle {
+  font-size: 12px;
+  color: var(--color-text-muted, #7a7974);
+  margin-top: 2px;
+}
+
+.chart-canvas-wrap {
+  position: relative;
+  height: 200px;
+}
+
+.chart-card-wide {
+  grid-column: 1 / -1;
+}
+
+.chart-canvas-wrap-tall {
+  position: relative;
+  height: 300px;
+}
+
+/* ──────────────────────────────────────────────────────────────
+   10. СЕЛЕКТ МЕСЯЦА
+────────────────────────────────────────────────────────────── */
+
+.month-select {
+  padding: 5px 10px;
+  border: 1px solid var(--color-border, #d4d1ca);
+  border-radius: 7px;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--color-text, #28251d);
+  background: var(--color-surface-offset, #f3f0ec);
+  cursor: pointer;
+  outline: none;
+  transition: border-color 160ms ease;
+}
+
+.month-select:focus {
+  border-color: var(--color-primary, #01696f);
+}
+
+/* ──────────────────────────────────────────────────────────────
+   11. ЛЕГЕНДА ПОНЧИКОВ
+────────────────────────────────────────────────────────────── */
+
+.donut-legend {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin-top: 12px;
+}
+
+.donut-legend-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 12px;
+  color: var(--color-text-muted, #7a7974);
+}
+
+.donut-legend-dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+.donut-legend-value {
+  margin-left: auto;
+  font-weight: 700;
+  color: var(--color-text, #28251d);
+  font-variant-numeric: tabular-nums;
+}
+
+/* ──────────────────────────────────────────────────────────────
+   12. МОДАЛЬНОЕ ОКНО «ЗАГРУЗИТЬ ОТЧЁТ»
+────────────────────────────────────────────────────────────── */
+
+.modal-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0,0,0,.45);
+  z-index: 10000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 200ms ease;
+}
+
+.modal-overlay.open {
+  opacity: 1;
+  pointer-events: auto;
+}
+
+.modal-box {
+  background: var(--color-surface, #fff);
+  border-radius: 14px;
+  box-shadow: 0 20px 60px rgba(0,0,0,.2);
+  width: 100%;
+  max-width: 480px;
+  transform: translateY(12px) scale(.98);
+  transition: transform 220ms cubic-bezier(.16,1,.3,1);
+}
+
+.modal-overlay.open .modal-box {
+  transform: translateY(0) scale(1);
+}
+
+.modal-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 18px 20px 14px;
+  border-bottom: 1px solid var(--color-border, #d4d1ca);
+}
+
+.modal-header h3 {
+  font-size: 16px;
+  font-weight: 700;
+  margin: 0;
+}
+
+.modal-close {
+  width: 32px;
+  height: 32px;
+  border-radius: 8px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: none;
+  border: none;
+  color: var(--color-text-muted, #7a7974);
+  cursor: pointer;
+  transition: background 140ms ease;
+  font-size: 18px;
+  line-height: 1;
+}
+
+.modal-close:hover {
+  background: var(--color-surface-offset, #f3f0ec);
+  color: var(--color-text, #28251d);
+}
+
+.modal-body {
+  padding: 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.modal-field label {
+  display: block;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--color-text-muted, #7a7974);
+  margin-bottom: 6px;
+}
+
+.modal-select,
+.modal-date-input {
+  width: 100%;
+  padding: 9px 12px;
+  border: 1px solid var(--color-border, #d4d1ca);
+  border-radius: 8px;
+  font-size: 14px;
+  color: var(--color-text, #28251d);
+  background: var(--color-surface, #fff);
+  outline: none;
+  transition: border-color 160ms ease, box-shadow 160ms ease;
+}
+
+.modal-select:focus,
+.modal-date-input:focus {
+  border-color: var(--color-primary, #01696f);
+  box-shadow: 0 0 0 3px rgba(1,105,111,.15);
+}
+
+.upload-zone {
+  border: 2px dashed var(--color-border, #d4d1ca);
+  border-radius: 10px;
+  padding: 28px 20px;
+  text-align: center;
+  cursor: pointer;
+  transition: border-color 160ms ease, background 160ms ease;
+  position: relative;
+}
+
+.upload-zone:hover,
+.upload-zone.dragover {
+  border-color: var(--color-primary, #01696f);
+  background: rgba(1,105,111,.04);
+}
+
+.upload-zone input[type="file"] {
+  position: absolute;
+  inset: 0;
+  opacity: 0;
+  cursor: pointer;
+  width: 100%;
+  height: 100%;
+}
+
+.upload-zone-icon {
+  font-size: 28px;
+  margin-bottom: 8px;
+  display: block;
+}
+
+.upload-zone-text {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--color-text, #28251d);
+}
+
+.upload-zone-hint {
+  font-size: 12px;
+  color: var(--color-text-muted, #7a7974);
+  margin-top: 4px;
+}
+
+.upload-zone-selected {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--color-primary, #01696f);
+  margin-top: 8px;
+  word-break: break-all;
+}
+
+.modal-footer {
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+  padding: 14px 20px 18px;
+  border-top: 1px solid var(--color-border, #d4d1ca);
+}
+
+.btn-cancel {
+  padding: 8px 16px;
+  border: 1px solid var(--color-border, #d4d1ca);
+  border-radius: 8px;
+  background: none;
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--color-text-muted, #7a7974);
+  cursor: pointer;
+  transition: background 140ms ease;
+}
+
+.btn-cancel:hover {
+  background: var(--color-surface-offset, #f3f0ec);
+}
+
+.btn-submit-upload {
+  padding: 8px 18px;
+  background: var(--color-primary, #01696f);
+  color: #fff;
+  border: none;
+  border-radius: 8px;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 180ms ease;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.btn-submit-upload:hover {
+  background: var(--color-primary-hover, #0c4e54);
+}
+
+.btn-submit-upload:disabled {
+  opacity: .5;
+  cursor: not-allowed;
+}
+
+.spinner {
+  width: 14px;
+  height: 14px;
+  border: 2px solid rgba(255,255,255,.4);
+  border-top-color: #fff;
+  border-radius: 50%;
+  animation: spin .7s linear infinite;
+  display: none;
+}
+
+.btn-submit-upload.loading .spinner {
+  display: block;
+}
+
+.btn-submit-upload.loading .btn-text {
+  display: none;
+}
+
+@keyframes spin { to { transform: rotate(360deg); } }
+
+/* ──────────────────────────────────────────────────────────────
+   13. TOAST
+────────────────────────────────────────────────────────────── */
+
+.toast {
+  position: fixed;
+  bottom: 24px;
+  right: 24px;
+  padding: 12px 18px;
+  border-radius: 10px;
+  font-size: 14px;
+  font-weight: 600;
+  color: #fff;
+  box-shadow: 0 6px 20px rgba(0,0,0,.18);
+  z-index: 20000;
+  opacity: 0;
+  transform: translateY(8px);
+  transition: opacity 220ms ease, transform 220ms ease;
+  pointer-events: none;
+  max-width: 320px;
+}
+
+.toast.show {
+  opacity: 1;
+  transform: translateY(0);
+}
+
+.toast-success { background: #437a22; }
+.toast-error   { background: #a12c7b; }
+.toast-info    { background: #01696f; }
+
+/* ──────────────────────────────────────────────────────────────
+   14. ПУСТОЕ СОСТОЯНИЕ ДАШБОРДА
+────────────────────────────────────────────────────────────── */
+
+.pothole-empty-state {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  padding: 60px 20px;
+  color: var(--color-text-muted, #7a7974);
+  gap: 12px;
+}
+
+.pothole-empty-state .empty-icon {
+  font-size: 40px;
+  opacity: .5;
+}
+
+.pothole-empty-state p {
+  font-size: 14px;
+  max-width: 36ch;
+}
+
+/* ──────────────────────────────────────────────────────────────
+   15. АДАПТИВ
+────────────────────────────────────────────────────────────── */
+
 @media (max-width: 900px) {
   .ph-donut-grid {
     grid-template-columns: 1fr 1fr;
