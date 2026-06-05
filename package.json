@@ -1,0 +1,18 @@
+{
+  "name": "stroika-dashboard",
+  "version": "2.0.0",
+  "description": "Дашборд аналитики строительства и ямочного ремонта",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js",
+    "install-deps": "npm install"
+  },
+  "dependencies": {
+    "better-sqlite3": "^9.4.3",
+    "multer": "^1.4.5-lts.1",
+    "xlsx": "^0.18.5"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  }
+}
