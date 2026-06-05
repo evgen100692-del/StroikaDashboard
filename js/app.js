@@ -138,9 +138,9 @@
   ================================================================ */
   function registerPages() {
     // Строительство
-    Router.register('dashboard',    () => typeof DashboardPage    !== 'undefined' && DashboardPage.refresh?.());
-    Router.register('contracts',    () => typeof ContractsPage    !== 'undefined' && ContractsPage.refresh?.());
-    Router.register('contractors',  () => typeof ContractorsPage  !== 'undefined' && ContractorsPage.refresh?.());
+    Router.register('dashboard',    () => typeof DashboardPage   !== 'undefined' && DashboardPage.refresh?.());
+    Router.register('contracts',    () => typeof ContractsPage   !== 'undefined' && ContractsPage.refresh?.());
+    Router.register('contractors',  () => typeof ContractorsPage !== 'undefined' && ContractorsPage.refresh?.());
 
     // Ямочный ремонт
     Router.register('pothole-dashboard', () => typeof PotholePage !== 'undefined' && PotholePage.refresh?.());
@@ -151,21 +151,40 @@
      6. ИНИЦИАЛИЗАЦИЯ МОДУЛЕЙ ПО СТРАНИЦАМ
   ================================================================ */
   function initModules() {
-    if (typeof DashboardPage    !== 'undefined') DashboardPage.init?.();
-    if (typeof ContractsPage    !== 'undefined') ContractsPage.init?.();
-    if (typeof ContractorsPage  !== 'undefined') ContractorsPage.init?.();
-    if (typeof PotholePage      !== 'undefined') PotholePage.init?.();
+    if (typeof DashboardPage   !== 'undefined') DashboardPage.init?.();
+    if (typeof ContractsPage   !== 'undefined') ContractsPage.init?.();
+    if (typeof ContractorsPage !== 'undefined') ContractorsPage.init?.();
+    if (typeof PotholePage     !== 'undefined') PotholePage.init?.();
   }
 
   /* ================================================================
      7. СТАРТ
   ================================================================ */
-  document.addEventListener('DOMContentLoaded', () => {
+  document.addEventListener('DOMContentLoaded', async () => {
     // Тема
     Theme.init();
 
-    // Модули
+    // ── ИСПРАВЛЕНИЕ: загружаем данные ПЕРВЫМИ ──────────────────────
+    // AppData.load() тянет контракты с /api/contracts.
+    // Если БД пустая — внутри load() сработает seedDemo() и заполнит
+    // базу демо-данными. Без этого вызова дашборд всегда пустой.
+    if (typeof AppData !== 'undefined') {
+      try {
+        await AppData.load();
+      } catch (e) {
+        console.warn('[app] AppData.load() failed:', e);
+      }
+    }
+
+    // Модули (init после загрузки данных)
     initModules();
+
+    // ── ИСПРАВЛЕНИЕ: привязываем фильтры и кнопку «+ Добавить» ────
+    // DashboardPage.bindFilters() вешает слушатели на select'ы
+    // и на кнопку добавления контракта. Без этого кнопка мёртвая.
+    if (typeof DashboardPage !== 'undefined') {
+      DashboardPage.bindFilters?.();
+    }
 
     // Router
     registerPages();
