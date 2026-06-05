@@ -296,7 +296,7 @@
     }
     .upload-file-name.visible { display: block; }
 
-    /* ── donuts 2-col layout ── */
+    /* ── donuts 3-col layout ── */
     .ph-donut-grid { display:grid; grid-template-columns:repeat(3,1fr); gap:var(--space-5); margin-bottom:var(--space-5); }
     .ph-bar-row { margin-bottom: var(--space-5); }
     .ph-week-controls {
@@ -413,7 +413,7 @@
             </button>
             <div class="dashboard-switcher-dropdown" id="switcher-dropdown">
               <button class="switcher-option active" data-dashboard="construction" type="button">
-                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 25h24"/><path d="M3 18l4-8 4 8"/><path d="M12 9l5-7 5 7"/></svg>
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>
                 Строительство
               </button>
               <div class="switcher-divider"></div>
@@ -592,7 +592,7 @@
                   <div class="card-subtitle">Регистрация ям, устранение, жалобы — по неделям месяца</div>
                 </div>
                 <div class="ph-week-controls">
-                  <select class="filter-select" id="ph-week-month" style="min-width:140px"></select>
+                  <select class="filter-select" id="ph-week-month" style="min-width:160px"></select>
                 </div>
               </div>
               <div class="card-body chart-fixed"><div class="chart-container chart-fixed"><canvas id="ph-chart-weekly"></canvas></div></div>
@@ -780,10 +780,12 @@
 
   <div class="toast-container" id="toast-container"></div>
 
+  <!-- ── Scripts: порядок важен ── -->
   <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
   <script src="./js/data.js"></script>
   <script src="./js/utils.js"></script>
   <script src="./js/charts.js"></script>
+  <script src="./js/charts-pothole.js"></script>
   <script src="./js/context-menu.js"></script>
   <script src="./js/pages/dashboard.js"></script>
   <script src="./js/pages/contracts.js"></script>
@@ -835,11 +837,11 @@
 
   function closeModal(id) {
     const el = document.getElementById(id);
-    if (el) { el.classList.remove('open'); el.setAttribute('aria-hidden','true'); }
+    if (el) { el.classList.remove('open'); el.setAttribute('aria-hidden', 'true'); }
   }
   function openModal(id) {
     const el = document.getElementById(id);
-    if (el) { el.classList.add('open'); el.setAttribute('aria-hidden','false'); }
+    if (el) { el.classList.add('open'); el.setAttribute('aria-hidden', 'false'); }
   }
   document.querySelectorAll('.modal-overlay').forEach(ov => {
     ov.addEventListener('click', e => { if (e.target === ov) closeModal(ov.id); });
@@ -871,7 +873,7 @@
     document.addEventListener('click', () => {
       dropdown.classList.remove('open');
       btn.classList.remove('open');
-      btn.setAttribute('aria-expanded','false');
+      btn.setAttribute('aria-expanded', 'false');
     });
 
     dropdown.querySelectorAll('.switcher-option').forEach(opt => {
@@ -890,16 +892,16 @@
         btn.classList.remove('open');
 
         if (db === 'construction') {
-          label.textContent = 'Строительство';
+          label.textContent    = 'Строительство';
           navCon.style.display = '';
           navPh.style.display  = 'none';
-          logoText.textContent  = 'Контракты / Аналитика';
+          logoText.textContent = 'Контракты / Аналитика';
           Router.navigate('dashboard');
         } else {
-          label.textContent = 'Ямочный ремонт';
+          label.textContent    = 'Ямочный ремонт';
           navCon.style.display = 'none';
           navPh.style.display  = '';
-          logoText.textContent  = 'Ямочный ремонт';
+          logoText.textContent = 'Ямочный ремонт';
           Router.navigate('pothole-dashboard');
           if (typeof PotholePage !== 'undefined') PotholePage.init();
         }

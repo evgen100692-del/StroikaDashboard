@@ -1,24 +1,14 @@
 // js/pages/pothole.js — дашборд «Ямочный ремонт»
 // Зависит от: Chart.js (глобальный), utils.js (toast, closeModal, openModal, fmt)
+// Зависит от: charts-pothole.js (PotholeCharts) — должен быть подключён ДО этого файла
 
 const PotholePage = (() => {
   // ── состояние ──────────────────────────────────────────────────────────────
-  let _reports   = [];   // список из /api/pothole/reports
-  let _latest    = {};   // { complaints, regional, municipal } — последние отчёты
-  let _history   = {};   // { complaints:[], regional:[], municipal:[] }
-  let _charts    = {};   // Chart.js instances
+  let _reports     = [];   // список из /api/pothole/reports
+  let _latest      = {};   // { complaints, regional, municipal } — последние отчёты
+  let _history     = {};   // { complaints:[], regional:[], municipal:[] }
+  let _charts      = {};   // Chart.js instances
   let _initialized = false;
-
-  // ── цвета ──────────────────────────────────────────────────────────────────
-  const C = {
-    municipal: { bg: 'rgba(67,122,34,0.75)',  border: '#437a22' },
-    regional:  { bg: 'rgba(0,100,148,0.75)',  border: '#006494' },
-    oms:       { bg: 'rgba(1,105,111,0.75)',  border: '#01696f' },
-    mad:       { bg: 'rgba(209,153,0,0.75)',  border: '#d19900' },
-    reg:       { bg: 'rgba(0,100,148,0.75)',  border: '#006494' },
-    fix:       { bg: 'rgba(67,122,34,0.75)',  border: '#437a22' },
-    comp:      { bg: 'rgba(161,44,123,0.75)', border: '#a12c7b' },
-  };
 
   // ════════════════════════════════════════════════════════════════════════════
   //  PUBLIC: init()
@@ -44,7 +34,6 @@ const PotholePage = (() => {
       _reports = rList;
       _latest  = rLatest;
 
-      // история по каждому типу для weekly-графика
       const [hC, hR, hM] = await Promise.all([
         fetch('/api/pothole/history?type=complaints').then(r => r.json()),
         fetch('/api/pothole/history?type=regional').then(r => r.json()),
@@ -64,7 +53,7 @@ const PotholePage = (() => {
   // ════════════════════════════════════════════════════════════════════════════
   function _renderDashboard() {
     const hasData = _latest.regional || _latest.municipal || _latest.complaints;
-    document.getElementById('ph-no-data').style.display    = hasData ? 'none' : 'flex';
+    document.getElementById('ph-no-data').style.display     = hasData ? 'none' : 'flex';
     document.getElementById('ph-data-content').style.display = hasData ? '' : 'none';
     if (!hasData) return;
 
@@ -75,54 +64,48 @@ const PotholePage = (() => {
 
   // ── KPI ─────────────────────────────────────────────────────────────────────
   function _renderKPIs() {
-    // --- Ямы: сумма муниципальных + региональных ---
-    const regData = _latest.regional  ? _latest.regional.data_json  : [];
-    const munData = _latest.municipal ? _latest.municipal.data_json : [];
+    const regData  = _latest.regional  ? _latest.regional.data_json  : [];
+    const munData  = _latest.municipal ? _latest.municipal.data_json : [];
 
-    const regTotalReg = regData.reduce((s, r) => s + (r.registered || 0), 0);
-    const munTotalReg = munData.reduce((s, r) => s + (r.registered || 0), 0);
-    const totalReg = regTotalReg + munTotalReg;
+    const totalReg = regData.reduce((s, r) => s + (r.registered || 0), 0)
+                   + munData.reduce((s, r) => s + (r.registered || 0), 0);
+    const totalFix = regData.reduce((s, r) => s + (r.fixed || 0), 0)
+                   + munData.reduce((s, r) => s + (r.fixed || 0), 0);
 
-    const regTotalFix = regData.reduce((s, r) => s + (r.fixed || 0), 0);
-    const munTotalFix = munData.reduce((s, r) => s + (r.fixed || 0), 0);
-    const totalFix = regTotalFix + munTotalFix;
-
-    // --- Жалобы ---
     const compData = _latest.complaints ? _latest.complaints.data_json : null;
-    const omsTotal = compData ? compData.total.filter(r => r.type === 'oms').reduce((s,r) => s + r.count, 0) : 0;
-    const madTotal = compData ? compData.total.filter(r => r.type === 'mad').reduce((s,r) => s + r.count, 0) : 0;
-    // Берём итог по строкам ОМС и МАД (первые записи с name='ОМС'/'МАД')
-    const omsRow = compData ? compData.total.find(r => r.name === 'ОМС') : null;
-    const madRow = compData ? compData.total.find(r => r.name === 'МАД') : null;
+    const omsRow   = compData ? compData.total.find(r => r.name === 'ОМС') : null;
+    const madRow   = compData ? compData.total.find(r => r.name === 'МАД') : null;
     const totalComp = (omsRow ? omsRow.count : 0) + (madRow ? madRow.count : 0);
 
-    _setKPI('ph-kpi-reg',  totalReg,  _latest.regional  ? _latest.regional.report_date  : null, 'ph-kpi-reg-date',  'ph-kpi-reg-delta',  'regional',  'registered');
-    _setKPI('ph-kpi-fix',  totalFix,  _latest.regional  ? _latest.regional.report_date  : null, 'ph-kpi-fix-date',  'ph-kpi-fix-delta',  'regional',  'fixed');
-    _setKPI('ph-kpi-comp', totalComp, _latest.complaints ? _latest.complaints.report_date : null, 'ph-kpi-comp-date', 'ph-kpi-comp-delta', 'complaints', null);
+    _setKPI('ph-kpi-reg',  totalReg,  _latest.regional   ? _latest.regional.report_date   : null, 'ph-kpi-reg-date',  'ph-kpi-reg-delta',  'regional',    'registered');
+    _setKPI('ph-kpi-fix',  totalFix,  _latest.regional   ? _latest.regional.report_date   : null, 'ph-kpi-fix-date',  'ph-kpi-fix-delta',  'regional',    'fixed');
+    _setKPI('ph-kpi-comp', totalComp, _latest.complaints ? _latest.complaints.report_date : null, 'ph-kpi-comp-date', 'ph-kpi-comp-delta', 'complaints',  null);
   }
 
   function _setKPI(valId, curVal, date, dateId, deltaId, histType, histField) {
     document.getElementById(valId).textContent = curVal.toLocaleString('ru');
     if (date) document.getElementById(dateId).textContent = 'Дата отчёта: ' + _fmtDate(date);
 
-    // delta: сравниваем с предыдущей записью в истории
     const hist = _history[histType] || [];
     if (hist.length >= 2) {
       const prev = hist[hist.length - 2];
       let prevVal = 0;
       if (histType === 'complaints') {
-        const omsR = prev.data_json.total ? prev.data_json.total.find(r => r.name === 'ОМС') : null;
-        const madR = prev.data_json.total ? prev.data_json.total.find(r => r.name === 'МАД') : null;
-        prevVal = (omsR ? omsR.count : 0) + (madR ? madR.count : 0);
+        const oR = prev.data_json.total ? prev.data_json.total.find(r => r.name === 'ОМС') : null;
+        const mR = prev.data_json.total ? prev.data_json.total.find(r => r.name === 'МАД') : null;
+        prevVal = (oR ? oR.count : 0) + (mR ? mR.count : 0);
       } else if (histField) {
-        prevVal = (prev.data_json || []).reduce((s, r) => s + (r[histField] || 0), 0)
-                + (_history.municipal.length >= 2 ? _history.municipal[_history.municipal.length - 2].data_json.reduce((s,r) => s + (r[histField]||0), 0) : 0);
+        const prevReg = (prev.data_json || []).reduce((s, r) => s + (r[histField] || 0), 0);
+        const prevMun = _history.municipal.length >= 2
+          ? _history.municipal[_history.municipal.length - 2].data_json.reduce((s, r) => s + (r[histField] || 0), 0)
+          : 0;
+        prevVal = prevReg + prevMun;
       }
       const diff = curVal - prevVal;
       const el   = document.getElementById(deltaId);
-      if (diff > 0) { el.textContent = '+' + diff.toLocaleString('ru'); el.className = 'ph-kpi-delta up'; }
-      else if (diff < 0) { el.textContent = diff.toLocaleString('ru'); el.className = 'ph-kpi-delta down'; }
-      else { el.textContent = 'без изменений'; el.className = 'ph-kpi-delta neu'; }
+      if (diff > 0)      { el.textContent = '+' + diff.toLocaleString('ru'); el.className = 'ph-kpi-delta up'; }
+      else if (diff < 0) { el.textContent = diff.toLocaleString('ru');       el.className = 'ph-kpi-delta down'; }
+      else               { el.textContent = 'без изменений';                 el.className = 'ph-kpi-delta neu'; }
     } else {
       const el = document.getElementById(deltaId);
       el.textContent = 'первый отчёт';
@@ -130,49 +113,28 @@ const PotholePage = (() => {
     }
   }
 
-  // ── Пончики ─────────────────────────────────────────────────────────────────
+  // ── Пончики — делегируем в PotholeCharts ────────────────────────────────────
   function _renderDonuts() {
-    const regData = (_latest.regional  ? _latest.regional.data_json  : []);
-    const munData = (_latest.municipal ? _latest.municipal.data_json : []);
+    const regData  = _latest.regional  ? _latest.regional.data_json  : [];
+    const munData  = _latest.municipal ? _latest.municipal.data_json : [];
     const compData = _latest.complaints ? _latest.complaints.data_json : null;
 
-    const regSum = regData.reduce((s,r) => s + (r.registered||0), 0);
-    const munRegSum = munData.reduce((s,r) => s + (r.registered||0), 0);
-    const regFixSum = regData.reduce((s,r) => s + (r.fixed||0), 0);
-    const munFixSum = munData.reduce((s,r) => s + (r.fixed||0), 0);
+    const regSum    = regData.reduce((s, r) => s + (r.registered || 0), 0);
+    const munRegSum = munData.reduce((s, r) => s + (r.registered || 0), 0);
+    const regFixSum = regData.reduce((s, r) => s + (r.fixed || 0), 0);
+    const munFixSum = munData.reduce((s, r) => s + (r.fixed || 0), 0);
 
     const omsRow = compData ? compData.total.find(r => r.name === 'ОМС') : null;
     const madRow = compData ? compData.total.find(r => r.name === 'МАД') : null;
     const omsC = omsRow ? omsRow.count : 0;
     const madC = madRow ? madRow.count : 0;
 
-    _donut('ph-chart-reg-donut',  ['Муниципальные','Региональные'], [munRegSum, regSum], [C.municipal.bg, C.regional.bg], [C.municipal.border, C.regional.border]);
-    _donut('ph-chart-fix-donut',  ['Муниципальные','Региональные'], [munFixSum, regFixSum], [C.municipal.bg, C.regional.bg], [C.municipal.border, C.regional.border]);
-    _donut('ph-chart-comp-donut', ['ОМС','МАД'], [omsC, madC], [C.oms.bg, C.mad.bg], [C.oms.border, C.mad.border]);
+    _charts['donut-reg']  = PotholeCharts.donut('ph-chart-reg-donut',  [munRegSum, regSum],    ['Муниципальные', 'Региональные'], _charts['donut-reg']);
+    _charts['donut-fix']  = PotholeCharts.donut('ph-chart-fix-donut',  [munFixSum, regFixSum], ['Муниципальные', 'Региональные'], _charts['donut-fix']);
+    _charts['donut-comp'] = PotholeCharts.donut('ph-chart-comp-donut', [omsC, madC],           ['ОМС', 'МАД'],                   _charts['donut-comp']);
   }
 
-  function _donut(id, labels, data, bgColors, borderColors) {
-    if (_charts[id]) { _charts[id].destroy(); }
-    const ctx = document.getElementById(id);
-    if (!ctx) return;
-    _charts[id] = new Chart(ctx, {
-      type: 'doughnut',
-      data: {
-        labels,
-        datasets: [{ data, backgroundColor: bgColors, borderColor: borderColors, borderWidth: 2, hoverOffset: 8 }]
-      },
-      options: {
-        responsive: true, maintainAspectRatio: false,
-        cutout: '68%',
-        plugins: {
-          legend: { position: 'bottom', labels: { font: { family: 'Satoshi, sans-serif', size: 12 }, padding: 12, usePointStyle: true } },
-          tooltip: { callbacks: { label: ctx => ' ' + ctx.label + ': ' + ctx.parsed.toLocaleString('ru') } }
-        }
-      }
-    });
-  }
-
-  // ── Weekly bar ──────────────────────────────────────────────────────────────
+  // ── Weekly — делегируем в PotholeCharts ─────────────────────────────────────
   function _renderWeekly() {
     _buildMonthSelector();
   }
@@ -181,18 +143,16 @@ const PotholePage = (() => {
     const sel = document.getElementById('ph-week-month');
     if (!sel) return;
 
-    // Собираем все уникальные месяцы из истории
     const months = new Set();
-    ['regional','municipal','complaints'].forEach(t => {
+    ['regional', 'municipal', 'complaints'].forEach(t => {
       (_history[t] || []).forEach(r => {
-        const d = r.report_date ? r.report_date.slice(0,7) : null; // YYYY-MM
+        const d = r.report_date ? r.report_date.slice(0, 7) : null;
         if (d) months.add(d);
       });
     });
 
     const sorted = Array.from(months).sort().reverse();
     if (!sorted.length) {
-      // нет данных — пустой вариант
       sel.innerHTML = '<option value="">Нет данных</option>';
       return;
     }
@@ -200,7 +160,7 @@ const PotholePage = (() => {
     const prev = sel.value;
     sel.innerHTML = sorted.map(m => {
       const [y, mo] = m.split('-');
-      const name = new Date(+y, +mo - 1, 1).toLocaleDateString('ru', { month:'long', year:'numeric' });
+      const name = new Date(+y, +mo - 1, 1).toLocaleDateString('ru', { month: 'long', year: 'numeric' });
       return `<option value="${m}">${name}</option>`;
     }).join('');
 
@@ -214,60 +174,24 @@ const PotholePage = (() => {
   function _drawWeeklyChart(ym) {
     if (!ym) return;
     const [year, month] = ym.split('-').map(Number);
-
-    // Недели пн–вс в данном месяце
     const weeks = _getWeeksOfMonth(year, month);
 
-    // Собираем суммы по неделям
-    // registered = regional + municipal
-    // fixed      = regional + municipal
-    // complaints = жалобы за 7 дней (берём запись последней даты в каждой неделе)
-    const regWeeks  = weeks.map(w => _sumWeek(_history.regional,   'registered', w));
-    const munWeeks  = weeks.map(w => _sumWeek(_history.municipal,  'registered', w));
-    const fixRegW   = weeks.map(w => _sumWeek(_history.regional,   'fixed',      w));
-    const fixMunW   = weeks.map(w => _sumWeek(_history.municipal,  'fixed',      w));
-    const compWeeks = weeks.map(w => _sumCompWeek(_history.complaints, w));
+    // Формируем массив данных для PotholeCharts.weekly
+    const weekData = weeks.map((w, i) => ({
+      label:      'Нед.' + (i + 1) + ' (' + _fmtDate(w.from) + '–' + _fmtDate(w.to) + ')',
+      registered: _sumWeek(_history.regional,  'registered', w) + _sumWeek(_history.municipal, 'registered', w),
+      fixed:      _sumWeek(_history.regional,  'fixed',      w) + _sumWeek(_history.municipal, 'fixed',      w),
+      complaints: _sumCompWeek(_history.complaints, w),
+    }));
 
-    const labels = weeks.map((w, i) => 'Неделя ' + (i + 1) + '\n' + _fmtDate(w.from) + '–' + _fmtDate(w.to));
-    const regTotal  = weeks.map((_, i) => regWeeks[i] + munWeeks[i]);
-    const fixTotal  = weeks.map((_, i) => fixRegW[i] + fixMunW[i]);
-
-    if (_charts['ph-chart-weekly']) _charts['ph-chart-weekly'].destroy();
-    const ctx = document.getElementById('ph-chart-weekly');
-    if (!ctx) return;
-
-    _charts['ph-chart-weekly'] = new Chart(ctx, {
-      type: 'bar',
-      data: {
-        labels,
-        datasets: [
-          { label: 'Зарегистрировано ям', data: regTotal,  backgroundColor: C.reg.bg,  borderColor: C.reg.border,  borderWidth: 1.5, borderRadius: 4 },
-          { label: 'Устранено ям',        data: fixTotal,  backgroundColor: C.fix.bg,  borderColor: C.fix.border,  borderWidth: 1.5, borderRadius: 4 },
-          { label: 'Жалобы',              data: compWeeks, backgroundColor: C.comp.bg, borderColor: C.comp.border, borderWidth: 1.5, borderRadius: 4 },
-        ]
-      },
-      options: {
-        responsive: true, maintainAspectRatio: false,
-        plugins: {
-          legend: { position: 'bottom', labels: { font: { family: 'Satoshi, sans-serif', size: 12 }, padding: 14, usePointStyle: true } },
-          tooltip: { callbacks: { label: c => ' ' + c.dataset.label + ': ' + c.parsed.y.toLocaleString('ru') } }
-        },
-        scales: {
-          x: { grid: { display: false }, ticks: { font: { family: 'Satoshi, sans-serif', size: 11 } } },
-          y: { beginAtZero: true, ticks: { font: { family: 'Satoshi, sans-serif', size: 11 }, callback: v => v.toLocaleString('ru') } }
-        }
-      }
-    });
+    _charts['weekly'] = PotholeCharts.weekly('ph-chart-weekly', weekData, _charts['weekly']);
   }
 
-  // Генерируем список недель пн–вс для месяца
+  // Недели пн–вс для данного месяца
   function _getWeeksOfMonth(year, month) {
     const weeks = [];
-    // первый пн месяца или раньше
     let d = new Date(year, month - 1, 1);
-    // сдвигаемся назад до понедельника
     while (d.getDay() !== 1) d = new Date(d.getTime() - 86400000);
-    // собираем недели пока начало <= конец месяца
     const monthEnd = new Date(year, month, 0);
     while (d <= monthEnd) {
       const from = new Date(d);
@@ -278,18 +202,14 @@ const PotholePage = (() => {
     return weeks;
   }
 
-  // Сумма registered/fixed для отчётов в диапазоне недели
   function _sumWeek(history, field, week) {
     if (!history) return 0;
-    // Берём все отчёты с report_date в диапазоне [from..to]
     const reports = history.filter(r => r.report_date >= week.from && r.report_date <= week.to);
     if (!reports.length) return 0;
-    // Последний отчёт недели
     const last = reports[reports.length - 1];
     return (last.data_json || []).reduce((s, r) => s + (r[field] || 0), 0);
   }
 
-  // Жалобы — берём «Свод за 7 дней» → «Общий итог» строки
   function _sumCompWeek(history, week) {
     if (!history) return 0;
     const reports = history.filter(r => r.report_date >= week.from && r.report_date <= week.to);
@@ -314,7 +234,6 @@ const PotholePage = (() => {
       return;
     }
 
-    // Группируем по типу
     const groups = {
       complaints: { label: 'Жалобы',               items: [] },
       regional:   { label: 'Региональный ремонт',  items: [] },
@@ -387,7 +306,7 @@ const PotholePage = (() => {
     const col = type === 'regional' ? 'РУАД' : 'МО';
     return `<div class="data-table-wrap"><table class="data-table">
       <thead><tr><th>${col}</th><th>Регистрация за 7 дней</th><th>Устранено за 7 дней</th></tr></thead>
-      <tbody>${rows.map(r => `<tr><td>${r.name}</td><td>${r.registered.toLocaleString('ru')}</td><td>${r.fixed.toLocaleString('ru')}</td></tr>`).join('')}</tbody>
+      <tbody>${rows.map(r => `<tr><td>${r.name}</td><td>${(r.registered||0).toLocaleString('ru')}</td><td>${(r.fixed||0).toLocaleString('ru')}</td></tr>`).join('')}</tbody>
     </table></div>`;
   }
 
@@ -395,18 +314,16 @@ const PotholePage = (() => {
     if (!d) return '<p style="padding:var(--space-4);color:var(--color-text-muted)">Нет данных</p>';
     let html = '<div style="padding:var(--space-4)">';
 
-    // Свод общий
     html += '<h4 style="margin-bottom:var(--space-3);font-weight:700">Свод общий</h4>';
     html += `<div class="data-table-wrap"><table class="data-table">
       <thead><tr><th>Исполнитель</th><th>Тип</th><th>Количество жалоб</th></tr></thead>
-      <tbody>${(d.total||[]).map(r => `<tr><td>${r.name}</td><td><span class="ph-report-badge ${r.type}">${r.type==='oms'?'ОМС':'МАД'}</span></td><td>${r.count.toLocaleString('ru')}</td></tr>`).join('')}</tbody>
+      <tbody>${(d.total || []).map(r => `<tr><td>${r.name}</td><td><span class="ph-report-badge ${r.type}">${r.type === 'oms' ? 'ОМС' : 'МАД'}</span></td><td>${(r.count||0).toLocaleString('ru')}</td></tr>`).join('')}</tbody>
     </table></div>`;
 
-    // Свод за 7 дней
     html += '<h4 style="margin:var(--space-5) 0 var(--space-3);font-weight:700">Свод за 7 дней</h4>';
     html += `<div class="data-table-wrap"><table class="data-table">
       <thead><tr><th>Исполнитель</th><th>Тип</th><th>Количество жалоб</th></tr></thead>
-      <tbody>${(d.week||[]).map(r => `<tr><td>${r.name}</td><td><span class="ph-report-badge ${r.type}">${r.type==='oms'?'ОМС':'МАД'}</span></td><td>${r.count.toLocaleString('ru')}</td></tr>`).join('')}</tbody>
+      <tbody>${(d.week || []).map(r => `<tr><td>${r.name}</td><td><span class="ph-report-badge ${r.type}">${r.type === 'oms' ? 'ОМС' : 'МАД'}</span></td><td>${(r.count||0).toLocaleString('ru')}</td></tr>`).join('')}</tbody>
     </table></div>`;
 
     html += '</div>';
@@ -424,9 +341,8 @@ const PotholePage = (() => {
   }
 
   function _openUploadModal() {
-    // сброс
     document.querySelectorAll('.upload-type-btn').forEach(b => b.classList.remove('selected'));
-    document.getElementById('upload-date').value = new Date().toISOString().slice(0,10);
+    document.getElementById('upload-date').value = new Date().toISOString().slice(0, 10);
     document.getElementById('upload-file-input').value = '';
     document.getElementById('upload-file-name').textContent = '';
     document.getElementById('upload-file-name').classList.remove('visible');
@@ -438,7 +354,6 @@ const PotholePage = (() => {
   let _uploadState = { type: null, file: null };
 
   function _bindUploadModal() {
-    // тип отчёта
     document.querySelectorAll('.upload-type-btn').forEach(btn => {
       btn.addEventListener('click', () => {
         document.querySelectorAll('.upload-type-btn').forEach(b => b.classList.remove('selected'));
@@ -448,7 +363,6 @@ const PotholePage = (() => {
       });
     });
 
-    // drag & drop
     const zone  = document.getElementById('upload-drop-zone');
     const input = document.getElementById('upload-file-input');
 
@@ -465,8 +379,10 @@ const PotholePage = (() => {
       if (input.files[0]) _setUploadFile(input.files[0]);
     });
 
-    // submit
     document.getElementById('upload-submit-btn').addEventListener('click', _doUpload);
+
+    const dateInput = document.getElementById('upload-date');
+    if (dateInput) dateInput.addEventListener('input', _checkUploadReady);
   }
 
   function _setUploadFile(f) {
@@ -481,11 +397,6 @@ const PotholePage = (() => {
     const ok = _uploadState.type && _uploadState.file && document.getElementById('upload-date').value;
     document.getElementById('upload-submit-btn').disabled = !ok;
   }
-
-  document.addEventListener('DOMContentLoaded', () => {
-    const dateInput = document.getElementById('upload-date');
-    if (dateInput) dateInput.addEventListener('input', _checkUploadReady);
-  });
 
   async function _doUpload() {
     const { type, file } = _uploadState;
@@ -502,10 +413,10 @@ const PotholePage = (() => {
     fd.append('file', file);
 
     try {
-      const res = await fetch('/api/pothole/upload', { method: 'POST', body: fd });
-      const json = await res.json();
-      if (!res.ok) throw new Error(json.error || 'Ошибка сервера');
-      _toast('Отчёт загружен: ' + json.rows + ' строк', 'success');
+      const res  = await fetch('/api/pothole/upload', { method: 'POST', body: fd });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Ошибка сервера');
+      _toast('Отчёт загружен: ' + data.rows + ' строк', 'success');
       closeModal('upload-modal');
       await _reload();
     } catch (e) {
@@ -521,29 +432,29 @@ const PotholePage = (() => {
   // ════════════════════════════════════════════════════════════════════════════
   function _fmtDate(iso) {
     if (!iso) return '';
-    const d = iso.slice(0,10).split('-');
+    const d = iso.slice(0, 10).split('-');
     return d[2] + '.' + d[1] + '.' + d[0];
   }
   function _fmtDatetime(iso) {
     if (!iso) return '';
-    return _fmtDate(iso) + ' ' + iso.slice(11,16);
+    return _fmtDate(iso) + ' ' + iso.slice(11, 16);
   }
   function _toISO(d) {
     return d.getFullYear() + '-'
-      + String(d.getMonth()+1).padStart(2,'0') + '-'
-      + String(d.getDate()).padStart(2,'0');
+      + String(d.getMonth() + 1).padStart(2, '0') + '-'
+      + String(d.getDate()).padStart(2, '0');
   }
   function _typeName(t) {
-    return { complaints:'Жалобы', regional:'Региональный ремонт', municipal:'Муниципальный ремонт' }[t] || t;
+    return { complaints: 'Жалобы', regional: 'Региональный ремонт', municipal: 'Муниципальный ремонт' }[t] || t;
   }
   function _shortType(t) {
-    return { complaints:'Жалобы', regional:'Рег.', municipal:'Мун.' }[t] || t;
+    return { complaints: 'Жалобы', regional: 'Рег.', municipal: 'Мун.' }[t] || t;
   }
   function _toast(msg, type) {
     const c = document.getElementById('toast-container');
     if (!c) return;
     const t = document.createElement('div');
-    t.className = 'toast toast-' + (type||'info');
+    t.className = 'toast toast-' + (type || 'info');
     t.textContent = msg;
     c.appendChild(t);
     setTimeout(() => t.remove(), 4000);
