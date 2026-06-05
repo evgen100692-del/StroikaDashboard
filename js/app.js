@@ -41,7 +41,6 @@
       current = dashboard;
       closeDropdown();
 
-      // Обновить активный пункт dropdown
       dropdown.querySelectorAll('.switcher-option').forEach(o => {
         o.classList.toggle('active', o.dataset.dashboard === dashboard);
       });
@@ -62,7 +61,6 @@
     function init() {
       if (!btn || !dropdown) return;
 
-      // Скрыть дропдаун сразу
       dropdown.style.display = 'none';
 
       btn.addEventListener('click', e => {
@@ -74,14 +72,12 @@
         opt.addEventListener('click', () => switchTo(opt.dataset.dashboard));
       });
 
-      // Закрыть по клику вне
       document.addEventListener('click', e => {
         if (!btn.contains(e.target) && !dropdown.contains(e.target)) {
           closeDropdown();
         }
       });
 
-      // Escape закрывает дропдаун
       document.addEventListener('keydown', e => {
         if (e.key === 'Escape') closeDropdown();
       });
@@ -124,7 +120,6 @@
       sidebar.classList.toggle('collapsed');
     });
 
-    // Мобильное меню
     const mobileBtn = document.getElementById('mobile-menu-btn');
     if (mobileBtn) {
       mobileBtn.addEventListener('click', () => {
@@ -134,13 +129,17 @@
   }
 
   /* ================================================================
-     5. РЕГИСТРАЦИЯ МОДУЛЕЙ В ROUTER
+     5. РЕГИСТРАЦИЯ СТРАНИЦ В ROUTER
+     ВАЖНО: registerPages() регистрирует render — ПОЛНЫЙ рендер
+     (заполнить фильтры + отрисовать данные), а не только refresh.
+     Это исправляет баг пустых select при первой загрузке.
   ================================================================ */
   function registerPages() {
     // Строительство
-    Router.register('dashboard',    () => typeof DashboardPage   !== 'undefined' && DashboardPage.refresh?.());
-    Router.register('contracts',    () => typeof ContractsPage   !== 'undefined' && ContractsPage.refresh?.());
-    Router.register('contractors',  () => typeof ContractorsPage !== 'undefined' && ContractorsPage.refresh?.());
+    // render() = populateFilters() + applyFilters() — нужен при каждом входе на страницу
+    Router.register('dashboard',   () => typeof DashboardPage   !== 'undefined' && DashboardPage.render?.());
+    Router.register('contracts',   () => typeof ContractsPage   !== 'undefined' && ContractsPage.refresh?.());
+    Router.register('contractors', () => typeof ContractorsPage !== 'undefined' && ContractorsPage.refresh?.());
 
     // Ямочный ремонт
     Router.register('pothole-dashboard', () => typeof PotholePage !== 'undefined' && PotholePage.refresh?.());
@@ -148,7 +147,10 @@
   }
 
   /* ================================================================
-     6. ИНИЦИАЛИЗАЦИЯ МОДУЛЕЙ ПО СТРАНИЦАМ
+     6. ИНИЦИАЛИЗАЦИЯ МОДУЛЕЙ
+     init() вызывается ПОСЛЕ AppData.load() — данные уже в памяти.
+     DashboardPage.init() привязывает слушатели фильтров (один раз).
+     Router.register() из модулей УДАЛЁН — регистрация только здесь.
   ================================================================ */
   function initModules() {
     if (typeof DashboardPage   !== 'undefined') DashboardPage.init?.();
@@ -164,10 +166,7 @@
     // Тема
     Theme.init();
 
-    // ── ИСПРАВЛЕНИЕ: загружаем данные ПЕРВЫМИ ──────────────────────
-    // AppData.load() тянет контракты с /api/contracts.
-    // Если БД пустая — внутри load() сработает seedDemo() и заполнит
-    // базу демо-данными. Без этого вызова дашборд всегда пустой.
+    // 1. Загружаем данные ПЕРВЫМИ — всё остальное зависит от этого
     if (typeof AppData !== 'undefined') {
       try {
         await AppData.load();
@@ -176,38 +175,22 @@
       }
     }
 
-    // Модули (init после загрузки данных)
+    // 2. Инициализируем модули (привязка слушателей фильтров и т.д.)
     initModules();
 
-    // ── ИСПРАВЛЕНИЕ: привязываем фильтры и кнопку «+ Добавить» ────
-    // DashboardPage.bindFilters() вешает слушатели на select'ы
-    // и на кнопку добавления контракта. Без этого кнопка мёртвая.
-    if (typeof DashboardPage !== 'undefined') {
-      DashboardPage.bindFilters?.();
-    }
-
-    // Router
+    // 3. Регистрируем страницы в Router
     registerPages();
 
-    // Навигация
+    // 4. Остальная инициализация UI
     initNavigation();
-
-    // Свитчер дашбордов
     DashboardSwitcher.init();
-
-    // Модальный фон
     initModalBackdrop();
-
-    // Сайдбар
     initSidebar();
-
-    // Анимация карточек при появлении
     observeCards();
 
-    // Первая страница: дашборд строительства
+    // 5. Открываем первую страницу — данные уже загружены, Router уже знает render
     Router.navigate('dashboard');
   });
 
-  // Экспорт для отладки
   window.DashboardSwitcher = DashboardSwitcher;
 })();
