@@ -87,7 +87,10 @@ const AppData = (() => {
       const res = await fetch(`${API}/${id}`, { method: 'DELETE' });
       if (!res.ok) throw new Error('Ошибка удаления: ' + res.status);
     } else {
+      // FIX: фильтруем массив ДО сохранения, иначе удалённая запись попадает в localStorage
+      state.contracts = state.contracts.filter(c => c.id !== id);
       saveLocal();
+      return;
     }
     state.contracts = state.contracts.filter(c => c.id !== id);
   }

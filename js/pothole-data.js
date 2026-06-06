@@ -106,8 +106,8 @@ const PotholeData = (() => {
   }
 
   // ─ Данные для графика динамики по неделям ──────────────────
-  // Возвращает массив { week, registered, fixed, complaints }
-  // week = "Н1", "Н2", ... (пон-вск)
+  // Возвращает массив { label, registered, fixed, complaints }
+  // label = "Н1", "Н2", ... (пн-вс)
   async function getWeeklyData(year, month) {
     const [regHistory, munHistory, compHistory] = await Promise.all([
       loadHistory('regional'),
@@ -127,7 +127,7 @@ const PotholeData = (() => {
     function weekNum(dateStr) {
       const d = new Date(dateStr);
       const firstDay = new Date(d.getFullYear(), d.getMonth(), 1);
-      // Сдвиг до понедельник
+      // Сдвиг до понедельника
       const firstMon = new Date(firstDay);
       const dow = (firstDay.getDay() + 6) % 7; // 0=Пн
       firstMon.setDate(firstDay.getDate() - dow);
@@ -135,14 +135,13 @@ const PotholeData = (() => {
       return Math.floor(diff / 7) + 1;
     }
 
-    // Группируем по неделе: берём MAX-значение недели (дата внутри недели = последний загруженный)
+    // Группируем по неделе: берём последнее загруженное значение в пределах недели
     function groupByWeek(arr, valueGetter) {
       const weeks = {};
       for (const r of arr) {
         const wn = weekNum(r.report_date);
-        if (!weeks[wn]) weeks[wn] = { total: 0, count: 0, lastDate: r.report_date };
+        if (!weeks[wn]) weeks[wn] = { total: 0, lastDate: r.report_date };
         const val = valueGetter(r);
-        // Берём последнее значение в неделе
         if (r.report_date >= weeks[wn].lastDate) {
           weeks[wn].lastDate = r.report_date;
           weeks[wn].total = val;
@@ -155,31 +154,37 @@ const PotholeData = (() => {
     const munFiltered  = filterMonth(munHistory);
     const compFiltered = filterMonth(compHistory);
 
-    const getRegReg  = r => r.data_json.reduce((s, x) => s + (x.registered || 0), 0);
-    const getMunReg  = r => r.data_json.reduce((s, x) => s + (x.registered || 0), 0);
-    const getCompAll = r => {
+    // Геттеры значений из записи истории
+    const getRegReg   = r => r.data_json.reduce((s, x) => s + (x.registered || 0), 0);
+    const getRegFixed = r => r.data_json.reduce((s, x) => s + (x.fixed      || 0), 0);
+    const getMunReg   = r => r.data_json.reduce((s, x) => s + (x.registered || 0), 0);
+    const getMunFixed = r => r.data_json.reduce((s, x) => s + (x.fixed      || 0), 0);
+    const getCompAll  = r => {
       const d = r.data_json;
       return (d.week || []).reduce((s, x) => s + (x.count || 0), 0);
     };
 
-    const regByWeek  = groupByWeek(regFiltered,  getRegReg);
-    const munByWeek  = groupByWeek(munFiltered,  getMunReg);
-    const compByWeek = groupByWeek(compFiltered, getCompAll);
+    const regRegByWeek   = groupByWeek(regFiltered,  getRegReg);
+    const regFixByWeek   = groupByWeek(regFiltered,  getRegFixed);
+    const munRegByWeek   = groupByWeek(munFiltered,  getMunReg);
+    const munFixByWeek   = groupByWeek(munFiltered,  getMunFixed);
+    const compByWeek     = groupByWeek(compFiltered, getCompAll);
 
     // Определяем количество недель в месяце
     const allWeeks = new Set([
-      ...Object.keys(regByWeek),
-      ...Object.keys(munByWeek),
+      ...Object.keys(regRegByWeek),
+      ...Object.keys(munRegByWeek),
       ...Object.keys(compByWeek),
     ].map(Number));
     const maxWeek = allWeeks.size ? Math.max(...allWeeks) : 4;
     const weeks   = Array.from({ length: maxWeek }, (_, i) => i + 1);
 
     return weeks.map(wn => ({
-      label:       `Н${wn}`,
-      registered:  (regByWeek[wn]?.total  || 0) + (munByWeek[wn]?.total || 0),
-      fixed:       0, // добавим устранённые ниже
-      complaints:  compByWeek[wn]?.total  || 0,
+      label:      `Н${wn}`,
+      // FIX: суммируем зарегистрированные и устранённые по региональным + муниципальным
+      registered: (regRegByWeek[wn]?.total || 0) + (munRegByWeek[wn]?.total || 0),
+      fixed:      (regFixByWeek[wn]?.total || 0) + (munFixByWeek[wn]?.total || 0),
+      complaints: compByWeek[wn]?.total || 0,
     }));
   }
 

@@ -46,7 +46,9 @@ const Toast = (() => {
     const el = document.createElement('div');
     el.className = `toast toast-${type}`;
     const icons = { success: '✓', error: '✕', info: 'ℹ' };
-    el.innerHTML = `<span style="font-weight:700;color:var(--color-${type === 'info' ? 'info' : type})">${icons[type]||'•'}</span><span>${message}</span>`;
+    // FIX: --color-info не определена в CSS; для info используем --color-primary
+    const colorVar = type === 'info' ? 'primary' : type;
+    el.innerHTML = `<span style="font-weight:700;color:var(--color-${colorVar})">${icons[type]||'•'}</span><span>${message}</span>`;
     getContainer().appendChild(el);
     setTimeout(() => {
       el.classList.add('hiding');
@@ -177,6 +179,9 @@ function confirmDialog(message, onConfirm) {
 }
 
 // ---- IntersectionObserver for card entry animations ----
+// NOTE: не используется — observeCards() была отключена, т.к. IntersectionObserver
+// ставил opacity:0 на карточки пока страницы были display:none.
+// Оставлена для справки; анимация карточек реализована через CSS transition в layout.css.
 function observeCards() {
   if (!('IntersectionObserver' in window)) return;
   const io = new IntersectionObserver((entries) => {
