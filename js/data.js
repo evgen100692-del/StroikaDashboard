@@ -329,8 +329,18 @@ const AppData = (() => {
         plannedIntroDate: '2026-07-01', plannedOpenDate: '2026-07-15', contractEndDate: '2026-08-01',
       },
     ];
+    if (isServerMode()) {
+    await fetch('/api/contracts/seed', {
+      method:  'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body:    JSON.stringify(demo),
+    });
+    const res = await fetch(API);
+    state = await res.json();
+  } else {
     for (const d of demo) await addContract(d);
   }
+}
 
   // ── Init ──────────────────────────────────────────────────────────
   // load() вызывается снаружи — после DOMContentLoaded

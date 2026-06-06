@@ -116,10 +116,10 @@ function dbRun(sql, params = []) {
 }
 
 // Получить lastInsertRowid
-function dbInsert(sql, params = []) {
+function dbInsert(sql, params = [], skipSave = false) {
   db.run(sql, params);
   const row = dbGet('SELECT last_insert_rowid() as id');
-  saveDb();
+  if (!skipSave) saveDb();
   return row ? row.id : null;
 }
 
@@ -291,18 +291,21 @@ const server = http.createServer(async (req, res) => {
     return;
   }
 
-  if (url === '/api/contracts' && req.method === 'POST') {
-    const body  = await readBodyJSON(req);
-    const cols  = Object.keys(body);
-    const vals  = Object.values(body);
-    const newId = dbInsert(
-      `INSERT INTO contracts (${cols.join(',')}) VALUES (${cols.map(() => '?').join(',')})`,
-      vals
-    );
-    const row = dbGet('SELECT * FROM contracts WHERE id = ?', [newId]);
-    json(res, 201, row);
-    return;
-  }
+    if (url === '/api/contracts' && req.method === 'POST') {
+      const body  = await readBodyJSON(req);
+      const cols  = Object.keys(body);
+      const vals  = Object.values(body);
+      const isSeed = body._seed === true;   // флаг из seedDemo
+      const newId = dbInsert(
+        `INSERT INTO contracts (${cols.join(',')}) VALUES (${cols.map(() => '?').join(',')})`,
+        vals,
+        isSeed  // skipSave=true при seed — не пишем файл на каждую запись
+      );
+      if (isSeed) saveDb();  // сохраняем один раз после каждой seed-записи... 
+      const row = dbGet('SELECT * FROM contracts WHERE id = ?', [newId]);
+      json(res, 201, row);
+      return;
+    }
 
   const editMatch = url.match(/^\/api\/contracts\/(\d+)$/);
   if (editMatch) {
@@ -419,6 +422,28 @@ const server = http.createServer(async (req, res) => {
       console.error('[upload] Ошибка:', e);
       json(res, 500, { error: 'Ошибка обработки файла: ' + e.message });
     }
+    return;
+  }
+
+  if (url === '/api/contracts/seed' && req.method === 'POST') {
+    const contracts = await readBodyJSON(req);
+    db.run('BEGIN TRANSACTION');
+    try {
+      for (const body of contracts) {
+        const cols = Object.keys(body);
+        const vals = Object.values(body);
+        db.run(
+          `INSERT INTO contracts (${cols.join(',')}) VALUES (${cols.map(() => '?').join(',')})`,
+          vals
+        );
+      }
+      db.run('COMMIT');
+      saveDb();  // ← одна запись на диск вместо шести
+    } catch(e) {
+      db.run('ROLLBACK');
+      json(res, 500, { error: e.message }); return;
+    }
+    json(res, 200, { ok: true, count: contracts.length });
     return;
   }
 
