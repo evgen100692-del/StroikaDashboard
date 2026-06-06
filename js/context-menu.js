@@ -1,6 +1,10 @@
 const ContextMenu = (() => {
   let menuEl = null, currentId = null, currentRow = null;
 
+  // Именованные ссылки — нужны для removeEventListener в destroy()
+  const _onKeydown    = e => { if (e.key === 'Escape') hideMenu(); };
+  const _onCtxOutside = e => { if (!e.target.closest('tr[data-ctx]')) hideMenu(); };
+
   function ensureMenu() {
     if (menuEl) return;
     menuEl = document.createElement('div');
@@ -8,13 +12,11 @@ const ContextMenu = (() => {
     menuEl.setAttribute('role', 'menu');
     document.body.appendChild(menuEl);
 
-    document.addEventListener('click', hideMenu);
-    document.addEventListener('keydown', e => { if (e.key === 'Escape') hideMenu(); });
-    document.addEventListener('contextmenu', e => {
-      if (!e.target.closest('tr[data-ctx]')) hideMenu();
-    });
-    window.addEventListener('scroll', hideMenu, true);
-    window.addEventListener('resize', hideMenu);
+    document.addEventListener('click',       hideMenu);
+    document.addEventListener('keydown',     _onKeydown);
+    document.addEventListener('contextmenu', _onCtxOutside);
+    window.addEventListener('scroll',        hideMenu, true);
+    window.addEventListener('resize',        hideMenu);
   }
 
   function hideMenu() {
@@ -67,5 +69,16 @@ const ContextMenu = (() => {
     });
   }
 
-  return { bind, hide: hideMenu };
+  function destroy() {
+    hideMenu();
+    document.removeEventListener('click',       hideMenu);
+    document.removeEventListener('keydown',     _onKeydown);
+    document.removeEventListener('contextmenu', _onCtxOutside);
+    window.removeEventListener('scroll',        hideMenu, true);
+    window.removeEventListener('resize',        hideMenu);
+    menuEl?.remove();
+    menuEl = null;
+  }
+
+  return { bind, hide: hideMenu, destroy };
 })();
