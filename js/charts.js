@@ -5,21 +5,6 @@
 const ChartsManager = (() => {
   const instances = {};
 
-  function getCSSVar(name) {
-    return getComputedStyle(document.documentElement).getPropertyValue(name).trim();
-  }
-
-  function chartColors() {
-    return [
-      getCSSVar('--chart-1'),
-      getCSSVar('--chart-2'),
-      getCSSVar('--chart-3'),
-      getCSSVar('--chart-4'),
-      getCSSVar('--chart-5'),
-      getCSSVar('--chart-6'),
-    ];
-  }
-
   function textColor()   { return getCSSVar('--color-text-muted'); }
   function gridColor()   { return getCSSVar('--color-divider'); }
   function bgColor()     { return getCSSVar('--color-surface-2'); }
@@ -69,7 +54,7 @@ const ChartsManager = (() => {
     if (!ctx) return;
 
     const years = [2026, 2027, 2028, 2029];
-    const colors = chartColors();
+    const colors = chartPalette();
 
     const data = {
       labels: years.map(y => String(y)),
@@ -117,7 +102,7 @@ const ChartsManager = (() => {
     const unpaid  = Math.max(0, total - paid - analytics.remainder);
     const remainder = analytics.remainder;
 
-    const colors = chartColors();
+    const colors = chartPalette();
     const data = {
       labels: ['Оплачено', 'Не оплачено', 'Остаток'],
       datasets: [{
@@ -174,7 +159,7 @@ const ChartsManager = (() => {
 
     // Top 8 objects by readiness
     const sorted = [...filtered].sort((a, b) => AppData.num(b.readinessPct) - AppData.num(a.readinessPct)).slice(0, 8);
-    const colors = chartColors();
+    const colors = chartPalette();
 
     const data = {
       labels: sorted.map(c => c.objectName.length > 32 ? c.objectName.slice(0, 32) + '…' : c.objectName),
@@ -228,7 +213,7 @@ const ChartsManager = (() => {
       .sort((a,b) => b[1] - a[1])
       .slice(0, 6);
 
-    const colors = chartColors();
+    const colors = chartPalette();
     const data = {
       labels: entries.map(e => e[0].length > 22 ? e[0].slice(0,22)+'…' : e[0]),
       datasets: [{

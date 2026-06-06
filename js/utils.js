@@ -201,3 +201,23 @@ function observeCards() {
     io.observe(el);
   });
 }
+
+// ---- Shared chart helpers ----
+// Единственный источник истины для CSS-переменных и палитры графиков.
+// charts.js и charts-pothole.js должны использовать эти функции,
+// а не объявлять свои локальные копии.
+
+function getCSSVar(name) {
+  return getComputedStyle(document.documentElement).getPropertyValue(name).trim();
+}
+
+function chartPalette() {
+  return [
+    getCSSVar('--chart-1')  || getCSSVar('--color-primary') || '#01696f',
+    getCSSVar('--chart-2')  || getCSSVar('--color-orange')  || '#da7101',
+    getCSSVar('--chart-3')  || getCSSVar('--color-blue')    || '#006494',
+    getCSSVar('--chart-4')  || getCSSVar('--color-success') || '#437a22',
+    getCSSVar('--chart-5')  || getCSSVar('--color-purple')  || '#7a39bb',
+    getCSSVar('--chart-6')  || getCSSVar('--color-gold')    || '#d19900',
+  ];
+}

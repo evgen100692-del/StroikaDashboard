@@ -5,28 +5,10 @@
 
 const PotholeCharts = (() => {
 
-  // Общие настройки шрифтов
-  const fontFamily = "'Satoshi', 'Inter', sans-serif";
-
-  function getCssVar(name) {
-    return getComputedStyle(document.documentElement).getPropertyValue(name).trim();
-  }
-
-  function palette() {
-    return [
-      getCssVar('--color-primary')   || '#01696f',
-      getCssVar('--color-orange')    || '#da7101',
-      getCssVar('--color-blue')      || '#006494',
-      getCssVar('--color-success')   || '#437a22',
-      getCssVar('--color-purple')    || '#7a39bb',
-      getCssVar('--color-gold')      || '#d19900',
-    ];
-  }
-
-  function textColor()   { return getCssVar('--color-text')        || '#28251d'; }
-  function mutedColor()  { return getCssVar('--color-text-muted')   || '#7a7974'; }
-  function borderColor() { return getCssVar('--color-border')       || '#d4d1ca'; }
-  function bgColor()     { return getCssVar('--color-surface')      || '#f9f8f5'; }
+  function textColor()   { return getCSSVar('--color-text')        || '#28251d'; }
+  function mutedColor()  { return getCSSVar('--color-text-muted')   || '#7a7974'; }
+  function borderColor() { return getCSSVar('--color-border')       || '#d4d1ca'; }
+  function bgColor()     { return getCSSVar('--color-surface')      || '#f9f8f5'; }
 
   // ── Пончик ───────────────────────────────────────────────────────────
 function donut(canvasId, data, labels, existingChart) {
@@ -35,7 +17,7 @@ function donut(canvasId, data, labels, existingChart) {
 
     if (existingChart) existingChart.destroy();
 
-    const colors = palette();
+    const colors = chartPalette();
     const total  = data.reduce((s, v) => s + v, 0);
 
     return new Chart(canvas, {
@@ -60,7 +42,7 @@ function donut(canvasId, data, labels, existingChart) {
             position: 'bottom',
             labels: {
               color:       textColor(),
-              font:        { family: fontFamily, size: 12 },
+              font:        { family: getCSSVar('--font-body') || "'Satoshi', 'Inter', sans-serif", size: 12 },
               padding:     12,
               boxWidth:    12,
               boxHeight:   12,
@@ -83,7 +65,7 @@ function donut(canvasId, data, labels, existingChart) {
             },
           },
           // Центральный текст
-          doughnutCenterText: { total, textColor: textColor(), mutedColor: mutedColor(), fontFamily },
+          doughnutCenterText: { total, textColor: textColor(), mutedColor: mutedColor(), fontFamily: getCSSVar('--font-body') || "'Satoshi', 'Inter', sans-serif" },
         },
       },
       plugins: [{
@@ -116,7 +98,7 @@ function donut(canvasId, data, labels, existingChart) {
 
     if (existingChart) existingChart.destroy();
 
-    const col = palette();
+    const col = chartPalette();
     const labels = data.map(d => d.label);
 
     return new Chart(canvas, {
@@ -157,14 +139,14 @@ function donut(canvasId, data, labels, existingChart) {
         scales: {
           x: {
             grid:  { color: borderColor() + '55' },
-            ticks: { color: mutedColor(), font: { family: fontFamily, size: 12 } },
+            font: { family: getCSSVar('--font-body') || "'Satoshi', 'Inter', sans-serif", size: 12 },
           },
           y: {
             beginAtZero: true,
             grid:  { color: borderColor() + '55' },
             ticks: {
               color: mutedColor(),
-              font:  { family: fontFamily, size: 12 },
+              font: { family: getCSSVar('--font-body') || "'Satoshi', 'Inter', sans-serif", size: 12 },
               callback: v => v.toLocaleString('ru-RU'),
             },
           },
@@ -173,7 +155,7 @@ function donut(canvasId, data, labels, existingChart) {
           legend: {
             position: 'top',
             align:    'start',
-            labels:   { color: textColor(), font: { family: fontFamily, size: 12 }, padding: 16, boxWidth: 12, boxHeight: 12 },
+            font: { family: getCSSVar('--font-body') || "'Satoshi', 'Inter', sans-serif", size: 12 },
           },
           tooltip: {
             backgroundColor: bgColor(),

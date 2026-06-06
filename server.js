@@ -207,32 +207,8 @@ function parseMultipart(buffer, boundary) {
 function parseExcel(buffer, reportType) {
   const workbook = XLSX.read(buffer, { type: 'buffer', cellDates: false });
 
-  if (reportType === 'regional') {
-    const sheet = workbook.Sheets[workbook.SheetNames[0]];
-    const rows  = XLSX.utils.sheet_to_json(sheet, { header: 1, defval: null });
-    const result = [];
-    for (let i = 4; i < rows.length; i++) {
-      const row  = rows[i];
-      if (!row || row.length < 2) continue;
-      const name = String(row[1] || '').trim();
-      if (!name) continue;
-      result.push({ name, registered: toNum(row[4]), fixed: toNum(row[9]) });
-    }
-    return result;
-  }
-
-  if (reportType === 'municipal') {
-    const sheet = workbook.Sheets[workbook.SheetNames[0]];
-    const rows  = XLSX.utils.sheet_to_json(sheet, { header: 1, defval: null });
-    const result = [];
-    for (let i = 4; i < rows.length; i++) {
-      const row  = rows[i];
-      if (!row || row.length < 2) continue;
-      const name = String(row[1] || '').trim();
-      if (!name) continue;
-      result.push({ name, registered: toNum(row[4]), fixed: toNum(row[9]) });
-    }
-    return result;
+  if (reportType === 'regional' || reportType === 'municipal') {
+    return _parseRegMunSheet(workbook.Sheets[workbook.SheetNames[0]]);
   }
 
   if (reportType === 'complaints') {
@@ -278,6 +254,20 @@ function parseExcel(buffer, reportType) {
   }
 
   return {};
+}
+
+// Вынесенный парсер для regional и municipal — структура листов одинакова
+function _parseRegMunSheet(sheet) {
+  const rows   = XLSX.utils.sheet_to_json(sheet, { header: 1, defval: null });
+  const result = [];
+  for (let i = 4; i < rows.length; i++) {
+    const row  = rows[i];
+    if (!row || row.length < 2) continue;
+    const name = String(row[1] || '').trim();
+    if (!name) continue;
+    result.push({ name, registered: toNum(row[4]), fixed: toNum(row[9]) });
+  }
+  return result;
 }
 
 function toNum(v) {
