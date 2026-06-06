@@ -4,9 +4,20 @@
  */
 
 const ContractsPage = (() => {
-  let editingId = null;
-  let sortCol = 'objectName', sortDir = 1;
+  let editingId  = null;
+  let sortCol    = 'objectName', sortDir = 1;
   let tableFilters = { search: '', contractor: '', source: '' };
+  let _ctxBound  = false;
+
+  // FIX: единственный источник истины для полей формы
+  const FORM_FIELDS = [
+    'objectName','financingSource','contractor','contractNum','contractDate',
+    'priceGK','advanceGK','advancePaid','unworkedAdvance','paidTotal','completed',
+    'completed2025','paid2025','limit2026was','limit2026cur','completed2026','paid2026',
+    'limit2027was','limit2027cur','limit2028was','limit2028cur','limit2029was','limit2029cur',
+    'remainder','readinessPct','workers','equipment','moge','dptStatus',
+    'landWithdrawalPct','plannedIntroDate','plannedOpenDate','contractEndDate'
+  ];
 
   const CTX_ITEMS = [
     {
@@ -23,15 +34,19 @@ const ContractsPage = (() => {
   ];
 
   function init() {
-    // НЕ регистрируем Router — это делает app.js
     bindModal();
     bindTableFilters();
-    setTimeout(() => {
-      ContextMenu.bind(document.getElementById('contracts-tbody'), CTX_ITEMS);
-    }, 200);
   }
 
   function render() {
+    // FIX: ContextMenu привязывается здесь — tbody гарантированно существует
+    if (!_ctxBound) {
+      const tbody = document.getElementById('contracts-tbody');
+      if (tbody) {
+        ContextMenu.bind(tbody, CTX_ITEMS);
+        _ctxBound = true;
+      }
+    }
     renderTable();
     populateTableFilters();
   }
@@ -135,15 +150,7 @@ const ContractsPage = (() => {
   }
 
   function fillForm(c) {
-    const fields = [
-      'objectName','financingSource','contractor','contractNum','contractDate',
-      'priceGK','advanceGK','advancePaid','unworkedAdvance','paidTotal','completed',
-      'completed2025','paid2025','limit2026was','limit2026cur','completed2026','paid2026',
-      'limit2027was','limit2027cur','limit2028was','limit2028cur','limit2029was','limit2029cur',
-      'remainder','readinessPct','workers','equipment','moge','dptStatus',
-      'landWithdrawalPct','plannedIntroDate','plannedOpenDate','contractEndDate'
-    ];
-    fields.forEach(f => { const el = document.getElementById('cf-' + f); if (el) el.value = c[f] ?? ''; });
+    FORM_FIELDS.forEach(f => { const el = document.getElementById('cf-' + f); if (el) el.value = c[f] ?? ''; });
   }
 
   function resetForm() {
@@ -151,16 +158,8 @@ const ContractsPage = (() => {
   }
 
   function getFormData() {
-    const fields = [
-      'objectName','financingSource','contractor','contractNum','contractDate',
-      'priceGK','advanceGK','advancePaid','unworkedAdvance','paidTotal','completed',
-      'completed2025','paid2025','limit2026was','limit2026cur','completed2026','paid2026',
-      'limit2027was','limit2027cur','limit2028was','limit2028cur','limit2029was','limit2029cur',
-      'remainder','readinessPct','workers','equipment','moge','dptStatus',
-      'landWithdrawalPct','plannedIntroDate','plannedOpenDate','contractEndDate'
-    ];
     const data = {};
-    fields.forEach(f => { const el = document.getElementById('cf-' + f); if (el) data[f] = el.value; });
+    FORM_FIELDS.forEach(f => { const el = document.getElementById('cf-' + f); if (el) data[f] = el.value; });
     return data;
   }
 
@@ -219,9 +218,14 @@ const ContractsPage = (() => {
   }
 
   function updateAutocomplete() {
-    const input = document.getElementById('cf-contractor');
-    const list  = document.getElementById('contractor-autocomplete');
-    if (!input || !list) return;
+    // FIX: клонируем input чтобы снять все ранее навешанные слушатели
+    const oldInput = document.getElementById('cf-contractor');
+    const list     = document.getElementById('contractor-autocomplete');
+    if (!oldInput || !list) return;
+
+    const input = oldInput.cloneNode(true);
+    oldInput.replaceWith(input);
+
     const names = AppData.getContractorNames();
     function showList(query) {
       const filtered = query ? names.filter(n => n.toLowerCase().includes(query.toLowerCase())) : names;

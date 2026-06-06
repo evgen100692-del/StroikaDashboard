@@ -9,6 +9,7 @@ const PotholeCharts = (() => {
   function mutedColor()  { return getCSSVar('--color-text-muted')   || '#7a7974'; }
   function borderColor() { return getCSSVar('--color-border')       || '#d4d1ca'; }
   function bgColor()     { return getCSSVar('--color-surface')      || '#f9f8f5'; }
+  function fontFamily()  { return getCSSVar('--font-body')          || "'Satoshi', 'Inter', sans-serif"; }
 
   // ── Пончик ───────────────────────────────────────────────────────────
   function donut(canvasId, data, labels, existingChart) {
@@ -49,7 +50,7 @@ const PotholeCharts = (() => {
             position: 'bottom',
             labels: {
               color:       textColor(),
-              font:        { family: getCSSVar('--font-body') || "'Satoshi', 'Inter', sans-serif", size: 12 },
+              font:        { family: fontFamily(), size: 12 },
               padding:     12,
               boxWidth:    12,
               boxHeight:   12,
@@ -72,7 +73,7 @@ const PotholeCharts = (() => {
             },
           },
           // Центральный текст
-          doughnutCenterText: { total, textColor: textColor(), mutedColor: mutedColor(), fontFamily: getCSSVar('--font-body') || "'Satoshi', 'Inter', sans-serif" },
+          doughnutCenterText: { total, textColor: textColor(), mutedColor: mutedColor(), fontFamily: fontFamily() },
         },
       },
       plugins: [{
@@ -113,8 +114,9 @@ const PotholeCharts = (() => {
       return existingChart;
     }
 
-    const col = chartPalette();
+    const col    = chartPalette();
     const labels = data.map(d => d.label);
+    const font   = fontFamily();
 
     return new Chart(canvas, {
       type: 'bar',
@@ -154,23 +156,24 @@ const PotholeCharts = (() => {
         scales: {
           x: {
             grid:  { color: borderColor() + '55' },
-            font: { family: getCSSVar('--font-body') || "'Satoshi', 'Inter', sans-serif", size: 12 },
+            ticks: { color: mutedColor(), font: { family: font, size: 12 } },
           },
           y: {
             beginAtZero: true,
             grid:  { color: borderColor() + '55' },
             ticks: {
               color: mutedColor(),
-              font: { family: getCSSVar('--font-body') || "'Satoshi', 'Inter', sans-serif", size: 12 },
+              font: { family: font, size: 12 },
               callback: v => v.toLocaleString('ru-RU'),
             },
           },
         },
         plugins: {
+          // FIX: добавлен font в легенду — ранее использовался шрифт браузера по умолчанию
           legend: {
             position: 'top',
             align:    'start',
-            font: { family: getCSSVar('--font-body') || "'Satoshi', 'Inter', sans-serif", size: 12 },
+            labels: { color: textColor(), font: { family: font, size: 12 } },
           },
           tooltip: {
             backgroundColor: bgColor(),

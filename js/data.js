@@ -166,7 +166,6 @@ const AppData = (() => {
   }
 
   function filterContracts({ contractor, year, source, search } = {}) {
-    // Нормализуем строку: убираем лишние пробелы, приводим к нижнему регистру
     const norm = s => String(s || '').trim().toLowerCase();
 
     return state.contracts.filter(c => {
@@ -330,20 +329,24 @@ const AppData = (() => {
       },
     ];
     if (isServerMode()) {
-    await fetch('/api/contracts/seed', {
-      method:  'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body:    JSON.stringify(demo),
-    });
-    const res = await fetch(API);
-    state = await res.json();
-  } else {
-    for (const d of demo) await addContract(d);
+      await fetch('/api/contracts/seed', {
+        method:  'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body:    JSON.stringify(demo),
+      });
+      const res = await fetch(API);
+      state = await res.json();
+    } else {
+      // FIX: накапливаем все записи, saveLocal() вызываем один раз после цикла
+      for (const d of demo) {
+        const row = { id: state.nextId++, ...sanitize(d) };
+        state.contracts.push(row);
+      }
+      saveLocal();
+    }
   }
-}
 
   // ── Init ──────────────────────────────────────────────────────────
-  // load() вызывается снаружи — после DOMContentLoaded
   return {
     load,
     getContracts, addContract, updateContract, deleteContract, getContractById,

@@ -1,5 +1,5 @@
 // js/pages/pothole.js — дашборд «Ямочный ремонт»
-// Зависит от: Chart.js (глобальный), utils.js (toast, closeModal, openModal, fmt)
+// Зависит от: Chart.js (глобальный), utils.js (Toast, closeModal, openModal, fmt)
 // Зависит от: charts-pothole.js (PotholeCharts) — должен быть подключён ДО этого файла
 
 const PotholePage = (() => {
@@ -21,6 +21,16 @@ const PotholePage = (() => {
     _initialized = true;
     _bindUploadModal();
     _bindUploadButtons();
+    // FIX: сбрасываем _uploadState при закрытии модала любым способом (Escape/overlay)
+    const uploadOverlay = document.getElementById('upload-modal');
+    if (uploadOverlay) {
+      const observer = new MutationObserver(() => {
+        if (!uploadOverlay.classList.contains('open')) {
+          _uploadState = { type: null, file: null };
+        }
+      });
+      observer.observe(uploadOverlay, { attributes: true, attributeFilter: ['class'] });
+    }
     await _reload();
   }
 
@@ -176,7 +186,6 @@ const PotholePage = (() => {
     const [year, month] = ym.split('-').map(Number);
     const weeks = _getWeeksOfMonth(year, month);
 
-    // Формируем массив данных для PotholeCharts.weekly
     const weekData = weeks.map((w, i) => ({
       label:      'Нед.' + (i + 1) + ' (' + _fmtDate(w.from) + '–' + _fmtDate(w.to) + ')',
       registered: _sumWeek(_history.regional,  'registered', w) + _sumWeek(_history.municipal, 'registered', w),
@@ -193,7 +202,8 @@ const PotholePage = (() => {
     let d = new Date(year, month - 1, 1);
     while (d.getDay() !== 1) d = new Date(d.getTime() - 86400000);
     const monthEnd = new Date(year, month, 0);
-    while (d <= monthEnd) {
+    // FIX: явное сравнение через getTime() — не полагаемся на неявное приведение Date
+    while (d.getTime() <= monthEnd.getTime()) {
       const from = new Date(d);
       const to   = new Date(d.getTime() + 6 * 86400000);
       weeks.push({ from: _toISO(from), to: _toISO(to) });
@@ -275,7 +285,7 @@ const PotholePage = (() => {
         const id = btn.dataset.del;
         if (!confirm('Удалить этот отчёт?')) return;
         await fetch('/api/pothole/reports/' + id, { method: 'DELETE' });
-        _toast('Отчёт удалён', 'success');
+        Toast.success('Отчёт удалён');
         await _reload();
       });
     });
@@ -284,7 +294,18 @@ const PotholePage = (() => {
   async function _showReportDetail(id) {
     const detail = document.getElementById('ph-report-detail');
     detail.innerHTML = '<div style="padding:var(--space-6);color:var(--color-text-muted)">Загрузка...</div>';
-    const r = await fetch('/api/pothole/reports/' + id).then(x => x.json());
+
+    // FIX: проверяем HTTP-статус перед парсингом JSON
+    let r;
+    try {
+      const res = await fetch('/api/pothole/reports/' + id);
+      if (!res.ok) throw new Error('HTTP ' + res.status);
+      r = await res.json();
+    } catch(e) {
+      detail.innerHTML = `<div style="padding:var(--space-6);color:var(--color-error)">Ошибка загрузки отчёта: ${e.message}</div>`;
+      return;
+    }
+
     const d = r.data_json;
 
     let html = `<article class="card"><div class="card-header"><div>
@@ -416,11 +437,11 @@ const PotholePage = (() => {
       const res  = await fetch('/api/pothole/upload', { method: 'POST', body: fd });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || 'Ошибка сервера');
-      _toast('Отчёт загружен: ' + data.rows + ' строк', 'success');
+      Toast.success('Отчёт загружен: ' + data.rows + ' строк');
       closeModal('upload-modal');
       await _reload();
     } catch (e) {
-      _toast('Ошибка: ' + e.message, 'error');
+      Toast.error('Ошибка: ' + e.message);
     } finally {
       btn.disabled = false;
       btn.textContent = 'Загрузить';
@@ -449,15 +470,6 @@ const PotholePage = (() => {
   }
   function _shortType(t) {
     return { complaints: 'Жалобы', regional: 'Рег.', municipal: 'Мун.' }[t] || t;
-  }
-  function _toast(msg, type) {
-    const c = document.getElementById('toast-container');
-    if (!c) return;
-    const t = document.createElement('div');
-    t.className = 'toast toast-' + (type || 'info');
-    t.textContent = msg;
-    c.appendChild(t);
-    setTimeout(() => t.remove(), 4000);
   }
 
   return { init };

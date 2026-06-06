@@ -7,10 +7,9 @@
 
 const DashboardPage = (() => {
   let currentFilters = { contractor: '', year: '', source: '', search: '' };
-  let _filtersBound  = false;
 
   function init() {
-    bindFilters(); // слушатели вешаются один раз
+    bindFilters();
   }
 
   function render() {
@@ -49,7 +48,7 @@ const DashboardPage = (() => {
     requestAnimationFrame(() => {
       ChartsManager.renderAll(analytics, filtered);
     });
-    setTimeout(observeCards, 50);
+    // NOTE: observeCards() удалена — была причиной застывания карточек в opacity:0
   }
 
   function renderKPIs(a, filtered) {
@@ -135,8 +134,6 @@ const DashboardPage = (() => {
   }
 
   function bindFilters() {
-    if (_filtersBound) return;
-    _filtersBound = true;
     ['f-contractor','f-year','f-source'].forEach((id, i) => {
       const keys = ['contractor','year','source'];
       const el = document.getElementById(id);
