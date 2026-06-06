@@ -11,11 +11,18 @@ const PotholeCharts = (() => {
   function bgColor()     { return getCSSVar('--color-surface')      || '#f9f8f5'; }
 
   // ── Пончик ───────────────────────────────────────────────────────────
-function donut(canvasId, data, labels, existingChart) {
+  function donut(canvasId, data, labels, existingChart) {
     const canvas = document.getElementById(canvasId);
     if (!canvas) return existingChart;
 
-    if (existingChart) existingChart.destroy();
+    // Если chart уже существует — обновляем данные без пересоздания
+    if (existingChart) {
+      existingChart.data.labels = labels;
+      existingChart.data.datasets[0].data = data;
+      existingChart.options.plugins.doughnutCenterText.total = data.reduce((s, v) => s + v, 0);
+      existingChart.update('active');
+      return existingChart;
+    }
 
     const colors = chartPalette();
     const total  = data.reduce((s, v) => s + v, 0);
@@ -96,7 +103,15 @@ function donut(canvasId, data, labels, existingChart) {
     const canvas = document.getElementById(canvasId);
     if (!canvas) return existingChart;
 
-    if (existingChart) existingChart.destroy();
+    // Если chart уже существует — обновляем данные без пересоздания
+    if (existingChart) {
+      existingChart.data.labels = data.map(d => d.label);
+      existingChart.data.datasets[0].data = data.map(d => d.registered);
+      existingChart.data.datasets[1].data = data.map(d => d.fixed);
+      existingChart.data.datasets[2].data = data.map(d => d.complaints);
+      existingChart.update('active');
+      return existingChart;
+    }
 
     const col = chartPalette();
     const labels = data.map(d => d.label);

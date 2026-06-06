@@ -32,7 +32,6 @@ async function initDb() {
   }
 
   // Включаем WAL через PRAGMA (sql.js поддерживает)
-  db.run('PRAGMA journal_mode = WAL;');
   db.run('PRAGMA foreign_keys = ON;');
 
   db.run(`
