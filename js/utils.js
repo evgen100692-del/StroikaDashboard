@@ -178,29 +178,6 @@ function confirmDialog(message, onConfirm) {
   document.getElementById('confirm-no').addEventListener('click', cleanup, { once: true });
 }
 
-// ---- IntersectionObserver for card entry animations ----
-// NOTE: не используется — observeCards() была отключена, т.к. IntersectionObserver
-// ставил opacity:0 на карточки пока страницы были display:none.
-// Оставлена для справки; анимация карточек реализована через CSS transition в layout.css.
-function observeCards() {
-  if (!('IntersectionObserver' in window)) return;
-  const io = new IntersectionObserver((entries) => {
-    entries.forEach(entry => {
-      if (entry.isIntersecting) {
-        entry.target.style.opacity = '1';
-        entry.target.style.transform = 'translateY(0)';
-        io.unobserve(entry.target);
-      }
-    });
-  }, { threshold: 0.1 });
-
-  document.querySelectorAll('.kpi-card, .card').forEach(el => {
-    el.style.opacity = '0';
-    el.style.transform = 'translateY(12px)';
-    el.style.transition = 'opacity 400ms ease, transform 400ms cubic-bezier(0.16,1,0.3,1)';
-    io.observe(el);
-  });
-}
 
 // ---- Shared chart helpers ----
 // Единственный источник истины для CSS-переменных и палитры графиков.

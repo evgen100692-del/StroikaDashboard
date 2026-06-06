@@ -340,20 +340,21 @@ const server = http.createServer(async (req, res) => {
     return;
   }
 
-  const reportGetMatch = url.match(/^\/api\/pothole\/reports\/(\d+)$/);
-  if (reportGetMatch && req.method === 'GET') {
-    const row = dbGet('SELECT * FROM pothole_reports WHERE id = ?', [parseInt(reportGetMatch[1])]);
-    if (!row) { json(res, 404, { error: 'Not found' }); return; }
-    row.data_json = JSON.parse(row.data_json);
-    json(res, 200, row);
-    return;
-  }
-
-  const reportDelMatch = url.match(/^\/api\/pothole\/reports\/(\d+)$/);
-  if (reportDelMatch && req.method === 'DELETE') {
-    dbRun('DELETE FROM pothole_reports WHERE id = ?', [parseInt(reportDelMatch[1])]);
-    json(res, 200, { ok: true });
-    return;
+  const reportMatch = url.match(/^\/api\/pothole\/reports\/(\d+)$/);
+  if (reportMatch) {
+    const id = parseInt(reportMatch[1]);
+    if (req.method === 'GET') {
+      const row = dbGet('SELECT * FROM pothole_reports WHERE id = ?', [id]);
+      if (!row) { json(res, 404, { error: 'Not found' }); return; }
+      row.data_json = JSON.parse(row.data_json);
+      json(res, 200, row);
+      return;
+    }
+    if (req.method === 'DELETE') {
+      dbRun('DELETE FROM pothole_reports WHERE id = ?', [id]);
+      json(res, 200, { ok: true });
+      return;
+    }
   }
 
   if (url === '/api/pothole/latest' && req.method === 'GET') {
