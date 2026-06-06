@@ -86,6 +86,11 @@
 .card-body {
   padding: var(--space-5);
 }
+/* Модификатор для карточек с графиками: убирает padding чтобы
+   Chart.js мог использовать всю высоту контейнера без обрезания */
+.card-body.chart-wrap {
+  padding: 0;
+}
 
 /* ---- KPI Cards ---- */
 .kpi-card {
@@ -338,8 +343,8 @@
 .data-table td.num  { text-align: right; font-weight: 600; }
 .data-table td.muted { color: var(--color-text-muted); }
 
-/* Row actions */
-.row-actions { display: flex; gap: 2px; opacity: 0; transition: opacity var(--transition); }
+/* Row actions (единственное правило — дубль удалён) */
+.row-actions { display: flex; gap: var(--space-1); opacity: 0; transition: opacity var(--transition); }
 .data-table tbody tr:hover .row-actions { opacity: 1; }
 
 /* Ширины колонок таблицы контрактов (12 колонок) */
@@ -366,10 +371,6 @@
 #contractors-table th:nth-child(7)  { width: 11%; }
 #contractors-table th:nth-child(8)  { width: 11%; }
 #contractors-table th:nth-child(9)  { width: 10%; }
-
-/* Row actions */
-.row-actions { display: flex; gap: var(--space-1); opacity: 0; transition: opacity var(--transition); }
-.data-table tbody tr:hover .row-actions { opacity: 1; }
 
 /* ---- Modal ---- */
 .modal-overlay {
@@ -533,8 +534,13 @@
   position: relative;
   width: 100%;
 }
+/* display:block убирает inline baseline gap под canvas;
+   height:100% позволяет Chart.js (maintainAspectRatio:false)
+   корректно заполнить контейнер с фиксированной высотой */
 .chart-container canvas {
+  display: block;
   max-width: 100%;
+  height: 100% !important;
 }
 
 /* ---- Empty State ---- */

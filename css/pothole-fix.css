@@ -87,10 +87,6 @@
 
 /* ──────────────────────────────────────────────────────────────
    4. ПЕРЕКЛЮЧАТЕЛЬ ДАШБОРДОВ
-   JS вешает класс .open на .dashboard-switcher-btn и
-   .dashboard-switcher-dropdown раздельно (display:none → block).
-   Анимацию делаем через opacity/transform при наличии .open
-   на дропдауне напрямую.
 ────────────────────────────────────────────────────────────── */
 .dashboard-switcher {
   position: relative;
@@ -121,13 +117,10 @@
   transition: transform 200ms ease;
   flex-shrink: 0;
 }
-/* Класс .open на кнопке — поворачиваем шеврон */
 .dashboard-switcher-btn.open svg.chevron {
   transform: rotate(180deg);
 }
 
-/* Дропдаун: по умолчанию скрыт через display:none (задаётся в HTML <style>).
-   Класс .open на самом дропдауне — показываем с анимацией. */
 .dashboard-switcher-dropdown {
   position: absolute;
   top: calc(100% + 6px);
@@ -139,7 +132,6 @@
   box-shadow: 0 8px 24px rgba(0,0,0,.12);
   overflow: hidden;
   z-index: 9999;
-  /* display управляется JS (none/block), анимация через animation */
 }
 .dashboard-switcher-dropdown.open {
   animation: dropdownFadeIn 160ms ease forwards;
@@ -178,13 +170,7 @@
 }
 
 /* ──────────────────────────────────────────────────────────────
-   5. КОНТЕЙНЕРЫ ДАШБОРДОВ (page sections)
-────────────────────────────────────────────────────────────── */
-/* .page уже управляется Router через класс .active в layout.css,
-   дополнительных переопределений не нужно */
-
-/* ──────────────────────────────────────────────────────────────
-   6. ШАПКА ДАШБОРДА «ЯМОЧНЫЙ РЕМОНТ»
+   5. ШАПКА ДАШБОРДА «ЯМОЧНЫЙ РЕМОНТ»
 ────────────────────────────────────────────────────────────── */
 .pothole-header {
   display: flex;
@@ -220,201 +206,8 @@
 }
 
 /* ──────────────────────────────────────────────────────────────
-   7. ЛЕЙАУТ: САЙДБАР + ОСНОВНОЙ КОНТЕНТ
+   6. МОДАЛЬНОЕ ОКНО «ЗАГРУЗИТЬ ОТЧЁТ»
 ────────────────────────────────────────────────────────────── */
-.pothole-layout {
-  display: grid;
-  grid-template-columns: 260px 1fr;
-  gap: 20px;
-  align-items: start;
-}
-@media (max-width: 900px) {
-  .pothole-layout { grid-template-columns: 1fr; }
-}
-
-/* ──────────────────────────────────────────────────────────────
-   8. САЙДБАР «ОТЧЁТЫ»
-────────────────────────────────────────────────────────────── */
-.reports-sidebar {
-  background: var(--color-surface, #f9f8f5);
-  border: 1px solid var(--color-border, #d4d1ca);
-  border-radius: 12px;
-  overflow: hidden;
-  position: sticky;
-  top: 80px;
-}
-.reports-sidebar-header {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: 14px 16px;
-  border-bottom: 1px solid var(--color-border, #d4d1ca);
-  background: var(--color-surface-offset, #f3f0ec);
-}
-.reports-sidebar-header h3 {
-  font-size: 13px;
-  font-weight: 700;
-  text-transform: uppercase;
-  letter-spacing: .06em;
-  color: var(--color-text-muted, #7a7974);
-  margin: 0;
-}
-.reports-sidebar-body {
-  padding: 8px;
-  max-height: 60vh;
-  overflow-y: auto;
-}
-.reports-sidebar-body::-webkit-scrollbar { width: 4px; }
-.reports-sidebar-body::-webkit-scrollbar-track { background: transparent; }
-.reports-sidebar-body::-webkit-scrollbar-thumb { background: var(--color-border, #d4d1ca); border-radius: 4px; }
-
-.report-group { margin-bottom: 4px; }
-.report-group-label {
-  font-size: 11px;
-  font-weight: 700;
-  text-transform: uppercase;
-  letter-spacing: .07em;
-  color: var(--color-text-faint, #bab9b4);
-  padding: 8px 8px 4px;
-  display: block;
-}
-.report-item {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  width: 100%;
-  padding: 8px 10px;
-  border-radius: 7px;
-  background: none;
-  border: none;
-  text-align: left;
-  cursor: pointer;
-  transition: background 140ms ease;
-  gap: 8px;
-}
-.report-item:hover { background: var(--color-surface-offset, #f3f0ec); }
-.report-item.active { background: var(--color-primary-highlight, #cedcd8); }
-.report-item-info { flex: 1; min-width: 0; }
-.report-item-name {
-  font-size: 13px;
-  font-weight: 600;
-  color: var(--color-text, #28251d);
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-.report-item-date {
-  font-size: 11px;
-  color: var(--color-text-muted, #7a7974);
-  margin-top: 2px;
-}
-.report-item-badge {
-  font-size: 10px;
-  font-weight: 700;
-  padding: 2px 7px;
-  border-radius: 20px;
-  white-space: nowrap;
-  flex-shrink: 0;
-}
-.badge-complaints { background: rgba(161,44,123,.12); color: #a12c7b; }
-.badge-regional   { background: rgba(0,100,148,.12);  color: #006494; }
-.badge-municipal  { background: rgba(67,122,34,.12);  color: #437a22; }
-.reports-empty {
-  text-align: center;
-  padding: 24px 16px;
-  color: var(--color-text-muted, #7a7974);
-  font-size: 13px;
-}
-
-/* ──────────────────────────────────────────────────────────────
-   9. ГРАФИКИ — СЕТКА
-────────────────────────────────────────────────────────────── */
-.pothole-charts-grid { display: grid; gap: 16px; }
-.pothole-donuts {
-  display: grid;
-  grid-template-columns: repeat(3, 1fr);
-  gap: 16px;
-}
-@media (max-width: 1200px) {
-  .pothole-donuts { grid-template-columns: repeat(2, 1fr); }
-}
-@media (max-width: 700px) {
-  .pothole-donuts { grid-template-columns: 1fr; }
-}
-
-.chart-card {
-  background: var(--color-surface-2, #fbfbf9);
-  border: 1px solid var(--color-border, #d4d1ca);
-  border-radius: 12px;
-  padding: 18px;
-}
-.chart-card-header {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  margin-bottom: 14px;
-  gap: 8px;
-  flex-wrap: wrap;
-}
-.chart-card-title {
-  font-size: 14px;
-  font-weight: 700;
-  color: var(--color-text, #28251d);
-  margin: 0;
-}
-.chart-card-subtitle {
-  font-size: 12px;
-  color: var(--color-text-muted, #7a7974);
-  margin-top: 2px;
-}
-.chart-canvas-wrap { position: relative; height: 200px; }
-.chart-card-wide   { grid-column: 1 / -1; }
-.chart-canvas-wrap-tall { position: relative; height: 300px; }
-
-/* ──────────────────────────────────────────────────────────────
-   10. СЕЛЕКТ МЕСЯЦА
-────────────────────────────────────────────────────────────── */
-.month-select {
-  padding: 5px 10px;
-  border: 1px solid var(--color-border, #d4d1ca);
-  border-radius: 7px;
-  font-size: 13px;
-  font-weight: 600;
-  color: var(--color-text, #28251d);
-  background: var(--color-surface-offset, #f3f0ec);
-  cursor: pointer;
-  outline: none;
-  transition: border-color 160ms ease;
-}
-.month-select:focus { border-color: var(--color-primary, #01696f); }
-
-/* ──────────────────────────────────────────────────────────────
-   11. ЛЕГЕНДА ПОНЧИКОВ
-────────────────────────────────────────────────────────────── */
-.donut-legend { display: flex; flex-direction: column; gap: 6px; margin-top: 12px; }
-.donut-legend-item {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  font-size: 12px;
-  color: var(--color-text-muted, #7a7974);
-}
-.donut-legend-dot { width: 10px; height: 10px; border-radius: 50%; flex-shrink: 0; }
-.donut-legend-value {
-  margin-left: auto;
-  font-weight: 700;
-  color: var(--color-text, #28251d);
-  font-variant-numeric: tabular-nums;
-}
-
-/* ──────────────────────────────────────────────────────────────
-   12. МОДАЛЬНОЕ ОКНО «ЗАГРУЗИТЬ ОТЧЁТ»
-   Используем классы из components.css (.modal-overlay, .modal,
-   .modal-header, .modal-body, .modal-footer).
-   Здесь — только специфичные элементы загрузки.
-────────────────────────────────────────────────────────────── */
-
-/* Зона перетаскивания файла */
 .upload-zone {
   border: 2px dashed var(--color-border, #d4d1ca);
   border-radius: 10px;
@@ -448,7 +241,6 @@
   word-break: break-all;
 }
 
-/* Кнопки модалки загрузки */
 .btn-cancel {
   padding: 8px 16px;
   border: 1px solid var(--color-border, #d4d1ca);
@@ -492,7 +284,6 @@
 .btn-submit-upload.loading .btn-text { display: none; }
 @keyframes spin { to { transform: rotate(360deg); } }
 
-/* Поля в модалке загрузки */
 .modal-select,
 .modal-date-input {
   width: 100%;
@@ -519,7 +310,7 @@
 }
 
 /* ──────────────────────────────────────────────────────────────
-   13. ПУСТОЕ СОСТОЯНИЕ ДАШБОРДА
+   7. ПУСТОЕ СОСТОЯНИЕ ДАШБОРДА
 ────────────────────────────────────────────────────────────── */
 .pothole-empty-state {
   display: flex;
@@ -535,7 +326,7 @@
 .pothole-empty-state p           { font-size: 14px; max-width: 36ch; }
 
 /* ──────────────────────────────────────────────────────────────
-   14. АДАПТИВ
+   8. АДАПТИВ
 ────────────────────────────────────────────────────────────── */
 @media (max-width: 900px) {
   .ph-donut-grid { grid-template-columns: 1fr 1fr; }
