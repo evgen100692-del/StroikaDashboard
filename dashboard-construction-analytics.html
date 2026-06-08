@@ -539,6 +539,24 @@
 
           <!-- data content -->
           <div id="ph-data-content">
+            <!-- ── Фильтры дашборда Ямочный ремонт ── -->
+            <div id="ph-filter-bar" class="filters-bar" style="margin-bottom:var(--space-4); display:none;">
+              <div class="filter-group">
+                <label class="filter-label" for="ph-filter-ruad">РУАД</label>
+                <select class="filter-select" id="ph-filter-ruad">
+                  <option value="">Все РУАД</option>
+                </select>
+              </div>
+              <div class="filter-group">
+                <label class="filter-label">Жалобы</label>
+                <div style="display:flex; gap:var(--space-2)">
+                  <button class="btn btn-secondary active" data-ph-org="all"  type="button" style="font-size:var(--text-xs); padding:var(--space-1) var(--space-3)">Все</button>
+                  <button class="btn btn-secondary"        data-ph-org="oms"  type="button" style="font-size:var(--text-xs); padding:var(--space-1) var(--space-3)">ОМС</button>
+                  <button class="btn btn-secondary"        data-ph-org="mad"  type="button" style="font-size:var(--text-xs); padding:var(--space-1) var(--space-3)">МАД</button>
+                </div>
+              </div>
+              <button class="btn btn-secondary filter-reset" id="ph-filter-reset" type="button">Сбросить</button>
+            </div>
             <!-- KPI row -->
             <div class="kpi-grid-3" id="ph-kpi-grid">
               <div class="ph-kpi-card">

@@ -9,6 +9,8 @@ const PotholePage = (() => {
   let _history     = {};   // { complaints:[], regional:[], municipal:[] }
   let _charts      = {};   // Chart.js instances
   let _initialized = false;
+  let _filter = { ruad: '', org: 'all' };
+  let _filterBarBound = false;
 
   // ════════════════════════════════════════════════════════════════════════════
   //  PUBLIC: init()
@@ -61,6 +63,77 @@ const PotholePage = (() => {
   // ════════════════════════════════════════════════════════════════════════════
   //  DASHBOARD RENDER
   // ════════════════════════════════════════════════════════════════════════════
+    function _applyRuadFilter(rows) {
+    if (!_filter.ruad) return rows || [];
+    return (rows || []).filter(r => r.name === _filter.ruad);
+  }
+
+  function _applyOrgFilter(compDataJson) {
+    if (!compDataJson || _filter.org === 'all') return compDataJson;
+    const targetName = _filter.org === 'oms' ? 'ОМС' : 'МАД';
+    return {
+      total: (compDataJson.total || []).filter(r => r.name === targetName || r.type === _filter.org),
+      week:  (compDataJson.week  || []).filter(r => r.name === targetName || r.type === _filter.org),
+    };
+  }
+
+  function _getRuadOptions() {
+    const names = new Set();
+    (_latest.regional?.data_json || []).forEach(r => { if (r.name) names.add(r.name); });
+    return Array.from(names).sort();
+  }
+
+  function _renderFilterBar() {
+  const bar = document.getElementById('ph-filter-bar');
+  if (!bar) return;
+  const ruadSelect = document.getElementById('ph-filter-ruad');
+  if (ruadSelect) {
+    const opts = _getRuadOptions();
+    const prev = ruadSelect.value;
+    ruadSelect.innerHTML = '<option value="">Все РУАД</option>'
+      + opts.map(n => `<option value="${n}">${n}</option>`).join('');
+    if (prev && opts.includes(prev)) ruadSelect.value = prev;
+    else ruadSelect.value = _filter.ruad || '';
+  }
+  const hasData = _latest.regional || _latest.municipal || _latest.complaints;
+  bar.style.display = hasData ? '' : 'none';
+}
+
+function _bindFilterBar() {
+  const ruadSelect = document.getElementById('ph-filter-ruad');
+  const orgBtns    = document.querySelectorAll('[data-ph-org]');
+  if (ruadSelect) {
+    ruadSelect.addEventListener('change', () => {
+      _filter.ruad = ruadSelect.value;
+      _applyFiltersAndRedraw();
+    });
+  }
+  orgBtns.forEach(btn => {
+    btn.addEventListener('click', () => {
+      orgBtns.forEach(b => b.classList.remove('active'));
+      btn.classList.add('active');
+      _filter.org = btn.dataset.phOrg;
+      _applyFiltersAndRedraw();
+    });
+  });
+  const resetBtn = document.getElementById('ph-filter-reset');
+  if (resetBtn) {
+    resetBtn.addEventListener('click', () => {
+      _filter = { ruad: '', org: 'all' };
+      if (ruadSelect) ruadSelect.value = '';
+      orgBtns.forEach(b => b.classList.toggle('active', b.dataset.phOrg === 'all'));
+      _applyFiltersAndRedraw();
+    });
+  }
+}
+
+function _applyFiltersAndRedraw() {
+  _renderKPIs();
+  _renderDonuts();
+  const sel = document.getElementById('ph-week-month');
+  if (sel && sel.value) _drawWeeklyChart(sel.value);
+}
+
   function _renderDashboard() {
     const hasData = _latest.regional || _latest.municipal || _latest.complaints;
     document.getElementById('ph-no-data').style.display     = hasData ? 'none' : 'flex';
@@ -73,24 +146,27 @@ const PotholePage = (() => {
   }
 
   // ── KPI ─────────────────────────────────────────────────────────────────────
-  function _renderKPIs() {
-    const regData  = _latest.regional  ? _latest.regional.data_json  : [];
-    const munData  = _latest.municipal ? _latest.municipal.data_json : [];
+function _renderKPIs() {
+  // Если выбран конкретный РУАД — берём только его строки из regional,
+  // municipal при этом обнуляем (он не делится по РУАД)
+  const regData = _applyRuadFilter(_latest.regional  ? _latest.regional.data_json  : []);
+  const munData = _filter.ruad ? [] : (_latest.municipal ? _latest.municipal.data_json : []);
 
-    const totalReg = regData.reduce((s, r) => s + (r.registered || 0), 0)
-                   + munData.reduce((s, r) => s + (r.registered || 0), 0);
-    const totalFix = regData.reduce((s, r) => s + (r.fixed || 0), 0)
-                   + munData.reduce((s, r) => s + (r.fixed || 0), 0);
+  const totalReg = regData.reduce((s, r) => s + (r.registered || 0), 0)
+                 + munData.reduce((s, r) => s + (r.registered || 0), 0);
+  const totalFix = regData.reduce((s, r) => s + (r.fixed || 0), 0)
+                 + munData.reduce((s, r) => s + (r.fixed || 0), 0);
 
-    const compData = _latest.complaints ? _latest.complaints.data_json : null;
-    const omsRow   = compData ? compData.total.find(r => r.name === 'ОМС') : null;
-    const madRow   = compData ? compData.total.find(r => r.name === 'МАД') : null;
-    const totalComp = (omsRow ? omsRow.count : 0) + (madRow ? madRow.count : 0);
+  // Если выбран ОМС или МАД — оставляем только нужную организацию
+  const filteredComp = _applyOrgFilter(_latest.complaints ? _latest.complaints.data_json : null);
+  const omsRow   = filteredComp ? (filteredComp.total || []).find(r => r.name === 'ОМС') : null;
+  const madRow   = filteredComp ? (filteredComp.total || []).find(r => r.name === 'МАД') : null;
+  const totalComp = (omsRow ? omsRow.count : 0) + (madRow ? madRow.count : 0);
 
-    _setKPI('ph-kpi-reg',  totalReg,  _latest.regional   ? _latest.regional.report_date   : null, 'ph-kpi-reg-date',  'ph-kpi-reg-delta',  'regional',    'registered');
-    _setKPI('ph-kpi-fix',  totalFix,  _latest.regional   ? _latest.regional.report_date   : null, 'ph-kpi-fix-date',  'ph-kpi-fix-delta',  'regional',    'fixed');
-    _setKPI('ph-kpi-comp', totalComp, _latest.complaints ? _latest.complaints.report_date : null, 'ph-kpi-comp-date', 'ph-kpi-comp-delta', 'complaints',  null);
-  }
+  _setKPI('ph-kpi-reg',  totalReg,  _latest.regional   ? _latest.regional.report_date   : null, 'ph-kpi-reg-date',  'ph-kpi-reg-delta',  'regional',   'registered');
+  _setKPI('ph-kpi-fix',  totalFix,  _latest.regional   ? _latest.regional.report_date   : null, 'ph-kpi-fix-date',  'ph-kpi-fix-delta',  'regional',   'fixed');
+  _setKPI('ph-kpi-comp', totalComp, _latest.complaints ? _latest.complaints.report_date : null, 'ph-kpi-comp-date', 'ph-kpi-comp-delta', 'complaints', null);
+}
 
   function _setKPI(valId, curVal, date, dateId, deltaId, histType, histField) {
     document.getElementById(valId).textContent = curVal.toLocaleString('ru');
@@ -186,12 +262,14 @@ const PotholePage = (() => {
     const [year, month] = ym.split('-').map(Number);
     const weeks = _getWeeksOfMonth(year, month);
 
-    const weekData = weeks.map((w, i) => ({
-      label:      'Нед.' + (i + 1) + ' (' + _fmtDate(w.from) + '–' + _fmtDate(w.to) + ')',
-      registered: _sumWeek(_history.regional,  'registered', w) + _sumWeek(_history.municipal, 'registered', w),
-      fixed:      _sumWeek(_history.regional,  'fixed',      w) + _sumWeek(_history.municipal, 'fixed',      w),
-      complaints: _sumCompWeek(_history.complaints, w),
-    }));
+const weekData = weeks.map((w, i) => ({
+  label:      'Нед.' + (i + 1) + ' (' + _fmtDate(w.from) + '–' + _fmtDate(w.to) + ')',
+  registered: _sumWeekFiltered(_history.regional,  'registered', w, _filter.ruad)
+            + (_filter.ruad ? 0 : _sumWeek(_history.municipal, 'registered', w)),
+  fixed:      _sumWeekFiltered(_history.regional,  'fixed',      w, _filter.ruad)
+            + (_filter.ruad ? 0 : _sumWeek(_history.municipal, 'fixed',      w)),
+  complaints: _sumCompWeekFiltered(_history.complaints, w, _filter.org),
+}));
 
     _charts['weekly'] = PotholeCharts.weekly('ph-chart-weekly', weekData, _charts['weekly']);
   }
@@ -219,6 +297,33 @@ const PotholePage = (() => {
     const last = reports[reports.length - 1];
     return (last.data_json || []).reduce((s, r) => s + (r[field] || 0), 0);
   }
+
+  // Как _sumWeek, но умеет фильтровать по конкретному РУАД
+function _sumWeekFiltered(history, field, week, ruad) {
+  if (!history) return 0;
+  const reports = history.filter(r => r.report_date >= week.from && r.report_date <= week.to);
+  if (!reports.length) return 0;
+  const last = reports[reports.length - 1];
+  const rows = ruad
+    ? (last.data_json || []).filter(r => r.name === ruad)  // только выбранный РУАД
+    : (last.data_json || []);                               // все строки
+  return rows.reduce((s, r) => s + (r[field] || 0), 0);
+}
+
+// Как _sumCompWeek, но умеет фильтровать по ОМС или МАД
+function _sumCompWeekFiltered(history, week, org) {
+  if (!history) return 0;
+  const reports = history.filter(r => r.report_date >= week.from && r.report_date <= week.to);
+  if (!reports.length) return 0;
+  const last = reports[reports.length - 1];
+  const data = last.data_json;
+  if (!data || !data.week) return 0;
+  const omsRow = data.week.find(r => r.name === 'ОМС');
+  const madRow = data.week.find(r => r.name === 'МАД');
+  if (org === 'oms') return omsRow ? omsRow.count : 0;  // только ОМС
+  if (org === 'mad') return madRow ? madRow.count : 0;  // только МАД
+  return (omsRow ? omsRow.count : 0) + (madRow ? madRow.count : 0); // все
+}
 
   function _sumCompWeek(history, week) {
     if (!history) return 0;
