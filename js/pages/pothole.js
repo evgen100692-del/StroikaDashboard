@@ -134,16 +134,24 @@ function _applyFiltersAndRedraw() {
   if (sel && sel.value) _drawWeeklyChart(sel.value);
 }
 
-  function _renderDashboard() {
-    const hasData = _latest.regional || _latest.municipal || _latest.complaints;
-    document.getElementById('ph-no-data').style.display     = hasData ? 'none' : 'flex';
-    document.getElementById('ph-data-content').style.display = hasData ? '' : 'none';
-    if (!hasData) return;
+function _renderDashboard() {
+  const hasData = _latest.regional || _latest.municipal || _latest.complaints;
+  document.getElementById('ph-no-data').style.display      = hasData ? 'none' : 'flex';
+  document.getElementById('ph-data-content').style.display = hasData ? '' : 'none';
+  if (!hasData) return;
 
-    _renderKPIs();
-    _renderDonuts();
-    _renderWeekly();
+  _renderFilterBar(); // заполняет <select> актуальными РУАД
+
+  // навешиваем слушатели только один раз
+  if (!_filterBarBound) {
+    _bindFilterBar();
+    _filterBarBound = true;
   }
+
+  _renderKPIs();
+  _renderDonuts();
+  _renderWeekly();
+}
 
   // ── KPI ─────────────────────────────────────────────────────────────────────
 function _renderKPIs() {
