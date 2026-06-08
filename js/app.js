@@ -76,13 +76,7 @@
   /* ================================================================
      3. МОДАЛЬНЫЙ ФОН
   ================================================================ */
-  function initModalBackdrop() {
-    document.querySelectorAll('.modal-overlay').forEach(overlay => {
-      overlay.addEventListener('click', e => {
-        if (e.target === overlay) closeModal(overlay.id);
-      });
-    });
-  }
+
 
   /* ================================================================
      4. САЙДБАР
@@ -147,7 +141,7 @@
     // 4. UI
     initNavigation();
     DashboardSwitcher.init();
-    initModalBackdrop();
+
     initSidebar();
     // NOTE: observeCards() убран — IntersectionObserver ставил opacity:0 на все
     // карточки пока страницы были display:none, и они никогда не восстанавливались.
