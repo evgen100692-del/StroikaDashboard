@@ -68,6 +68,18 @@ const PotholePage = (() => {
     return (rows || []).filter(r => r.name === _filter.ruad);
   }
 
+    /**
+   * Преобразует имя МО из таблицы «Муниципальный ремонт» в имя
+   * строки жалоб. Например: «Балашиха» → «Балашиха го».
+   * Если имя уже заканчивается на « го» — возвращает как есть.
+   */
+  function _moToComplaintName(moName) {
+    if (!moName) return null;
+    const trimmed = moName.trim();
+    if (/\sго$/i.test(trimmed)) return trimmed;
+    return trimmed + ' го';
+  }
+
   function _applyOrgFilter(compDataJson) {
     if (!compDataJson || _filter.org === 'all') return compDataJson;
     const targetName = _filter.org === 'oms' ? 'ОМС' : 'МАД';
@@ -217,10 +229,25 @@ function _renderKPIs() {
   const totalFix = regData.reduce((s, r) => s + (r.fixed || 0), 0)
                  + munData.reduce((s, r) => s + (r.fixed || 0), 0);
 
-const filteredComp = _applyOrgFilter(_latest.complaints ? _latest.complaints.data_json : null);
-const omsRow   = filteredComp ? (filteredComp.week || []).find(r => r.name === 'ОМС') : null;
-const madRow   = filteredComp ? (filteredComp.week || []).find(r => r.name === 'МАД') : null;
-const totalComp = (omsRow ? omsRow.count : 0) + (madRow ? madRow.count : 0);
+const compData = _latest.complaints ? _latest.complaints.data_json : null;
+let totalComp = 0;
+if (compData) {
+  if (_filter.ruad) {
+    // Конкретный РУАД → ищем его строку в МАД-ветке недельных жалоб
+    const row = (compData.week || []).find(r => r.name === _filter.ruad);
+    totalComp = row ? row.count : 0;
+  } else if (_filter.mo) {
+    // Конкретное МО → ищем «<МО> го» в ОМС-ветке недельных жалоб
+    const compName = _moToComplaintName(_filter.mo);
+    const row = (compData.week || []).find(r => r.name === compName);
+    totalComp = row ? row.count : 0;
+  } else {
+    // Общий фильтр по источнику (org)
+    const omsRow = (_filter.org !== 'mad') ? (compData.week || []).find(r => r.name === 'ОМС') : null;
+    const madRow = (_filter.org !== 'oms') ? (compData.week || []).find(r => r.name === 'МАД') : null;
+    totalComp = (omsRow ? omsRow.count : 0) + (madRow ? madRow.count : 0);
+  }
+}
 
   _setKPI('ph-kpi-reg',  totalReg,  _latest.regional   ? _latest.regional.report_date   : null, 'ph-kpi-reg-date',  'ph-kpi-reg-delta',  'regional',   'registered');
   _setKPI('ph-kpi-fix',  totalFix,  _latest.regional   ? _latest.regional.report_date   : null, 'ph-kpi-fix-date',  'ph-kpi-fix-delta',  'regional',   'fixed');
@@ -282,10 +309,24 @@ function _renderDonuts() {
   const regFixSum = regData.reduce((s, r) => s + (r.fixed || 0), 0);
   const munFixSum = munData.reduce((s, r) => s + (r.fixed || 0), 0);
 
-  const omsRow = (useMun && compData) ? compData.total.find(r => r.name === 'ОМС') : null;
-  const madRow = (useReg && compData) ? compData.total.find(r => r.name === 'МАД') : null;
-  const omsC = omsRow ? omsRow.count : 0;
-  const madC = madRow ? madRow.count : 0;
+let omsC = 0, madC = 0;
+if (compData) {
+  if (_filter.ruad) {
+    // Конкретный РУАД → только его МАД-строка (total)
+    const row = (compData.total || []).find(r => r.name === _filter.ruad);
+    madC = row ? row.count : 0;
+  } else if (_filter.mo) {
+    // Конкретное МО → только его ОМС-строка (total) с суффиксом «го»
+    const compName = _moToComplaintName(_filter.mo);
+    const row = (compData.total || []).find(r => r.name === compName);
+    omsC = row ? row.count : 0;
+  } else {
+    const omsRow = (useMun && compData) ? compData.total.find(r => r.name === 'ОМС') : null;
+    const madRow = (useReg && compData) ? compData.total.find(r => r.name === 'МАД') : null;
+    omsC = omsRow ? omsRow.count : 0;
+    madC = madRow ? madRow.count : 0;
+  }
+}
 
   _charts['donut-reg']  = PotholeCharts.donut('ph-chart-reg-donut',  [munRegSum, regSum],    ['Муниципальные (ОМС)', 'Региональные (МАД)'], _charts['donut-reg']);
   _charts['donut-fix']  = PotholeCharts.donut('ph-chart-fix-donut',  [munFixSum, regFixSum], ['Муниципальные (ОМС)', 'Региональные (МАД)'], _charts['donut-fix']);
@@ -343,7 +384,7 @@ const weekData = weeks.map((w, i) => ({
             + (useMun ? _sumWeekFiltered(_history.municipal, 'registered', w, _filter.mo)   : 0),
   fixed:      (useReg ? _sumWeekFiltered(_history.regional,  'fixed',      w, _filter.ruad) : 0)
             + (useMun ? _sumWeekFiltered(_history.municipal, 'fixed',      w, _filter.mo)   : 0),
-  complaints: _sumCompWeekFiltered(_history.complaints, w, _filter.org),
+  complaints: _sumCompWeekFiltered(_history.complaints, w),
 }));
 
     _charts['weekly'] = PotholeCharts.weekly('ph-chart-weekly', weekData, _charts['weekly']);
@@ -386,18 +427,31 @@ function _sumWeekFiltered(history, field, week, ruad) {
 }
 
 // Как _sumCompWeek, но умеет фильтровать по ОМС или МАД
-function _sumCompWeekFiltered(history, week, org) {
+function _sumCompWeekFiltered(history, week) {
   if (!history) return 0;
   const reports = history.filter(r => r.report_date >= week.from && r.report_date <= week.to);
   if (!reports.length) return 0;
   const last = reports[reports.length - 1];
   const data = last.data_json;
   if (!data || !data.week) return 0;
+
+  if (_filter.ruad) {
+    // Конкретный РУАД → строка с его именем в МАД-ветке
+    const row = data.week.find(r => r.name === _filter.ruad);
+    return row ? row.count : 0;
+  }
+  if (_filter.mo) {
+    // Конкретное МО → «<МО> го» в ОМС-ветке
+    const compName = _moToComplaintName(_filter.mo);
+    const row = data.week.find(r => r.name === compName);
+    return row ? row.count : 0;
+  }
+  // Общий фильтр по источнику
   const omsRow = data.week.find(r => r.name === 'ОМС');
   const madRow = data.week.find(r => r.name === 'МАД');
-  if (org === 'oms') return omsRow ? omsRow.count : 0;  // только ОМС
-  if (org === 'mad') return madRow ? madRow.count : 0;  // только МАД
-  return (omsRow ? omsRow.count : 0) + (madRow ? madRow.count : 0); // все
+  if (_filter.org === 'oms') return omsRow ? omsRow.count : 0;
+  if (_filter.org === 'mad') return madRow ? madRow.count : 0;
+  return (omsRow ? omsRow.count : 0) + (madRow ? madRow.count : 0);
 }
 
   function _sumCompWeek(history, week) {
