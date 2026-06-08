@@ -236,11 +236,11 @@ function parseExcel(buffer, reportType) {
       const sheet = workbook.Sheets[weekSheetName];
       const rows  = XLSX.utils.sheet_to_json(sheet, { header: 1, defval: null });
       let inOms = false, inMad = false;
-      for (let i = 4; i < rows.length; i++) {
+      for (let i = 2; i < rows.length; i++) {              // ← было 3 или 4
         const row = rows[i];
         if (!row || !row[0]) continue;
         const name  = String(row[0]).trim();
-        const count = toNum(row[row.length - 1]);
+        const count = toNum(row[row.length - 1]);           // ← Общий итог
         if (name === 'ОМС')        { inOms = true;  inMad = false; result.week.push({ name: 'ОМС', type: 'oms', count }); continue; }
         if (name === 'МАД')        { inMad = true;  inOms = false; result.week.push({ name: 'МАД', type: 'mad', count }); continue; }
         if (name === 'Общий итог') break;
