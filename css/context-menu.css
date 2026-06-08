@@ -34,7 +34,7 @@
   border: none;
   cursor: pointer;
   text-align: left;
-  transition: background var(--transition-interactive);
+  transition: background var(--transition);
   white-space: nowrap;
 }
 .ctx-menu-item:hover { background: var(--color-surface-offset); }
