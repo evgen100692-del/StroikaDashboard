@@ -339,10 +339,10 @@ const PotholePage = (() => {
     const omsWeek   = d.week  ? d.week.filter(r => r.type === 'oms')   : [];
     const madWeek   = d.week  ? d.week.filter(r => r.type === 'mad')   : [];
 
-    const omsTotalSum = omsTotal.reduce((s, r) => s + (r.count || 0), 0);
-    const madTotalSum = madTotal.reduce((s, r) => s + (r.count || 0), 0);
-    const omsWeekSum  = omsWeek.reduce((s, r)  => s + (r.count || 0), 0);
-    const madWeekSum  = madWeek.reduce((s, r)  => s + (r.count || 0), 0);
+  const omsTotalSum = (d.total ? d.total.find(r => r.name === 'ОМС') : null)?.count || 0;
+  const madTotalSum = (d.total ? d.total.find(r => r.name === 'МАД') : null)?.count || 0;
+  const omsWeekSum  = (d.week  ? d.week.find(r  => r.name === 'ОМС') : null)?.count || 0;
+  const madWeekSum  = (d.week  ? d.week.find(r  => r.name === 'МАД') : null)?.count || 0;
 
     function buildTable(rows, sumVal) {
       if (!rows.length) return '<p style="padding:var(--space-3);color:var(--color-text-muted);font-size:var(--text-sm)">Нет данных</p>';

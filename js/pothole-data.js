@@ -92,17 +92,9 @@ const PotholeData = (() => {
 
   // Разбиваем жалобы на ОМС/МАД по ключевым словам в названии
   function _splitComplaints(list, type) {
-    return (list || []).reduce((sum, row) => {
-      const name = (row.name || '').toLowerCase();
-      if (type === 'oms') {
-        // ОМС = ОМСУ, муницип, администрация
-        if (/омсу?|муницип|админ/.test(name)) return sum + (row.count || 0);
-      } else {
-        // МАД = РУАД, мад
-        if (/руад|мад/.test(name)) return sum + (row.count || 0);
-      }
-      return sum;
-    }, 0);
+    const headerName = type === 'oms' ? 'ОМС' : 'МАД';
+    const row = (list || []).find(r => r.name === headerName);
+    return row ? (row.count || 0) : 0;
   }
 
   // ─ Данные для графика динамики по неделям ──────────────────
