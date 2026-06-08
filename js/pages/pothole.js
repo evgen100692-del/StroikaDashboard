@@ -217,10 +217,10 @@ function _renderKPIs() {
   const totalFix = regData.reduce((s, r) => s + (r.fixed || 0), 0)
                  + munData.reduce((s, r) => s + (r.fixed || 0), 0);
 
-  const filteredComp = _applyOrgFilter(_latest.complaints ? _latest.complaints.data_json : null);
-  const omsRow   = filteredComp ? (filteredComp.total || []).find(r => r.name === 'ОМС') : null;
-  const madRow   = filteredComp ? (filteredComp.total || []).find(r => r.name === 'МАД') : null;
-  const totalComp = (omsRow ? omsRow.count : 0) + (madRow ? madRow.count : 0);
+const filteredComp = _applyOrgFilter(_latest.complaints ? _latest.complaints.data_json : null);
+const omsRow   = filteredComp ? (filteredComp.week || []).find(r => r.name === 'ОМС') : null;
+const madRow   = filteredComp ? (filteredComp.week || []).find(r => r.name === 'МАД') : null;
+const totalComp = (omsRow ? omsRow.count : 0) + (madRow ? madRow.count : 0);
 
   _setKPI('ph-kpi-reg',  totalReg,  _latest.regional   ? _latest.regional.report_date   : null, 'ph-kpi-reg-date',  'ph-kpi-reg-delta',  'regional',   'registered');
   _setKPI('ph-kpi-fix',  totalFix,  _latest.regional   ? _latest.regional.report_date   : null, 'ph-kpi-fix-date',  'ph-kpi-fix-delta',  'regional',   'fixed');
