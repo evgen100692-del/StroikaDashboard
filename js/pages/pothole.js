@@ -333,22 +333,104 @@ const PotholePage = (() => {
 
   function _tableComplaints(d) {
     if (!d) return '<p style="padding:var(--space-4);color:var(--color-text-muted)">Нет данных</p>';
-    let html = '<div style="padding:var(--space-4)">';
 
-    html += '<h4 style="margin-bottom:var(--space-3);font-weight:700">Свод общий</h4>';
-    html += `<div class="data-table-wrap"><table class="data-table">
-      <thead><tr><th>Исполнитель</th><th>Тип</th><th>Количество жалоб</th></tr></thead>
-      <tbody>${(d.total || []).map(r => `<tr><td>${r.name}</td><td><span class="ph-report-badge ${r.type}">${r.type === 'oms' ? 'ОМС' : 'МАД'}</span></td><td>${(r.count||0).toLocaleString('ru')}</td></tr>`).join('')}</tbody>
-    </table></div>`;
+    const omsTotal  = d.total ? d.total.filter(r => r.type === 'oms')  : [];
+    const madTotal  = d.total ? d.total.filter(r => r.type === 'mad')  : [];
+    const omsWeek   = d.week  ? d.week.filter(r => r.type === 'oms')   : [];
+    const madWeek   = d.week  ? d.week.filter(r => r.type === 'mad')   : [];
 
-    html += '<h4 style="margin:var(--space-5) 0 var(--space-3);font-weight:700">Свод за 7 дней</h4>';
-    html += `<div class="data-table-wrap"><table class="data-table">
-      <thead><tr><th>Исполнитель</th><th>Тип</th><th>Количество жалоб</th></tr></thead>
-      <tbody>${(d.week || []).map(r => `<tr><td>${r.name}</td><td><span class="ph-report-badge ${r.type}">${r.type === 'oms' ? 'ОМС' : 'МАД'}</span></td><td>${(r.count||0).toLocaleString('ru')}</td></tr>`).join('')}</tbody>
-    </table></div>`;
+    const omsTotalSum = omsTotal.reduce((s, r) => s + (r.count || 0), 0);
+    const madTotalSum = madTotal.reduce((s, r) => s + (r.count || 0), 0);
+    const omsWeekSum  = omsWeek.reduce((s, r)  => s + (r.count || 0), 0);
+    const madWeekSum  = madWeek.reduce((s, r)  => s + (r.count || 0), 0);
 
-    html += '</div>';
-    return html;
+    function buildTable(rows, sumVal) {
+      if (!rows.length) return '<p style="padding:var(--space-3);color:var(--color-text-muted);font-size:var(--text-sm)">Нет данных</p>';
+      const bodyRows = rows
+        .filter(r => r.name !== 'ОМС' && r.name !== 'МАД')
+        .map(r => `<tr>
+          <td>${r.name}</td>
+          <td style="text-align:right;font-variant-numeric:tabular-nums">${(r.count || 0).toLocaleString('ru')}</td>
+        </tr>`).join('');
+      return `<div class="data-table-wrap">
+        <table class="data-table">
+          <thead>
+            <tr>
+              <th>Исполнитель / МО</th>
+              <th style="text-align:right">Жалоб</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${bodyRows}
+            <tr style="font-weight:700;border-top:2px solid var(--color-border)">
+              <td>Итого</td>
+              <td style="text-align:right;font-variant-numeric:tabular-nums">${sumVal.toLocaleString('ru')}</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>`;
+    }
+
+    const sectionStyle = `
+      display:grid;
+      grid-template-columns:1fr 1fr;
+      gap:var(--space-5);
+      margin-bottom:var(--space-6);
+    `;
+
+    const headerStyle = `
+      font-size:var(--text-sm);
+      font-weight:700;
+      text-transform:uppercase;
+      letter-spacing:.05em;
+      color:var(--color-text-faint);
+      margin-bottom:var(--space-3);
+      padding-bottom:var(--space-2);
+      border-bottom:1px solid var(--color-divider);
+    `;
+
+    const blockStyle = `
+      background:var(--color-surface-2);
+      border:1px solid var(--color-border);
+      border-radius:var(--radius-lg);
+      overflow:hidden;
+    `;
+
+    const titleBarOms = `<div style="padding:var(--space-3) var(--space-4);background:var(--color-blue-highlight);display:flex;align-items:center;justify-content:space-between;">
+      <span style="font-weight:700;color:var(--color-blue);font-size:var(--text-sm)">ОМС</span>
+      <span style="font-size:var(--text-xs);font-weight:700;color:var(--color-blue)">${omsTotalSum.toLocaleString('ru')} жалоб</span>
+    </div>`;
+
+    const titleBarMad = `<div style="padding:var(--space-3) var(--space-4);background:var(--color-success-highlight);display:flex;align-items:center;justify-content:space-between;">
+      <span style="font-weight:700;color:var(--color-success);font-size:var(--text-sm)">МАД</span>
+      <span style="font-size:var(--text-xs);font-weight:700;color:var(--color-success)">${madTotalSum.toLocaleString('ru')} жалоб</span>
+    </div>`;
+
+    const titleBarOmsWeek = `<div style="padding:var(--space-3) var(--space-4);background:var(--color-blue-highlight);display:flex;align-items:center;justify-content:space-between;">
+      <span style="font-weight:700;color:var(--color-blue);font-size:var(--text-sm)">ОМС — за 7 дней</span>
+      <span style="font-size:var(--text-xs);font-weight:700;color:var(--color-blue)">${omsWeekSum.toLocaleString('ru')} жалоб</span>
+    </div>`;
+
+    const titleBarMadWeek = `<div style="padding:var(--space-3) var(--space-4);background:var(--color-success-highlight);display:flex;align-items:center;justify-content:space-between;">
+      <span style="font-weight:700;color:var(--color-success);font-size:var(--text-sm)">МАД — за 7 дней</span>
+      <span style="font-size:var(--text-xs);font-weight:700;color:var(--color-success)">${madWeekSum.toLocaleString('ru')} жалоб</span>
+    </div>`;
+
+    return `<div style="padding:var(--space-4)">
+
+      <div style="${headerStyle}">Свод общий</div>
+      <div style="${sectionStyle}">
+        <div style="${blockStyle}">${titleBarOms}${buildTable(omsTotal, omsTotalSum)}</div>
+        <div style="${blockStyle}">${titleBarMad}${buildTable(madTotal, madTotalSum)}</div>
+      </div>
+
+      <div style="${headerStyle}">За 7 дней</div>
+      <div style="${sectionStyle}">
+        <div style="${blockStyle}">${titleBarOmsWeek}${buildTable(omsWeek, omsWeekSum)}</div>
+        <div style="${blockStyle}">${titleBarMadWeek}${buildTable(madWeek, madWeekSum)}</div>
+      </div>
+
+    </div>`;
   }
 
   // ════════════════════════════════════════════════════════════════════════════
