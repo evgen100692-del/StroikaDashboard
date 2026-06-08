@@ -425,28 +425,6 @@ const server = http.createServer(async (req, res) => {
     return;
   }
 
-  if (url === '/api/contracts/seed' && req.method === 'POST') {
-    const contracts = await readBodyJSON(req);
-    db.run('BEGIN TRANSACTION');
-    try {
-      for (const body of contracts) {
-        const cols = Object.keys(body);
-        const vals = Object.values(body);
-        db.run(
-          `INSERT INTO contracts (${cols.join(',')}) VALUES (${cols.map(() => '?').join(',')})`,
-          vals
-        );
-      }
-      db.run('COMMIT');
-      saveDb();  // ← одна запись на диск вместо шести
-    } catch(e) {
-      db.run('ROLLBACK');
-      json(res, 500, { error: e.message }); return;
-    }
-    json(res, 200, { ok: true, count: contracts.length });
-    return;
-  }
-
   // ════════════════════════════════════════════════════════════
   //  Статические файлы
   // ════════════════════════════════════════════════════════════

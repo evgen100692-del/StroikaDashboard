@@ -24,7 +24,6 @@ const AppData = (() => {
         const res = await fetch(API);
         if (!res.ok) throw new Error('HTTP ' + res.status);
         state = await res.json();
-        if (state.contracts.length === 0) await seedDemo();
       } catch(e) {
         console.warn('[AppData] Сервер недоступен:', e.message);
       }
@@ -34,7 +33,6 @@ const AppData = (() => {
         const raw = localStorage.getItem('dashboard_data_v1');
         if (raw) state = JSON.parse(raw);
       } catch(e) {}
-      if (state.contracts.length === 0) await seedDemo();
     }
   }
 
@@ -240,110 +238,6 @@ const AppData = (() => {
     }
     if (result.readinessPct > 100) result.readinessPct = 100;
     return result;
-  }
-
-  // ── Demo seed ─────────────────────────────────────────────────────
-  async function seedDemo() {
-    const demo = [
-      {
-        objectName: 'Реконструкция ул. Ленина, км 0+000 — км 2+500',
-        financingSource: 'Федеральный бюджет', contractor: 'ООО «СтройМаг»',
-        contractNum: '№ 2024-ФД-001', contractDate: '2024-03-15',
-        priceGK: 185000000, advanceGK: 37000000, advancePaid: 37000000,
-        unworkedAdvance: 12000000, paidTotal: 98000000, completed: 115000000,
-        completed2025: 60000000, paid2025: 55000000,
-        limit2026was: 80000000, limit2026cur: 70000000, completed2026: 35000000, paid2026: 30000000,
-        limit2027was: 35000000, limit2027cur: 40000000,
-        limit2028was: 0, limit2028cur: 0, limit2029was: 0, limit2029cur: 0,
-        remainder: 70000000, readinessPct: 62, workers: 45, equipment: 12,
-        moge: '2024-06-01', dptStatus: 'Утверждён', landWithdrawalPct: 100,
-        plannedIntroDate: '2026-11-30', plannedOpenDate: '2026-12-15', contractEndDate: '2026-12-31',
-      },
-      {
-        objectName: 'Строительство моста через р. Волга',
-        financingSource: 'Региональный бюджет', contractor: 'АО «МостТрансСтрой»',
-        contractNum: '№ 2024-РБ-015', contractDate: '2024-05-20',
-        priceGK: 420000000, advanceGK: 63000000, advancePaid: 63000000,
-        unworkedAdvance: 28000000, paidTotal: 145000000, completed: 160000000,
-        completed2025: 80000000, paid2025: 72000000,
-        limit2026was: 160000000, limit2026cur: 150000000, completed2026: 55000000, paid2026: 48000000,
-        limit2027was: 110000000, limit2027cur: 115000000,
-        limit2028was: 0, limit2028cur: 0, limit2029was: 0, limit2029cur: 0,
-        remainder: 275000000, readinessPct: 38, workers: 120, equipment: 35,
-        moge: '2024-08-10', dptStatus: 'На согласовании', landWithdrawalPct: 85,
-        plannedIntroDate: '2027-06-30', plannedOpenDate: '2027-07-15', contractEndDate: '2027-08-01',
-      },
-      {
-        objectName: 'Капремонт дороги Р-22, км 15 — км 42',
-        financingSource: 'Федеральный бюджет', contractor: 'ООО «СтройМаг»',
-        contractNum: '№ 2025-ФД-003', contractDate: '2025-02-10',
-        priceGK: 95000000, advanceGK: 19000000, advancePaid: 19000000,
-        unworkedAdvance: 5000000, paidTotal: 62000000, completed: 71000000,
-        completed2025: 55000000, paid2025: 50000000,
-        limit2026was: 24000000, limit2026cur: 24000000, completed2026: 20000000, paid2026: 18000000,
-        limit2027was: 0, limit2027cur: 0, limit2028was: 0, limit2028cur: 0, limit2029was: 0, limit2029cur: 0,
-        remainder: 24000000, readinessPct: 75, workers: 28, equipment: 8,
-        moge: '2025-03-01', dptStatus: 'Утверждён', landWithdrawalPct: 100,
-        plannedIntroDate: '2026-09-30', plannedOpenDate: '2026-10-01', contractEndDate: '2026-10-15',
-      },
-      {
-        objectName: 'Обход г. Саратов, 1-й этап',
-        financingSource: 'Федеральный бюджет', contractor: 'ПАО «АвтоДорСтрой»',
-        contractNum: '№ 2023-ФД-022', contractDate: '2023-11-01',
-        priceGK: 650000000, advanceGK: 97500000, advancePaid: 97500000,
-        unworkedAdvance: 0, paidTotal: 310000000, completed: 340000000,
-        completed2025: 150000000, paid2025: 140000000,
-        limit2026was: 200000000, limit2026cur: 195000000, completed2026: 80000000, paid2026: 75000000,
-        limit2027was: 100000000, limit2027cur: 110000000,
-        limit2028was: 0, limit2028cur: 0, limit2029was: 0, limit2029cur: 0,
-        remainder: 340000000, readinessPct: 52, workers: 200, equipment: 62,
-        moge: '2023-12-15', dptStatus: 'Утверждён', landWithdrawalPct: 92,
-        plannedIntroDate: '2027-08-31', plannedOpenDate: '2027-09-01', contractEndDate: '2027-09-30',
-      },
-      {
-        objectName: 'Путепровод на пересечении с ж/д',
-        financingSource: 'Региональный бюджет', contractor: 'АО «МостТрансСтрой»',
-        contractNum: '№ 2025-РБ-007', contractDate: '2025-04-12',
-        priceGK: 220000000, advanceGK: 44000000, advancePaid: 22000000,
-        unworkedAdvance: 22000000, paidTotal: 44000000, completed: 50000000,
-        completed2025: 30000000, paid2025: 22000000,
-        limit2026was: 110000000, limit2026cur: 100000000, completed2026: 18000000, paid2026: 15000000,
-        limit2027was: 66000000, limit2027cur: 70000000,
-        limit2028was: 0, limit2028cur: 0, limit2029was: 0, limit2029cur: 0,
-        remainder: 176000000, readinessPct: 23, workers: 75, equipment: 20,
-        moge: '2025-05-20', dptStatus: 'На согласовании', landWithdrawalPct: 60,
-        plannedIntroDate: '2027-12-31', plannedOpenDate: '2028-01-15', contractEndDate: '2028-02-01',
-      },
-      {
-        objectName: 'Реконструкция съезда М-5 развязка',
-        financingSource: 'Местный бюджет', contractor: 'ООО «ДорПроект»',
-        contractNum: '№ 2025-МБ-002', contractDate: '2025-01-20',
-        priceGK: 48000000, advanceGK: 9600000, advancePaid: 9600000,
-        unworkedAdvance: 0, paidTotal: 42000000, completed: 45000000,
-        completed2025: 38000000, paid2025: 35000000,
-        limit2026was: 6000000, limit2026cur: 6000000, completed2026: 5000000, paid2026: 5000000,
-        limit2027was: 0, limit2027cur: 0, limit2028was: 0, limit2028cur: 0, limit2029was: 0, limit2029cur: 0,
-        remainder: 6000000, readinessPct: 94, workers: 15, equipment: 4,
-        moge: '2025-02-10', dptStatus: 'Утверждён', landWithdrawalPct: 100,
-        plannedIntroDate: '2026-07-01', plannedOpenDate: '2026-07-15', contractEndDate: '2026-08-01',
-      },
-    ];
-    if (isServerMode()) {
-      await fetch('/api/contracts/seed', {
-        method:  'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body:    JSON.stringify(demo),
-      });
-      const res = await fetch(API);
-      state = await res.json();
-    } else {
-      // FIX: накапливаем все записи, saveLocal() вызываем один раз после цикла
-      for (const d of demo) {
-        const row = { id: state.nextId++, ...sanitize(d) };
-        state.contracts.push(row);
-      }
-      saveLocal();
-    }
   }
 
   // ── Init ──────────────────────────────────────────────────────────
