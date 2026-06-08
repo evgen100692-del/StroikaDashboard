@@ -9,7 +9,7 @@ const PotholePage = (() => {
   let _history     = {};   // { complaints:[], regional:[], municipal:[] }
   let _charts      = {};   // Chart.js instances
   let _initialized = false;
-  let _filter = { ruad: '', org: 'all' };
+  let _filter = { ruad: '', mo: '', org: 'all' };
   let _filterBarBound = false;
 
   // ════════════════════════════════════════════════════════════════════════════
@@ -83,45 +83,87 @@ const PotholePage = (() => {
     return Array.from(names).sort();
   }
 
-  function _renderFilterBar() {
+  function _getMoOptions() {
+  const names = new Set();
+  (_latest.municipal?.data_json || []).forEach(r => { if (r.name) names.add(r.name); });
+  return Array.from(names).sort();
+}
+
+function _renderFilterBar() {
   const bar = document.getElementById('ph-filter-bar');
   if (!bar) return;
+
+  // -- РУАД --
   const ruadSelect = document.getElementById('ph-filter-ruad');
   if (ruadSelect) {
     const opts = _getRuadOptions();
-    const prev = ruadSelect.value;
+    const prev = _filter.ruad;
     ruadSelect.innerHTML = '<option value="">Все РУАД</option>'
       + opts.map(n => `<option value="${n}">${n}</option>`).join('');
-    if (prev && opts.includes(prev)) ruadSelect.value = prev;
-    else ruadSelect.value = _filter.ruad || '';
+    ruadSelect.value = (prev && opts.includes(prev)) ? prev : '';
   }
+
+  // -- МО --
+  const moSelect = document.getElementById('ph-filter-mo');
+  if (moSelect) {
+    const opts = _getMoOptions();
+    const prev = _filter.mo;
+    moSelect.innerHTML = '<option value="">Все МО</option>'
+      + opts.map(n => `<option value="${n}">${n}</option>`).join('');
+    moSelect.value = (prev && opts.includes(prev)) ? prev : '';
+  }
+
+  // -- видимость групп в зависимости от источника --
+  const groupRuad = document.getElementById('ph-filter-group-ruad');
+  const groupMo   = document.getElementById('ph-filter-group-mo');
+  if (groupRuad) groupRuad.style.display = (_filter.org === 'oms') ? 'none' : '';
+  if (groupMo)   groupMo.style.display   = (_filter.org === 'mad') ? 'none' : '';
+
   const hasData = _latest.regional || _latest.municipal || _latest.complaints;
   bar.style.display = hasData ? '' : 'none';
 }
 
 function _bindFilterBar() {
   const ruadSelect = document.getElementById('ph-filter-ruad');
+  const moSelect   = document.getElementById('ph-filter-mo');
   const orgBtns    = document.querySelectorAll('[data-ph-org]');
+
+  // кнопки-переключатели источника
+  orgBtns.forEach(btn => {
+    btn.addEventListener('click', () => {
+      orgBtns.forEach(b => b.classList.remove('active'));
+      btn.classList.add('active');
+      _filter.org  = btn.dataset.phOrg;
+      _filter.ruad = '';  // сбрасываем детальные фильтры при смене источника
+      _filter.mo   = '';
+      _renderFilterBar(); // перерисовываем (скрываем ненужные селекты)
+      _applyFiltersAndRedraw();
+    });
+  });
+
+  // РУАД
   if (ruadSelect) {
     ruadSelect.addEventListener('change', () => {
       _filter.ruad = ruadSelect.value;
       _applyFiltersAndRedraw();
     });
   }
-  orgBtns.forEach(btn => {
-    btn.addEventListener('click', () => {
-      orgBtns.forEach(b => b.classList.remove('active'));
-      btn.classList.add('active');
-      _filter.org = btn.dataset.phOrg;
+
+  // МО
+  if (moSelect) {
+    moSelect.addEventListener('change', () => {
+      _filter.mo = moSelect.value;
       _applyFiltersAndRedraw();
     });
-  });
+  }
+
+  // сброс
   const resetBtn = document.getElementById('ph-filter-reset');
   if (resetBtn) {
     resetBtn.addEventListener('click', () => {
-      _filter = { ruad: '', org: 'all' };
-      if (ruadSelect) ruadSelect.value = '';
+      _filter = { ruad: '', mo: '', org: 'all' };
       orgBtns.forEach(b => b.classList.toggle('active', b.dataset.phOrg === 'all'));
+      _renderFilterBar();
       _applyFiltersAndRedraw();
     });
   }
@@ -155,17 +197,26 @@ function _renderDashboard() {
 
   // ── KPI ─────────────────────────────────────────────────────────────────────
 function _renderKPIs() {
-  // Если выбран конкретный РУАД — берём только его строки из regional,
-  // municipal при этом обнуляем (он не делится по РУАД)
-  const regData = _applyRuadFilter(_latest.regional  ? _latest.regional.data_json  : []);
-  const munData = _filter.ruad ? [] : (_latest.municipal ? _latest.municipal.data_json : []);
+  const useReg = _filter.org !== 'oms';
+  const useMun = _filter.org !== 'mad';
+
+  const regData = useReg
+    ? (_filter.ruad
+        ? (_latest.regional?.data_json || []).filter(r => r.name === _filter.ruad)
+        : (_latest.regional?.data_json || []))
+    : [];
+
+  const munData = useMun
+    ? (_filter.mo
+        ? (_latest.municipal?.data_json || []).filter(r => r.name === _filter.mo)
+        : (_latest.municipal?.data_json || []))
+    : [];
 
   const totalReg = regData.reduce((s, r) => s + (r.registered || 0), 0)
                  + munData.reduce((s, r) => s + (r.registered || 0), 0);
   const totalFix = regData.reduce((s, r) => s + (r.fixed || 0), 0)
                  + munData.reduce((s, r) => s + (r.fixed || 0), 0);
 
-  // Если выбран ОМС или МАД — оставляем только нужную организацию
   const filteredComp = _applyOrgFilter(_latest.complaints ? _latest.complaints.data_json : null);
   const omsRow   = filteredComp ? (filteredComp.total || []).find(r => r.name === 'ОМС') : null;
   const madRow   = filteredComp ? (filteredComp.total || []).find(r => r.name === 'МАД') : null;
@@ -208,25 +259,38 @@ function _renderKPIs() {
   }
 
   // ── Пончики — делегируем в PotholeCharts ────────────────────────────────────
-  function _renderDonuts() {
-    const regData  = _latest.regional  ? _latest.regional.data_json  : [];
-    const munData  = _latest.municipal ? _latest.municipal.data_json : [];
-    const compData = _latest.complaints ? _latest.complaints.data_json : null;
+function _renderDonuts() {
+  const useReg = _filter.org !== 'oms';
+  const useMun = _filter.org !== 'mad';
 
-    const regSum    = regData.reduce((s, r) => s + (r.registered || 0), 0);
-    const munRegSum = munData.reduce((s, r) => s + (r.registered || 0), 0);
-    const regFixSum = regData.reduce((s, r) => s + (r.fixed || 0), 0);
-    const munFixSum = munData.reduce((s, r) => s + (r.fixed || 0), 0);
+  const regData = useReg
+    ? (_filter.ruad
+        ? (_latest.regional?.data_json || []).filter(r => r.name === _filter.ruad)
+        : (_latest.regional?.data_json || []))
+    : [];
 
-    const omsRow = compData ? compData.total.find(r => r.name === 'ОМС') : null;
-    const madRow = compData ? compData.total.find(r => r.name === 'МАД') : null;
-    const omsC = omsRow ? omsRow.count : 0;
-    const madC = madRow ? madRow.count : 0;
+  const munData = useMun
+    ? (_filter.mo
+        ? (_latest.municipal?.data_json || []).filter(r => r.name === _filter.mo)
+        : (_latest.municipal?.data_json || []))
+    : [];
 
-    _charts['donut-reg']  = PotholeCharts.donut('ph-chart-reg-donut',  [munRegSum, regSum],    ['Муниципальные', 'Региональные'], _charts['donut-reg']);
-    _charts['donut-fix']  = PotholeCharts.donut('ph-chart-fix-donut',  [munFixSum, regFixSum], ['Муниципальные', 'Региональные'], _charts['donut-fix']);
-    _charts['donut-comp'] = PotholeCharts.donut('ph-chart-comp-donut', [omsC, madC],           ['ОМС', 'МАД'],                   _charts['donut-comp']);
-  }
+  const compData = _latest.complaints ? _latest.complaints.data_json : null;
+
+  const regSum    = regData.reduce((s, r) => s + (r.registered || 0), 0);
+  const munRegSum = munData.reduce((s, r) => s + (r.registered || 0), 0);
+  const regFixSum = regData.reduce((s, r) => s + (r.fixed || 0), 0);
+  const munFixSum = munData.reduce((s, r) => s + (r.fixed || 0), 0);
+
+  const omsRow = (useMun && compData) ? compData.total.find(r => r.name === 'ОМС') : null;
+  const madRow = (useReg && compData) ? compData.total.find(r => r.name === 'МАД') : null;
+  const omsC = omsRow ? omsRow.count : 0;
+  const madC = madRow ? madRow.count : 0;
+
+  _charts['donut-reg']  = PotholeCharts.donut('ph-chart-reg-donut',  [munRegSum, regSum],    ['Муниципальные (ОМС)', 'Региональные (МАД)'], _charts['donut-reg']);
+  _charts['donut-fix']  = PotholeCharts.donut('ph-chart-fix-donut',  [munFixSum, regFixSum], ['Муниципальные (ОМС)', 'Региональные (МАД)'], _charts['donut-fix']);
+  _charts['donut-comp'] = PotholeCharts.donut('ph-chart-comp-donut', [omsC, madC],           ['ОМС (муниципальные)', 'МАД (региональные)'], _charts['donut-comp']);
+}
 
   // ── Weekly — делегируем в PotholeCharts ─────────────────────────────────────
   function _renderWeekly() {
@@ -270,12 +334,15 @@ function _renderKPIs() {
     const [year, month] = ym.split('-').map(Number);
     const weeks = _getWeeksOfMonth(year, month);
 
+const useReg = _filter.org !== 'oms';
+const useMun = _filter.org !== 'mad';
+
 const weekData = weeks.map((w, i) => ({
   label:      'Нед.' + (i + 1) + ' (' + _fmtDate(w.from) + '–' + _fmtDate(w.to) + ')',
-  registered: _sumWeekFiltered(_history.regional,  'registered', w, _filter.ruad)
-            + (_filter.ruad ? 0 : _sumWeek(_history.municipal, 'registered', w)),
-  fixed:      _sumWeekFiltered(_history.regional,  'fixed',      w, _filter.ruad)
-            + (_filter.ruad ? 0 : _sumWeek(_history.municipal, 'fixed',      w)),
+  registered: (useReg ? _sumWeekFiltered(_history.regional,  'registered', w, _filter.ruad) : 0)
+            + (useMun ? _sumWeekFiltered(_history.municipal, 'registered', w, _filter.mo)   : 0),
+  fixed:      (useReg ? _sumWeekFiltered(_history.regional,  'fixed',      w, _filter.ruad) : 0)
+            + (useMun ? _sumWeekFiltered(_history.municipal, 'fixed',      w, _filter.mo)   : 0),
   complaints: _sumCompWeekFiltered(_history.complaints, w, _filter.org),
 }));
 
