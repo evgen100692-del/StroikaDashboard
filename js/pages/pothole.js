@@ -472,5 +472,5 @@ const PotholePage = (() => {
     return { complaints: 'Жалобы', regional: 'Рег.', municipal: 'Мун.' }[t] || t;
   }
 
-  return { init, refresh: _reload };
+  return { init, refresh: _reload, refreshReports: _reload };
 })();
