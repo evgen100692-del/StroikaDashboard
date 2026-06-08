@@ -817,17 +817,24 @@
             <div class="form-group"><label class="form-label" for="cf-contractNum">Контракт №</label><input class="form-input" id="cf-contractNum" type="text" /></div>
             <div class="form-group"><label class="form-label" for="cf-contractDate">Дата заключения</label><input class="form-input" id="cf-contractDate" type="date" /></div>
           </div>
-          <div class="form-divider">Финансовые показатели</div>
-          <div class="form-row cols-3">
-            <div class="form-group"><label class="form-label" for="cf-priceGK">Стоимость ГК</label><input class="form-input" id="cf-priceGK" type="number" step="0.01" min="0" /></div>
-            <div class="form-group input-with-badge"><label class="form-label" for="cf-advanceGK">Аванс по ГК</label><input class="form-input" id="cf-advanceGK" type="number" step="0.01" min="0" /><span class="input-badge" id="cf-advanceGK-pct">0%</span></div>
-            <div class="form-group"><label class="form-label" for="cf-advancePaid">Выданный аванс</label><input class="form-input" id="cf-advancePaid" type="number" step="0.01" min="0" /></div>
+        <div class="form-divider">Финансовые показатели</div>
+        <div class="form-row cols-3">
+          <div class="form-group"><label class="form-label" for="cf-priceGK">Стоимость ГК</label><input class="form-input" id="cf-priceGK" type="number" step="0.01" min="0" /></div>
+          <div class="form-group input-with-badge"><label class="form-label" for="cf-advanceGK">Аванс по ГК</label><input class="form-input" id="cf-advanceGK" type="number" step="0.01" min="0" /><span class="input-badge" id="cf-advanceGK-pct">0%</span></div>
+          <div class="form-group input-with-badge"><label class="form-label" for="cf-advancePaid">Выданный аванс</label><input class="form-input" id="cf-advancePaid" type="number" step="0.01" min="0" /><span class="input-badge" id="pct-advancePaid" style="display:none"></span></div>
+        </div>
+        <div class="form-row cols-3" style="margin-top:var(--space-4)">
+          <div class="form-group input-with-badge">
+            <label class="form-label" for="cf-unworkedAdvance">Неотработанный аванс</label>
+            <input class="form-input" id="cf-unworkedAdvance" type="number" step="0.01" min="0" />
+            <span class="input-badge" id="pct-unworkedAdvance" style="display:none"></span>
           </div>
-          <div class="form-row cols-3" style="margin-top:var(--space-4)">
-            <div class="form-group"><label class="form-label" for="cf-paidTotal">Оплачено всего</label><input class="form-input" id="cf-paidTotal" type="number" step="0.01" min="0" /></div>
-            <div class="form-group"><label class="form-label" for="cf-completed">Выполнено</label><input class="form-input" id="cf-completed" type="number" step="0.01" min="0" /></div>
-            <div class="form-group"><label class="form-label" for="cf-readinessPct">Стройготовность %</label><input class="form-input" id="cf-readinessPct" type="number" step="0.1" min="0" max="100" /></div>
-          </div>
+          <div class="form-group input-with-badge"><label class="form-label" for="cf-paidTotal">Оплачено всего</label><input class="form-input" id="cf-paidTotal" type="number" step="0.01" min="0" /><span class="input-badge" id="pct-paidTotal" style="display:none"></span></div>
+          <div class="form-group input-with-badge"><label class="form-label" for="cf-completed">Выполнено</label><input class="form-input" id="cf-completed" type="number" step="0.01" min="0" /><span class="input-badge" id="pct-completed" style="display:none"></span></div>
+        </div>
+        <div class="form-row cols-1" style="margin-top:var(--space-4)">
+          <div class="form-group"><label class="form-label" for="cf-readinessPct">Стройготовность %</label><input class="form-input" id="cf-readinessPct" type="number" step="0.1" min="0" max="100" /></div>
+        </div>
           <div class="form-divider">Лимиты по годам (план / текущий)</div>
           <div class="form-row cols-4">
             <div class="form-group"><label class="form-label" for="cf-limit2026p">2026 план</label><input class="form-input" id="cf-limit2026p" type="number" step="0.01" min="0" /></div>
@@ -841,12 +848,27 @@
             <div class="form-group"><label class="form-label" for="cf-limit2029p">2029 план</label><input class="form-input" id="cf-limit2029p" type="number" step="0.01" min="0" /></div>
             <div class="form-group"><label class="form-label" for="cf-limit2029c">2029 текущий</label><input class="form-input" id="cf-limit2029c" type="number" step="0.01" min="0" /></div>
           </div>
-          <div class="form-divider">Прочие данные</div>
-          <div class="form-row cols-3">
-            <div class="form-group"><label class="form-label" for="cf-contractEndDate">Срок окончания контракта</label><input class="form-input" id="cf-contractEndDate" type="date" /></div>
-            <div class="form-group"><label class="form-label" for="cf-plannedOpenDate">Планируемое открытие</label><input class="form-input" id="cf-plannedOpenDate" type="date" /></div>
-            <div class="form-group"><label class="form-label" for="cf-dptStatus">Статус ДПТ</label><input class="form-input" id="cf-dptStatus" type="text" /></div>
+        <div class="form-divider">Прочие данные</div>
+        <div class="form-row cols-3">
+          <div class="form-group"><label class="form-label" for="cf-workers">Количество рабочих</label><input class="form-input" id="cf-workers" type="number" step="1" min="0" /></div>
+          <div class="form-group"><label class="form-label" for="cf-equipment">Количество техники</label><input class="form-input" id="cf-equipment" type="number" step="1" min="0" /></div>
+          <div class="form-group"><label class="form-label" for="cf-moge">МОГЭ</label><input class="form-input" id="cf-moge" type="text" /></div>
+        </div>
+        <div class="form-row cols-3" style="margin-top:var(--space-4)">
+          <div class="form-group">
+            <label class="form-label" for="cf-landWithdrawalPct">Изъятие ЗУ % <span style="color:var(--color-text-muted);font-weight:400">(не более 100%)</span></label>
+            <input class="form-input" id="cf-landWithdrawalPct" type="number" step="0.1" min="0" max="100" />
           </div>
+          <div class="form-group">
+            <label class="form-label" for="cf-plannedIntroDate">Плановый срок ввода по ГП</label>
+            <input class="form-input" id="cf-plannedIntroDate" type="date" />
+          </div>
+          <div class="form-group"><label class="form-label" for="cf-contractEndDate">Срок окончания контракта</label><input class="form-input" id="cf-contractEndDate" type="date" /></div>
+        </div>
+        <div class="form-row cols-2" style="margin-top:var(--space-4)">
+          <div class="form-group"><label class="form-label" for="cf-plannedOpenDate">Планируемое открытие</label><input class="form-input" id="cf-plannedOpenDate" type="date" /></div>
+          <div class="form-group"><label class="form-label" for="cf-dptStatus">Статус ДПТ</label><input class="form-input" id="cf-dptStatus" type="text" /></div>
+        </div>
         </form>
       </div>
       <div class="modal-footer">
