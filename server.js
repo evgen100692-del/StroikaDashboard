@@ -218,11 +218,13 @@ function parseExcel(buffer, reportType) {
       const sheet = workbook.Sheets[totalSheetName];
       const rows  = XLSX.utils.sheet_to_json(sheet, { header: 1, defval: null });
       let inOms = false, inMad = false;
-      for (let i = 3; i < rows.length; i++) {
+      for (let i = 0; i < rows.length; i++) {
         const row = rows[i];
         if (!row || !row[0]) continue;
-        const name  = String(row[0]).trim();
-        const count = toNum(row[1]);
+        const name = String(row[0]).trim();
+        if (name === 'Названия строк') continue;          // ← пропуск строки-заголовка
+        const numVal = row.slice(1).find(v => v !== null && v !== '' && !isNaN(parseFloat(v)));
+        const count  = toNum(numVal ?? 0);                // ← не зависит от позиции колонки
         if (name === 'ОМС')        { inOms = true;  inMad = false; result.total.push({ name: 'ОМС', type: 'oms', count }); continue; }
         if (name === 'МАД')        { inMad = true;  inOms = false; result.total.push({ name: 'МАД', type: 'mad', count }); continue; }
         if (name === 'Общий итог') break;
@@ -235,12 +237,18 @@ function parseExcel(buffer, reportType) {
     if (weekSheetName) {
       const sheet = workbook.Sheets[weekSheetName];
       const rows  = XLSX.utils.sheet_to_json(sheet, { header: 1, defval: null });
+      let colIdx = -1;
+      for (let i = 0; i < Math.min(rows.length, 6); i++) {
+        const hi = (rows[i] || []).findIndex(v => v && String(v).trim() === 'Общий итог');
+        if (hi !== -1) { colIdx = hi; break; }            // ← найден индекс колонки
+      }
       let inOms = false, inMad = false;
-      for (let i = 2; i < rows.length; i++) {              // ← было 3 или 4
+      for (let i = 0; i < rows.length; i++) {
         const row = rows[i];
         if (!row || !row[0]) continue;
-        const name  = String(row[0]).trim();
-        const count = toNum(row[row.length - 1]);           // ← Общий итог
+        const name = String(row[0]).trim();
+        if (name === 'Названия строк') continue;          // ← пропуск строки-заголовка
+        const count = toNum(colIdx !== -1 ? row[colIdx] : row[row.length - 1]);
         if (name === 'ОМС')        { inOms = true;  inMad = false; result.week.push({ name: 'ОМС', type: 'oms', count }); continue; }
         if (name === 'МАД')        { inMad = true;  inOms = false; result.week.push({ name: 'МАД', type: 'mad', count }); continue; }
         if (name === 'Общий итог') break;
