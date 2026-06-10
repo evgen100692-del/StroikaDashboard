@@ -263,9 +263,19 @@ if (compData) {
       const prev = hist[hist.length - 2];
       let prevVal = 0;
       if (histType === 'complaints') {
-        const oR = prev.data_json.total ? prev.data_json.total.find(r => r.name === 'ОМС') : null;
-        const mR = prev.data_json.total ? prev.data_json.total.find(r => r.name === 'МАД') : null;
-        prevVal = (oR ? oR.count : 0) + (mR ? mR.count : 0);
+        const weekData = prev.data_json?.week || [];
+        if (_filter.ruad) {
+          const row = weekData.find(r => r.name === _filter.ruad);
+          prevVal = row ? row.count : 0;
+        } else if (_filter.mo) {
+          const compName = _moToComplaintName(_filter.mo);
+          const row = weekData.find(r => r.name === compName);
+          prevVal = row ? row.count : 0;
+        } else {
+          const oR = (_filter.org !== 'mad') ? weekData.find(r => r.name === 'ОМС') : null;
+          const mR = (_filter.org !== 'oms') ? weekData.find(r => r.name === 'МАД') : null;
+          prevVal = (oR ? oR.count : 0) + (mR ? mR.count : 0);
+        }
       } else if (histField) {
         const prevReg = (prev.data_json || []).reduce((s, r) => s + (r[histField] || 0), 0);
         const prevMun = _history.municipal.length >= 2
