@@ -131,10 +131,10 @@ const DashboardPage = (() => {
           <span style="display:block;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-size:var(--text-xs);color:var(--color-text-muted)" title="${esc(c.financingSource||'')}">${esc(c.financingSource||'—')}</span>
         </td>
         <td class="num" style="text-align:right;font-variant-numeric:tabular-nums">${formatMoneyShort(c.priceGK)}</td>
+        <td class="num" style="text-align:right;font-variant-numeric:tabular-nums">${formatMoneyShort(c.completed)}</td>
         <td style="text-align:center">${progressCell(ready, rc)}</td>
         <td style="text-align:center">${hasLand ? progressCell(land, lc) : '<span style="color:var(--color-text-faint);font-size:var(--text-xs)">—</span>'}</td>
-        <td style="text-align:center;font-size:var(--text-xs)">${formatDate(c.plannedOpenDate)}</td>
-        <td style="text-align:center">${getStatusBadge(ready)}</td>
+        <td style="text-align:center;font-size:var(--text-xs);color:var(--color-text-muted)">${esc(c.dptStatus||'—')}</td>
       </tr>`;
     }).join('');
   }
