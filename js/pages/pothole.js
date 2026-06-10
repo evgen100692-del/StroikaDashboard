@@ -68,16 +68,27 @@ const PotholePage = (() => {
     return (rows || []).filter(r => r.name === _filter.ruad);
   }
 
-    /**
-   * Преобразует имя МО из таблицы «Муниципальный ремонт» в имя
-   * строки жалоб. Например: «Балашиха» → «Балашиха го».
-   * Если имя уже заканчивается на « го» — возвращает как есть.
+  /**
+   * Нормализует строку для сравнения МО с жалобами:
+   * убирает суффикс «го» / «г.о.» / «г/о», trim, lowercase.
    */
-  function _moToComplaintName(moName) {
-    if (!moName) return null;
-    const trimmed = moName.trim();
-    if (/\sго$/i.test(trimmed)) return trimmed;
-    return trimmed + ' го';
+  function _normalizeMoName(name) {
+    if (!name) return '';
+    return name.trim()
+      .toLowerCase()
+      .replace(/\s*г\.?о\.?$/i, '')   // «го», «г.о.», «г.о» в конце
+      .replace(/\s*г\/о$/i, '')       // «г/о» в конце
+      .trim();
+  }
+
+  /**
+   * Ищет строку жалоб, соответствующую имени МО из фильтра.
+   * Сравнивает нормализованные имена — суффикс «го» игнорируется.
+   */
+  function _findCompRowByMo(rows, moName) {
+    if (!rows || !moName) return null;
+    const needle = _normalizeMoName(moName);
+    return rows.find(r => _normalizeMoName(r.name) === needle) || null;
   }
 
   function _applyOrgFilter(compDataJson) {
@@ -238,8 +249,7 @@ if (compData) {
     totalComp = row ? row.count : 0;
   } else if (_filter.mo) {
     // Конкретное МО → ищем «<МО> го» в ОМС-ветке недельных жалоб
-    const compName = _moToComplaintName(_filter.mo);
-    const row = (compData.week || []).find(r => r.name === compName);
+    const row = _findCompRowByMo(compData.week, _filter.mo);
     totalComp = row ? row.count : 0;
   } else {
     // Общий фильтр по источнику (org)
@@ -268,8 +278,7 @@ if (compData) {
           const row = weekData.find(r => r.name === _filter.ruad);
           prevVal = row ? row.count : 0;
         } else if (_filter.mo) {
-          const compName = _moToComplaintName(_filter.mo);
-          const row = weekData.find(r => r.name === compName);
+          const row = _findCompRowByMo(weekData, _filter.mo);
           prevVal = row ? row.count : 0;
         } else {
           const oR = (_filter.org !== 'mad') ? weekData.find(r => r.name === 'ОМС') : null;
@@ -327,8 +336,7 @@ if (compData) {
     madC = row ? row.count : 0;
   } else if (_filter.mo) {
     // Конкретное МО → только его ОМС-строка (total) с суффиксом «го»
-    const compName = _moToComplaintName(_filter.mo);
-    const row = (compData.total || []).find(r => r.name === compName);
+    const row = _findCompRowByMo(compData.total, _filter.mo);
     omsC = row ? row.count : 0;
   } else {
     const omsRow = (useMun && compData) ? compData.total.find(r => r.name === 'ОМС') : null;
@@ -452,8 +460,7 @@ function _sumCompWeekFiltered(history, week) {
   }
   if (_filter.mo) {
     // Конкретное МО → «<МО> го» в ОМС-ветке
-    const compName = _moToComplaintName(_filter.mo);
-    const row = data.week.find(r => r.name === compName);
+    const row = _findCompRowByMo(data.week, _filter.mo);
     return row ? row.count : 0;
   }
   // Общий фильтр по источнику
