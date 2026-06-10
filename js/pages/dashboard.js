@@ -101,23 +101,40 @@ const DashboardPage = (() => {
       tbody._ctxBound = true;
     }
     if (filtered.length === 0) {
-      tbody.innerHTML = `<tr><td colspan="7" style="text-align:center;padding:var(--space-8);color:var(--color-text-muted)">Нет объектов, соответствующих фильтрам</td></tr>`;
+      tbody.innerHTML = `<tr><td colspan="8" style="text-align:center;padding:var(--space-8);color:var(--color-text-muted)">Нет объектов, соответствующих фильтрам</td></tr>`;
       return;
     }
     tbody.innerHTML = filtered.map(c => {
-      const ready = AppData.num(c.readinessPct);
-      const rc    = ready >= 75 ? 'success' : ready >= 40 ? '' : 'warning';
+      const ready    = AppData.num(c.readinessPct);
+      const rc       = ready >= 75 ? 'success' : ready >= 40 ? '' : 'warning';
+      const land     = AppData.num(c.landWithdrawalPct);
+      const lc       = land  >= 75 ? 'success' : land  >= 40 ? '' : 'warning';
+      const hasLand  = c.landWithdrawalPct != null && String(c.landWithdrawalPct).trim() !== '';
+
+      const progressCell = (val, cls) => `
+        <div style="display:flex;flex-direction:column;align-items:center;gap:2px">
+          <div class="progress-wrap" style="width:52px">
+            <div class="progress-fill ${cls}" style="width:${Math.min(val,100)}%"></div>
+          </div>
+          <span style="font-size:10px;font-weight:600">${val}%</span>
+        </div>`;
+
       return `<tr data-ctx data-id="${c.id}">
-        <td class="wrap">${esc(c.objectName||'—')}</td>
-        <td>${esc(c.contractor||'—')}</td>
-        <td>${esc(c.financingSource||'—')}</td>
-        <td class="num">${formatMoneyShort(c.priceGK)}</td>
-        <td><div style="display:flex;align-items:center;gap:var(--space-2)">
-          <div class="progress-wrap" style="width:60px"><div class="progress-fill ${rc}" style="width:${ready}%"></div></div>
-          <span style="font-size:var(--text-xs);font-weight:600">${ready}%</span>
-        </div></td>
-        <td>${formatDate(c.plannedOpenDate)}</td>
-        <td>${getStatusBadge(ready)}</td>
+        <td style="text-align:left;overflow:hidden">
+          <div style="font-weight:600;font-size:var(--text-sm);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;line-height:1.3" title="${esc(c.objectName||'')}">${esc(c.objectName||'—')}</div>
+          ${c.contractNum ? `<div style="color:var(--color-text-faint);font-size:10px;margin-top:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${esc(c.contractNum)}</div>` : ''}
+        </td>
+        <td style="text-align:center;overflow:hidden">
+          <span style="display:block;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-size:var(--text-xs)" title="${esc(c.contractor||'')}">${esc(c.contractor||'—')}</span>
+        </td>
+        <td style="text-align:center;overflow:hidden">
+          <span style="display:block;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-size:var(--text-xs);color:var(--color-text-muted)" title="${esc(c.financingSource||'')}">${esc(c.financingSource||'—')}</span>
+        </td>
+        <td class="num" style="text-align:right;font-variant-numeric:tabular-nums">${formatMoneyShort(c.priceGK)}</td>
+        <td style="text-align:center">${progressCell(ready, rc)}</td>
+        <td style="text-align:center">${hasLand ? progressCell(land, lc) : '<span style="color:var(--color-text-faint);font-size:var(--text-xs)">—</span>'}</td>
+        <td style="text-align:center;font-size:var(--text-xs)">${formatDate(c.plannedOpenDate)}</td>
+        <td style="text-align:center">${getStatusBadge(ready)}</td>
       </tr>`;
     }).join('');
   }
