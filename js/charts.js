@@ -204,69 +204,11 @@ const ChartsManager = (() => {
     }
   }
 
-  // ---- Chart: By contractor (pie) ----
-  function renderContractorChart(analytics) {
-    const ctx = document.getElementById('chart-by-contractor');
-    if (!ctx) return;
-
-    const entries = Object.entries(analytics.byContractor)
-      .sort((a,b) => b[1] - a[1])
-      .slice(0, 6);
-
-    const colors = chartPalette();
-    const data = {
-      labels: entries.map(e => e[0].length > 22 ? e[0].slice(0,22)+'…' : e[0]),
-      datasets: [{
-        data: entries.map(e => e[1]),
-        backgroundColor: colors.map(c => c + 'cc'),
-        borderColor: colors,
-        borderWidth: 2,
-        hoverOffset: 6,
-      }]
-    };
-
-    const opts = {
-      responsive: true,
-      maintainAspectRatio: false,
-      animation: { duration: 750, easing: 'easeOutQuart' },
-      plugins: {
-        legend: {
-          position: 'bottom',
-          labels: {
-            color: textColor(),
-            font: { family: getCSSVar('--font-body'), size: 11 },
-            padding: 12,
-            boxWidth: 12,
-            boxHeight: 12,
-          }
-        },
-        tooltip: {
-          backgroundColor: bgColor(),
-          titleColor: getCSSVar('--color-text'),
-          bodyColor: textColor(),
-          borderColor: getCSSVar('--color-border'),
-          borderWidth: 1,
-          padding: 10,
-          callbacks: {
-            label: ctx => ` ${formatMoneyShort(ctx.raw)}`,
-          }
-        }
-      }
-    };
-
-    if (instances.byContractor) {
-      instances.byContractor.data = data;
-      instances.byContractor.update('active');
-    } else {
-      instances.byContractor = new Chart(ctx, { type: 'pie', data, options: opts });
-    }
-  }
 
   function renderAll(analytics, filtered) {
     renderLimitsChart(analytics);
     renderFinancingChart(analytics);
     renderReadinessChart(filtered);
-    renderContractorChart(analytics);
   }
 
   function updateTheme() {
@@ -292,5 +234,5 @@ const ChartsManager = (() => {
     }
   }
 
-  return { renderAll, renderLimitsChart, renderFinancingChart, renderReadinessChart, renderContractorChart, updateTheme };
+  return { renderAll, renderLimitsChart, renderFinancingChart, renderReadinessChart, updateTheme };
 })();

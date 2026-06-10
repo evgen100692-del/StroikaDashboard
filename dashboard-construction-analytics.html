@@ -585,10 +585,17 @@
             <article class="card"><div class="card-header"><div><div class="card-title">График лимитов по годам</div><div class="card-subtitle">Сопоставление плановых и текущих лимитов 2026–2029</div></div></div><div class="card-body chart-fixed"><div class="chart-container chart-fixed"><canvas id="chart-limits"></canvas></div></div></article>
             <article class="card"><div class="card-header"><div><div class="card-title">Структура финансирования</div><div class="card-subtitle">Оплачено, не оплачено и остаток</div></div></div><div class="card-body chart-fixed-sm"><div class="chart-container chart-fixed-sm"><canvas id="chart-financing"></canvas></div></div></article>
           </div>
-          <div class="dashboard-grid-2">
-            <article class="card"><div class="card-header"><div><div class="card-title">Динамика стройготовности</div><div class="card-subtitle">Топ объектов по текущей готовности</div></div></div><div class="card-body chart-fixed"><div class="chart-container chart-fixed"><canvas id="chart-readiness"></canvas></div></div></article>
-            <article class="card"><div class="card-header"><div><div class="card-title">Структура по подрядчикам</div><div class="card-subtitle">Доля стоимости ГК по основным исполнителям</div></div></div><div class="card-body chart-fixed-sm"><div class="chart-container chart-fixed-sm"><canvas id="chart-by-contractor"></canvas></div></div></article>
-          </div>
+          <article class="card" style="margin-bottom:var(--space-5)">
+            <div class="card-header">
+              <div>
+                <div class="card-title">Динамика стройготовности</div>
+                <div class="card-subtitle">Топ объектов по текущей готовности</div>
+              </div>
+            </div>
+            <div class="card-body chart-fixed">
+              <div class="chart-container chart-fixed"><canvas id="chart-readiness"></canvas></div>
+            </div>
+          </article>
           <article class="card">
             <div class="card-header">
               <div><div class="card-title">Список всех объектов</div><div class="card-subtitle">Текущая выборка по фильтрам</div></div>
