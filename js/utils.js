@@ -37,16 +37,13 @@ function formatNum(n) {
 const Toast = (() => {
   let container;
   function getContainer() {
-    if (!container) {
-      container = document.getElementById('toast-container');
-    }
+    if (!container) container = document.getElementById('toast-container');
     return container;
   }
   function show(message, type = 'info', duration = 3500) {
     const el = document.createElement('div');
     el.className = `toast toast-${type}`;
     const icons = { success: '✓', error: '✕', info: 'ℹ' };
-    // FIX: --color-info не определена в CSS; для info используем --color-primary
     const colorVar = type === 'info' ? 'primary' : type;
     el.innerHTML = `<span style="font-weight:700;color:var(--color-${colorVar})">${icons[type]||'•'}</span><span>${message}</span>`;
     getContainer().appendChild(el);
@@ -64,7 +61,7 @@ const Theme = (() => {
   let current;
 
   function init() {
-    // Читаем сохранённый выбор пользователя. Если его нет — по умолчанию светлая.
+    // Читаем сохранённый выбор пользователя. Если нет — по умолчанию светлая.
     const saved = localStorage.getItem(STORAGE_KEY);
     current = (saved === 'dark' || saved === 'light') ? saved : 'light';
     apply();
@@ -76,12 +73,14 @@ const Theme = (() => {
     document.documentElement.setAttribute('data-theme', current);
     const btn = document.getElementById('theme-toggle');
     if (btn) btn.innerHTML = current === 'dark' ? sunIcon() : moonIcon();
+    // Обновляем графики Chart.js с новыми CSS-цветами
+    if (typeof PotholeCharts !== 'undefined') PotholeCharts.updateTheme();
     if (typeof ChartsManager !== 'undefined') ChartsManager.updateTheme?.();
   }
 
   function toggle() {
     current = current === 'dark' ? 'light' : 'dark';
-    localStorage.setItem(STORAGE_KEY, current); // Сохраняем выбор пользователя
+    localStorage.setItem(STORAGE_KEY, current);
     apply();
   }
 
@@ -122,22 +121,19 @@ const Router = (() => {
   function register(id, onActivate) { pages[id] = onActivate; }
 
   function navigate(id) {
-    // Deactivate all
     document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
     document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
 
-    // Activate target
     const page = document.getElementById('page-' + id);
     if (page) page.classList.add('active');
 
     const navItem = document.querySelector(`[data-nav="${id}"]`);
     if (navItem) navItem.classList.add('active');
 
-    // Update header title
     const titleMap = {
-      dashboard:          'Дашборд',
-      contracts:          'Контракты',
-      contractors:        'Подрядчики',
+      dashboard:           'Дашборд',
+      contracts:           'Контракты',
+      contractors:         'Подрядчики',
       'pothole-dashboard': 'Ямочный ремонт — Дашборд',
       'pothole-reports':   'Ямочный ремонт — Отчёты',
     };
@@ -165,11 +161,10 @@ function closeModal(id) {
   if (overlay) overlay.classList.remove('open');
 }
 
-// Close on Escape
 document.addEventListener('keydown', e => {
   if (e.key === 'Escape') {
     document.querySelectorAll('.modal-overlay.open').forEach(m => m.classList.remove('open'));
-  } 
+  }
 });
 
 // ---- Confirm dialog ----
@@ -188,12 +183,7 @@ function confirmDialog(message, onConfirm) {
   document.getElementById('confirm-no').addEventListener('click', cleanup, { once: true });
 }
 
-
 // ---- Shared chart helpers ----
-// Единственный источник истины для CSS-переменных и палитры графиков.
-// charts.js и charts-pothole.js должны использовать эти функции,
-// а не объявлять свои локальные копии.
-
 function getCSSVar(name) {
   return getComputedStyle(document.documentElement).getPropertyValue(name).trim();
 }
