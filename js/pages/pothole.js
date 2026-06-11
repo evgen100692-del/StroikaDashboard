@@ -286,10 +286,18 @@ if (compData) {
           prevVal = (oR ? oR.count : 0) + (mR ? mR.count : 0);
         }
       } else if (histField) {
-        const prevReg = (prev.data_json || []).reduce((s, r) => s + (r[histField] || 0), 0);
-        const prevMun = _history.municipal.length >= 2
-          ? _history.municipal[_history.municipal.length - 2].data_json.reduce((s, r) => s + (r[histField] || 0), 0)
-          : 0;
+        const prevRegRows = _filter.ruad
+          ? (prev.data_json || []).filter(r => r.name === _filter.ruad)
+          : (prev.data_json || []);
+        const prevReg = prevRegRows.reduce((s, r) => s + (r[histField] || 0), 0);
+
+        const prevMunSource = _history.municipal.length >= 2
+          ? _history.municipal[_history.municipal.length - 2].data_json || []
+          : [];
+        const prevMunRows = _filter.mo
+          ? prevMunSource.filter(r => r.name === _filter.mo)
+          : prevMunSource;
+        const prevMun = prevMunRows.reduce((s, r) => s + (r[histField] || 0), 0);
         prevVal = prevReg + prevMun;
       }
       const diff = curVal - prevVal;
