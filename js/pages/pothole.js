@@ -422,7 +422,6 @@ const weekData = weeks.map((w, i) => ({
     let d = new Date(year, month - 1, 1);
     while (d.getDay() !== 1) d = new Date(d.getTime() - 86400000);
     const monthEnd = new Date(year, month, 0);
-    // FIX: явное сравнение через getTime() — не полагаемся на неявное приведение Date
     while (d.getTime() <= monthEnd.getTime()) {
       const from = new Date(d);
       const to   = new Date(d.getTime() + 6 * 86400000);
@@ -440,44 +439,38 @@ const weekData = weeks.map((w, i) => ({
     return (last.data_json || []).reduce((s, r) => s + (r[field] || 0), 0);
   }
 
-  // Как _sumWeek, но умеет фильтровать по конкретному РУАД
-function _sumWeekFiltered(history, field, week, ruad) {
-  if (!history) return 0;
-  const reports = history.filter(r => r.report_date >= week.from && r.report_date <= week.to);
-  if (!reports.length) return 0;
-  const last = reports[reports.length - 1];
-  const rows = ruad
-    ? (last.data_json || []).filter(r => r.name === ruad)  // только выбранный РУАД
-    : (last.data_json || []);                               // все строки
-  return rows.reduce((s, r) => s + (r[field] || 0), 0);
-}
-
-// Как _sumCompWeek, но умеет фильтровать по ОМС или МАД
-function _sumCompWeekFiltered(history, week) {
-  if (!history) return 0;
-  const reports = history.filter(r => r.report_date >= week.from && r.report_date <= week.to);
-  if (!reports.length) return 0;
-  const last = reports[reports.length - 1];
-  const data = last.data_json;
-  if (!data || !data.week) return 0;
-
-  if (_filter.ruad) {
-    // Конкретный РУАД → строка с его именем в МАД-ветке
-    const row = data.week.find(r => r.name === _filter.ruad);
-    return row ? row.count : 0;
+  function _sumWeekFiltered(history, field, week, ruad) {
+    if (!history) return 0;
+    const reports = history.filter(r => r.report_date >= week.from && r.report_date <= week.to);
+    if (!reports.length) return 0;
+    const last = reports[reports.length - 1];
+    const rows = ruad
+      ? (last.data_json || []).filter(r => r.name === ruad)
+      : (last.data_json || []);
+    return rows.reduce((s, r) => s + (r[field] || 0), 0);
   }
-  if (_filter.mo) {
-    // Конкретное МО → «<МО> го» в ОМС-ветке
-    const row = _findCompRowByMo(data.week, _filter.mo);
-    return row ? row.count : 0;
+
+  function _sumCompWeekFiltered(history, week) {
+    if (!history) return 0;
+    const reports = history.filter(r => r.report_date >= week.from && r.report_date <= week.to);
+    if (!reports.length) return 0;
+    const last = reports[reports.length - 1];
+    const data = last.data_json;
+    if (!data || !data.week) return 0;
+    if (_filter.ruad) {
+      const row = data.week.find(r => r.name === _filter.ruad);
+      return row ? row.count : 0;
+    }
+    if (_filter.mo) {
+      const row = _findCompRowByMo(data.week, _filter.mo);
+      return row ? row.count : 0;
+    }
+    const omsRow = data.week.find(r => r.name === 'ОМС');
+    const madRow = data.week.find(r => r.name === 'МАД');
+    if (_filter.org === 'oms') return omsRow ? omsRow.count : 0;
+    if (_filter.org === 'mad') return madRow ? madRow.count : 0;
+    return (omsRow ? omsRow.count : 0) + (madRow ? madRow.count : 0);
   }
-  // Общий фильтр по источнику
-  const omsRow = data.week.find(r => r.name === 'ОМС');
-  const madRow = data.week.find(r => r.name === 'МАД');
-  if (_filter.org === 'oms') return omsRow ? omsRow.count : 0;
-  if (_filter.org === 'mad') return madRow ? madRow.count : 0;
-  return (omsRow ? omsRow.count : 0) + (madRow ? madRow.count : 0);
-}
 
   function _sumCompWeek(history, week) {
     if (!history) return 0;
@@ -554,7 +547,6 @@ function _sumCompWeekFiltered(history, week) {
     const detail = document.getElementById('ph-report-detail');
     detail.innerHTML = '<div style="padding:var(--space-6);color:var(--color-text-muted)">Загрузка...</div>';
 
-    // FIX: проверяем HTTP-статус перед парсингом JSON
     let r;
     try {
       const res = await fetch('/api/pothole/reports/' + id);
@@ -630,65 +622,26 @@ function _sumCompWeekFiltered(history, week) {
       </div>`;
     }
 
-    const sectionStyle = `
-      display:grid;
-      grid-template-columns:1fr 1fr;
-      gap:var(--space-5);
-      margin-bottom:var(--space-6);
-    `;
+    const sectionStyle = `display:grid;grid-template-columns:1fr 1fr;gap:var(--space-5);margin-bottom:var(--space-6);`;
+    const headerStyle  = `font-size:var(--text-sm);font-weight:700;text-transform:uppercase;letter-spacing:.05em;color:var(--color-text-faint);margin-bottom:var(--space-3);padding-bottom:var(--space-2);border-bottom:1px solid var(--color-divider);`;
+    const blockStyle   = `background:var(--color-surface-2);border:1px solid var(--color-border);border-radius:var(--radius-lg);overflow:hidden;`;
 
-    const headerStyle = `
-      font-size:var(--text-sm);
-      font-weight:700;
-      text-transform:uppercase;
-      letter-spacing:.05em;
-      color:var(--color-text-faint);
-      margin-bottom:var(--space-3);
-      padding-bottom:var(--space-2);
-      border-bottom:1px solid var(--color-divider);
-    `;
-
-    const blockStyle = `
-      background:var(--color-surface-2);
-      border:1px solid var(--color-border);
-      border-radius:var(--radius-lg);
-      overflow:hidden;
-    `;
-
-    const titleBarOms = `<div style="padding:var(--space-3) var(--space-4);background:var(--color-blue-highlight);display:flex;align-items:center;justify-content:space-between;">
-      <span style="font-weight:700;color:var(--color-blue);font-size:var(--text-sm)">ОМС</span>
-      <span style="font-size:var(--text-xs);font-weight:700;color:var(--color-blue)">${omsTotalSum.toLocaleString('ru')} жалоб</span>
-    </div>`;
-
-    const titleBarMad = `<div style="padding:var(--space-3) var(--space-4);background:var(--color-success-highlight);display:flex;align-items:center;justify-content:space-between;">
-      <span style="font-weight:700;color:var(--color-success);font-size:var(--text-sm)">МАД</span>
-      <span style="font-size:var(--text-xs);font-weight:700;color:var(--color-success)">${madTotalSum.toLocaleString('ru')} жалоб</span>
-    </div>`;
-
-    const titleBarOmsWeek = `<div style="padding:var(--space-3) var(--space-4);background:var(--color-blue-highlight);display:flex;align-items:center;justify-content:space-between;">
-      <span style="font-weight:700;color:var(--color-blue);font-size:var(--text-sm)">ОМС — за 7 дней</span>
-      <span style="font-size:var(--text-xs);font-weight:700;color:var(--color-blue)">${omsWeekSum.toLocaleString('ru')} жалоб</span>
-    </div>`;
-
-    const titleBarMadWeek = `<div style="padding:var(--space-3) var(--space-4);background:var(--color-success-highlight);display:flex;align-items:center;justify-content:space-between;">
-      <span style="font-weight:700;color:var(--color-success);font-size:var(--text-sm)">МАД — за 7 дней</span>
-      <span style="font-size:var(--text-xs);font-weight:700;color:var(--color-success)">${madWeekSum.toLocaleString('ru')} жалоб</span>
-    </div>`;
+    const titleBarOms     = `<div style="padding:var(--space-3) var(--space-4);background:var(--color-blue-highlight);display:flex;align-items:center;justify-content:space-between;"><span style="font-weight:700;color:var(--color-blue);font-size:var(--text-sm)">ОМС</span><span style="font-size:var(--text-xs);font-weight:700;color:var(--color-blue)">${omsTotalSum.toLocaleString('ru')} жалоб</span></div>`;
+    const titleBarMad     = `<div style="padding:var(--space-3) var(--space-4);background:var(--color-success-highlight);display:flex;align-items:center;justify-content:space-between;"><span style="font-weight:700;color:var(--color-success);font-size:var(--text-sm)">МАД</span><span style="font-size:var(--text-xs);font-weight:700;color:var(--color-success)">${madTotalSum.toLocaleString('ru')} жалоб</span></div>`;
+    const titleBarOmsWeek = `<div style="padding:var(--space-3) var(--space-4);background:var(--color-blue-highlight);display:flex;align-items:center;justify-content:space-between;"><span style="font-weight:700;color:var(--color-blue);font-size:var(--text-sm)">ОМС — за 7 дней</span><span style="font-size:var(--text-xs);font-weight:700;color:var(--color-blue)">${omsWeekSum.toLocaleString('ru')} жалоб</span></div>`;
+    const titleBarMadWeek = `<div style="padding:var(--space-3) var(--space-4);background:var(--color-success-highlight);display:flex;align-items:center;justify-content:space-between;"><span style="font-weight:700;color:var(--color-success);font-size:var(--text-sm)">МАД — за 7 дней</span><span style="font-size:var(--text-xs);font-weight:700;color:var(--color-success)">${madWeekSum.toLocaleString('ru')} жалоб</span></div>`;
 
     return `<div style="padding:var(--space-4)">
-
       <div style="${headerStyle}">Свод общий</div>
       <div style="${sectionStyle}">
         <div style="${blockStyle}">${titleBarOms}${buildTable(omsTotal, omsTotalSum)}</div>
         <div style="${blockStyle}">${titleBarMad}${buildTable(madTotal, madTotalSum)}</div>
       </div>
-
       <div style="${headerStyle}">За 7 дней</div>
       <div style="${sectionStyle}">
         <div style="${blockStyle}">${titleBarOmsWeek}${buildTable(omsWeek, omsWeekSum)}</div>
         <div style="${blockStyle}">${titleBarMadWeek}${buildTable(madWeek, madWeekSum)}</div>
       </div>
-
     </div>`;
   }
 
@@ -813,5 +766,12 @@ function _sumCompWeekFiltered(history, week) {
     return { complaints: 'Жалобы', regional: 'Рег.', municipal: 'Мун.' }[t] || t;
   }
 
-  return { init, refresh: _reload, refreshReports: _reload };
+  // ── Публичные методы для PotholeCharts.updateTheme() ──────────────────────
+  // Позволяют заменить chart-инстанс после пересоздания при смене темы.
+  // canvasId для пончиков: 'donut-reg', 'donut-fix', 'donut-comp'
+  // canvasId для weekly:   'weekly'
+  function getChart(key) { return _charts[key] || null; }
+  function setChart(key, chart) { _charts[key] = chart; }
+
+  return { init, refresh: _reload, refreshReports: _reload, getChart, setChart };
 })();
