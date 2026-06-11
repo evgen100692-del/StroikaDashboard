@@ -107,9 +107,9 @@ const ContractsPage = (() => {
       <td class="num">${formatMoneyShort(c.advanceGK)}<div style="color:var(--color-text-muted);font-size:10px">${formatPct(c.priceGK ? c.advanceGK/c.priceGK*100 : 0)}</div></td>
       <td class="num">${formatMoneyShort(c.paidTotal)}<div style="color:var(--color-text-muted);font-size:10px">${formatPct(c.priceGK ? c.paidTotal/c.priceGK*100 : 0)}</div></td>
       <td class="num">${formatMoneyShort(c.completed)}<div style="color:var(--color-text-muted);font-size:10px">${formatPct(c.priceGK ? c.completed/c.priceGK*100 : 0)}</div></td>
-      <td><div style="display:flex;align-items:center;gap:4px">
+      <td><div style="display:flex;align-items:center;gap:4px;flex-wrap:wrap">
         <div class="progress-wrap" style="width:40px"><div class="progress-fill ${c.readinessPct>=75?'success':c.readinessPct>=40?'':'warning'}" style="width:${Math.min(c.readinessPct||0,100)}%"></div></div>
-        <span style="font-size:10px;font-weight:600">${c.readinessPct||0}%</span>
+        <span style="font-size:10px;font-weight:600">${c.readinessPct||0}%</span>${renderReadinessDelta(c.id)}
       </div></td>
       <td>${formatDate(c.contractEndDate)}</td>
       <td>${formatDate(c.plannedOpenDate)}</td>
@@ -275,6 +275,20 @@ const ContractsPage = (() => {
     });
   }
 
+  function renderReadinessDelta(contractId) {
+  const h = AppData.getReadinessDelta(contractId);
+  if (!h) return '';
+  const delta = Math.round((h.new_value - h.prev_value) * 10) / 10;
+  if (delta === 0) return '';
+  const up    = delta > 0;
+  const color = up ? 'var(--color-success)' : 'var(--color-error)';
+  const sign  = up ? '+' : '';
+  const arrow = up
+    ? '<svg width="8" height="8" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><path d="M12 19V5M5 12l7-7 7 7"/></svg>'
+    : '<svg width="8" height="8" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><path d="M12 5v14M5 12l7 7 7-7"/></svg>';
+  const tooltip = `Было: ${h.prev_value}% → Стало: ${h.new_value}%`;
+  return `<span title="${tooltip}" style="color:${color};font-size:10px;font-weight:600;display:inline-flex;align-items:center;gap:1px;margin-left:3px">${arrow}${sign}${delta}%</span>`;
+}
   function esc(s) {
     return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
   }

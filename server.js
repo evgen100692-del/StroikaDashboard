@@ -79,6 +79,13 @@ async function initDb() {
       uploaded_at TEXT NOT NULL,
       data_json   TEXT NOT NULL
     );
+    CREATE TABLE IF NOT EXISTS readiness_history (
+      id            INTEGER PRIMARY KEY AUTOINCREMENT,
+      contract_id   INTEGER NOT NULL,
+      prev_value    REAL NOT NULL,
+      new_value     REAL NOT NULL,
+      changed_at    TEXT NOT NULL   -- ISO datetime
+    );
   `);
 }
 
@@ -320,6 +327,19 @@ const server = http.createServer(async (req, res) => {
     const id = parseInt(editMatch[1]);
     if (req.method === 'PUT') {
       const body = await readBodyJSON(req);
+      // ── Фиксируем историю стройготовности ────────────────────────────
+      if ('readinessPct' in body) {
+        const prev = dbGet('SELECT readinessPct FROM contracts WHERE id = ?', [id]);
+        const prevVal = prev ? parseFloat(prev.readinessPct) || 0 : 0;
+        const newVal  = parseFloat(body.readinessPct) || 0;
+        if (prevVal !== newVal) {
+          db.run(
+            'INSERT INTO readiness_history (contract_id, prev_value, new_value, changed_at) VALUES (?, ?, ?, ?)',
+            [id, prevVal, newVal, new Date().toISOString()]
+          );
+        }
+      }
+      // ─────────────────────────────────────────────────────────────────
       const cols = Object.keys(body);
       const vals = Object.values(body);
       dbRun(

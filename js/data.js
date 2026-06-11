@@ -7,6 +7,7 @@ const AppData = (() => {
   const API = '/api/contracts';
 
   let state = { contracts: [], nextId: 1 };
+  let readinessHistory = {}; // contract_id → последняя запись { prev_value, new_value, changed_at }
 
   // Определяем: работаем через сервер или открыты как file://
   function isServerMode() {
@@ -19,15 +20,23 @@ const AppData = (() => {
   }
 
   async function load() {
-    if (isServerMode()) {
-      try {
-        const res = await fetch(API);
-        if (!res.ok) throw new Error('HTTP ' + res.status);
-        state = await res.json();
-      } catch(e) {
-        console.warn('[AppData] Сервер недоступен:', e.message);
-      }
-    } else {
+      if (isServerMode()) {
+        try {
+          const [contractsRes, historyRes] = await Promise.all([
+            fetch(API),
+            fetch('/api/readiness-history'),
+          ]);
+          if (!contractsRes.ok) throw new Error('HTTP ' + contractsRes.status);
+          state = await contractsRes.json();
+          if (historyRes.ok) {
+            const hist = await historyRes.json();
+            readinessHistory = {};
+            for (const h of hist) readinessHistory[h.contract_id] = h;
+          }
+        } catch(e) {
+          console.warn('[AppData] Сервер недоступен:', e.message);
+        }
+      } else {
       // Fallback: localStorage (при открытии файла напрямую)
       try {
         const raw = localStorage.getItem('dashboard_data_v1');
@@ -70,6 +79,14 @@ const AppData = (() => {
       const updated = await res.json();
       const idx = state.contracts.findIndex(c => c.id === id);
       if (idx !== -1) state.contracts[idx] = updated;
+      // обновляем кеш истории для этого контракта
+      try {
+        const hRes = await fetch(`/api/readiness-history?id=${id}`);
+        if (hRes.ok) {
+          const hist = await hRes.json();
+          if (hist.length) readinessHistory[id] = hist[hist.length - 1];
+        }
+      } catch(e) {}
       return updated;
     } else {
       const idx = state.contracts.findIndex(c => c.id === id);
@@ -241,11 +258,16 @@ const AppData = (() => {
   }
 
   // ── Init ──────────────────────────────────────────────────────────
-  return {
-    load,
-    getContracts, addContract, updateContract, deleteContract, getContractById,
-    getContractors, getContractorNames, getFinancingSources, getOpeningYears,
-    filterContracts, getAnalytics,
-    num, pct,
-  };
+    function getReadinessDelta(contractId) {
+      return readinessHistory[contractId] || null;
+    }
+
+    return {
+      load,
+      getContracts, addContract, updateContract, deleteContract, getContractById,
+      getContractors, getContractorNames, getFinancingSources, getOpeningYears,
+      filterContracts, getAnalytics,
+      getReadinessDelta,
+      num, pct,
+    };
 })();
