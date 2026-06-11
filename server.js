@@ -15,15 +15,13 @@ if (!fs.existsSync(path.join(__dirname, 'data'))) {
 }
 
 // ── sql.js: синхронная инициализация БД ──────────────────────────────────────
-// sql.js — чистый JS (WebAssembly), не требует компилятора C++
 const initSqlJs = require('sql.js');
 
-let db;  // будет инициализирован в startServer()
+let db;
 
 async function initDb() {
   const SQL = await initSqlJs();
 
-  // Загружаем существующую БД или создаём новую
   if (fs.existsSync(DB_PATH)) {
     const fileBuffer = fs.readFileSync(DB_PATH);
     db = new SQL.Database(fileBuffer);
@@ -31,7 +29,6 @@ async function initDb() {
     db = new SQL.Database();
   }
 
-  // Включаем WAL через PRAGMA (sql.js поддерживает)
   db.run('PRAGMA foreign_keys = ON;');
 
   db.run(`
@@ -84,12 +81,12 @@ async function initDb() {
       contract_id   INTEGER NOT NULL,
       prev_value    REAL NOT NULL,
       new_value     REAL NOT NULL,
-      changed_at    TEXT NOT NULL   -- ISO datetime
+      changed_at    TEXT NOT NULL
     );
   `);
 }
 
-// ── Сохранение БД на диск (вызывать после каждой записи) ─────────────────────
+// ── Сохранение БД на диск ─────────────────────────────────────────────────────
 function saveDb() {
   try {
     const data = db.export();
@@ -99,9 +96,7 @@ function saveDb() {
   }
 }
 
-// ── Обёртки для удобной работы с sql.js ──────────────────────────────────────
-// sql.js возвращает [{columns:[...], values:[[...],...]}, ...]
-// Конвертируем в массив объектов (как better-sqlite3)
+// ── Обёртки sql.js ────────────────────────────────────────────────────────────
 function dbAll(sql, params = []) {
   const res = db.exec(sql, params);
   if (!res.length) return [];
@@ -112,8 +107,7 @@ function dbAll(sql, params = []) {
 }
 
 function dbGet(sql, params = []) {
-  const rows = dbAll(sql, params);
-  return rows[0] || null;
+  return dbAll(sql, params)[0] || null;
 }
 
 function dbRun(sql, params = []) {
@@ -122,7 +116,6 @@ function dbRun(sql, params = []) {
   return db;
 }
 
-// Получить lastInsertRowid
 function dbInsert(sql, params = [], skipSave = false) {
   db.run(sql, params);
   const row = dbGet('SELECT last_insert_rowid() as id');
@@ -270,7 +263,6 @@ function parseExcel(buffer, reportType) {
   return {};
 }
 
-// Вынесенный парсер для regional и municipal — структура листов одинакова
 function _parseRegMunSheet(sheet) {
   const rows   = XLSX.utils.sheet_to_json(sheet, { header: 1, defval: null });
   const result = [];
@@ -327,9 +319,11 @@ const server = http.createServer(async (req, res) => {
     const id = parseInt(editMatch[1]);
     if (req.method === 'PUT') {
       const body = await readBodyJSON(req);
+
       // ── Фиксируем историю стройготовности ────────────────────────────────
+      // saveDb() вызывается здесь явно — независимо от успеха UPDATE ниже
       if ('readinessPct' in body) {
-        const prev = dbGet('SELECT readinessPct FROM contracts WHERE id = ?', [id]);
+        const prev    = dbGet('SELECT readinessPct FROM contracts WHERE id = ?', [id]);
         const prevVal = prev ? parseFloat(prev.readinessPct) || 0 : 0;
         const newVal  = parseFloat(body.readinessPct) || 0;
         if (prevVal !== newVal) {
@@ -337,11 +331,28 @@ const server = http.createServer(async (req, res) => {
             'INSERT INTO readiness_history (contract_id, prev_value, new_value, changed_at) VALUES (?, ?, ?, ?)',
             [id, prevVal, newVal, new Date().toISOString()]
           );
+          saveDb(); // гарантируем запись истории на диск до UPDATE
         }
       }
       // ─────────────────────────────────────────────────────────────────────
-      const cols = Object.keys(body);
-      const vals = Object.values(body);
+
+      // Фильтруем body: оставляем только поля, которые есть в таблице contracts
+      const KNOWN_COLS = new Set([
+        'objectName','financingSource','contractor','contractNum','contractDate',
+        'priceGK','advanceGK','advancePaid','unworkedAdvance','paidTotal','completed',
+        'completed2025','paid2025','limit2026was','limit2026cur','completed2026','paid2026',
+        'limit2027was','limit2027cur','limit2028was','limit2028cur','limit2029was','limit2029cur',
+        'remainder','readinessPct','workers','equipment','moge','dptStatus',
+        'landWithdrawalPct','plannedIntroDate','plannedOpenDate','contractEndDate'
+      ]);
+      const filtered = Object.fromEntries(
+        Object.entries(body).filter(([k]) => KNOWN_COLS.has(k))
+      );
+
+      const cols = Object.keys(filtered);
+      const vals = Object.values(filtered);
+      if (cols.length === 0) { json(res, 400, { error: 'Нет допустимых полей' }); return; }
+
       dbRun(
         `UPDATE contracts SET ${cols.map(c => c + ' = ?').join(',')} WHERE id = ?`,
         [...vals, id]
@@ -365,14 +376,12 @@ const server = http.createServer(async (req, res) => {
   if (url === '/api/readiness-history' && req.method === 'GET') {
     const qid = new URL('http://x' + req.url).searchParams.get('id');
     if (qid) {
-      // Вся история одного контракта — для будущего графика
       const rows = dbAll(
         'SELECT * FROM readiness_history WHERE contract_id = ? ORDER BY changed_at ASC',
         [parseInt(qid)]
       );
       json(res, 200, rows);
     } else {
-      // Последнее изменение каждого контракта — для кеша при старте
       const rows = dbAll(`
         SELECT rh.*
         FROM readiness_history rh
