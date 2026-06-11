@@ -5,25 +5,54 @@
 
 const PotholeCharts = (() => {
 
-  function textColor()   { return getCSSVar('--color-text')        || '#28251d'; }
-  function mutedColor()  { return getCSSVar('--color-text-muted')   || '#7a7974'; }
-  function borderColor() { return getCSSVar('--color-border')       || '#d4d1ca'; }
-  function bgColor()     { return getCSSVar('--color-surface')      || '#f9f8f5'; }
-  function fontFamily()  { return getCSSVar('--font-body')          || "'Satoshi', 'Inter', sans-serif"; }
+  // Цвета всегда читаются в момент обращения, не кэшируются
+  function textColor()   { return getCSSVar('--color-text')       || '#1e1e1c'; }
+  function mutedColor()  { return getCSSVar('--color-text-muted')  || '#6b6b68'; }
+  function borderColor() { return getCSSVar('--color-border')      || '#cecece'; }
+  function bgColor()     { return getCSSVar('--color-surface')     || '#f9f9f7'; }
+  function fontFamily()  { return getCSSVar('--font-body')         || "'Satoshi', 'Inter', sans-serif"; }
 
-  // ── Пончик ───────────────────────────────────────────────────────────
-  function donut(canvasId, data, labels, existingChart) {
+  // Храним ссылки на все созданные графики, чтобы мочь updateTheme()
+  const _charts = {
+    donuts: {},   // { canvasId: { chart, data, labels } }
+    weekly: null, // { chart, data }
+  };
+
+  // ── Плагин центрального текста пончика ──────────────────────────────────
+  // Читает CSS-переменные НЕПОСРЕДСТВЕННО в afterDraw, не из opts
+  const centerTextPlugin = {
+    id: 'doughnutCenterText',
+    afterDraw(chart) {
+      const pluginOpts = chart.config.options?.plugins?.doughnutCenterText;
+      if (!pluginOpts) return;
+
+      const { ctx, chartArea: { left, right, top, bottom } } = chart;
+      const cx = (left + right)  / 2;
+      const cy = (top  + bottom) / 2;
+      const ff = fontFamily();
+
+      ctx.save();
+
+      // Цифра в центре
+      ctx.font         = `700 22px ${ff}`;
+      ctx.fillStyle    = textColor();   // ← читаем в момент рисования
+      ctx.textAlign    = 'center';
+      ctx.textBaseline = 'middle';
+      ctx.fillText(pluginOpts.total.toLocaleString('ru-RU'), cx, cy - 6);
+
+      // Подпись «всего»
+      ctx.font      = `400 11px ${ff}`;
+      ctx.fillStyle = mutedColor();     // ← читаем в момент рисования
+      ctx.fillText('всего', cx, cy + 14);
+
+      ctx.restore();
+    },
+  };
+
+  // ── Пончик ────────────────────────────────────────────────────────────────────────
+  function _buildDonut(canvasId, data, labels) {
     const canvas = document.getElementById(canvasId);
-    if (!canvas) return existingChart;
-
-    // Если chart уже существует — обновляем данные без пересоздания
-    if (existingChart) {
-      existingChart.data.labels = labels;
-      existingChart.data.datasets[0].data = data;
-      existingChart.options.plugins.doughnutCenterText.total = data.reduce((s, v) => s + v, 0);
-      existingChart.update('active');
-      return existingChart;
-    }
+    if (!canvas) return null;
 
     const colors = chartPalette();
     const total  = data.reduce((s, v) => s + v, 0);
@@ -41,7 +70,7 @@ const PotholeCharts = (() => {
         }],
       },
       options: {
-        responsive: true,
+        responsive:          true,
         maintainAspectRatio: false,
         cutout: '68%',
         animation: { animateRotate: true, animateScale: true, duration: 700, easing: 'easeOutQuart' },
@@ -49,11 +78,11 @@ const PotholeCharts = (() => {
           legend: {
             position: 'bottom',
             labels: {
-              color:       textColor(),
-              font:        { family: fontFamily(), size: 12 },
-              padding:     12,
-              boxWidth:    12,
-              boxHeight:   12,
+              color:        textColor(),
+              font:         { family: fontFamily(), size: 12 },
+              padding:      12,
+              boxWidth:     12,
+              boxHeight:    12,
               borderRadius: 3,
             },
           },
@@ -72,47 +101,33 @@ const PotholeCharts = (() => {
               },
             },
           },
-          // Центральный текст
-          doughnutCenterText: { total, textColor: textColor(), mutedColor: mutedColor(), fontFamily: fontFamily() },
+          doughnutCenterText: { total },
         },
       },
-      plugins: [{
-        id: 'doughnutCenterText',
-        afterDraw(chart) {
-          if (chart.config.options.plugins?.doughnutCenterText === false) return;
-          const { ctx, chartArea: { left, right, top, bottom } } = chart;
-          const centerX = (left + right)  / 2;
-          const centerY = (top  + bottom) / 2;
-          const opts    = chart.config.options.plugins.doughnutCenterText;
-          ctx.save();
-          ctx.font = `700 22px ${opts.fontFamily}`;
-          ctx.fillStyle   = opts.textColor;
-          ctx.textAlign   = 'center';
-          ctx.textBaseline = 'middle';
-          ctx.fillText(opts.total.toLocaleString('ru-RU'), centerX, centerY - 6);
-          ctx.font = `400 11px ${opts.fontFamily}`;
-          ctx.fillStyle = opts.mutedColor;
-          ctx.fillText('всего', centerX, centerY + 14);
-          ctx.restore();
-        },
-      }],
+      plugins: [centerTextPlugin],
     });
   }
 
-  // ── График недельной динамики ─────────────────────────────────────
-  function weekly(canvasId, data, existingChart) {
-    const canvas = document.getElementById(canvasId);
-    if (!canvas) return existingChart;
-
-    // Если chart уже существует — обновляем данные без пересоздания
+  function donut(canvasId, data, labels, existingChart) {
+    // Если график уже есть — обновляем данные без пересоздания
     if (existingChart) {
-      existingChart.data.labels = data.map(d => d.label);
-      existingChart.data.datasets[0].data = data.map(d => d.registered);
-      existingChart.data.datasets[1].data = data.map(d => d.fixed);
-      existingChart.data.datasets[2].data = data.map(d => d.complaints);
+      existingChart.data.labels                = labels;
+      existingChart.data.datasets[0].data      = data;
+      existingChart.options.plugins.doughnutCenterText.total = data.reduce((s, v) => s + v, 0);
       existingChart.update('active');
+      _charts.donuts[canvasId] = { chart: existingChart, data, labels };
       return existingChart;
     }
+
+    const chart = _buildDonut(canvasId, data, labels);
+    _charts.donuts[canvasId] = { chart, data, labels };
+    return chart;
+  }
+
+  // ── Недельная динамика ────────────────────────────────────────────────────────
+  function _buildWeekly(canvasId, data) {
+    const canvas = document.getElementById(canvasId);
+    if (!canvas) return null;
 
     const col    = chartPalette();
     const labels = data.map(d => d.label);
@@ -124,7 +139,7 @@ const PotholeCharts = (() => {
         labels,
         datasets: [
           {
-            label: 'Зарегистрировано ям',
+            label:           'Зарегистрировано ям',
             data:            data.map(d => d.registered),
             backgroundColor: col[0] + 'cc',
             borderColor:     col[0],
@@ -132,7 +147,7 @@ const PotholeCharts = (() => {
             borderRadius:    4,
           },
           {
-            label: 'Устранено ям',
+            label:           'Устранено ям',
             data:            data.map(d => d.fixed),
             backgroundColor: col[3] + 'cc',
             borderColor:     col[3],
@@ -140,7 +155,7 @@ const PotholeCharts = (() => {
             borderRadius:    4,
           },
           {
-            label: 'Жалобы',
+            label:           'Жалобы',
             data:            data.map(d => d.complaints),
             backgroundColor: col[1] + 'cc',
             borderColor:     col[1],
@@ -162,18 +177,17 @@ const PotholeCharts = (() => {
             beginAtZero: true,
             grid:  { color: borderColor() + '55' },
             ticks: {
-              color: mutedColor(),
-              font: { family: font, size: 12 },
+              color:    mutedColor(),
+              font:     { family: font, size: 12 },
               callback: v => v.toLocaleString('ru-RU'),
             },
           },
         },
         plugins: {
-          // FIX: добавлен font в легенду — ранее использовался шрифт браузера по умолчанию
           legend: {
             position: 'top',
             align:    'start',
-            labels: { color: textColor(), font: { family: font, size: 12 } },
+            labels:   { color: textColor(), font: { family: font, size: 12 } },
           },
           tooltip: {
             backgroundColor: bgColor(),
@@ -191,5 +205,43 @@ const PotholeCharts = (() => {
     });
   }
 
-  return { donut, weekly };
+  function weekly(canvasId, data, existingChart) {
+    if (existingChart) {
+      existingChart.data.labels                = data.map(d => d.label);
+      existingChart.data.datasets[0].data      = data.map(d => d.registered);
+      existingChart.data.datasets[1].data      = data.map(d => d.fixed);
+      existingChart.data.datasets[2].data      = data.map(d => d.complaints);
+      existingChart.update('active');
+      _charts.weekly = { chart: existingChart, canvasId, data };
+      return existingChart;
+    }
+
+    const chart = _buildWeekly(canvasId, data);
+    _charts.weekly = { chart, canvasId, data };
+    return chart;
+  }
+
+  // ── Обновление цветов при смене темы ─────────────────────────────────
+  // Пересоздаёт все графики с актуальными цветами из CSS
+  function updateTheme() {
+    // Пончики
+    for (const [canvasId, entry] of Object.entries(_charts.donuts)) {
+      if (!entry || !entry.chart) continue;
+      entry.chart.destroy();
+      const newChart = _buildDonut(canvasId, entry.data, entry.labels);
+      _charts.donuts[canvasId] = { chart: newChart, data: entry.data, labels: entry.labels };
+      // Возвращаем ссылку через PotholePage, если есть
+      if (typeof PotholePage !== 'undefined') PotholePage._replaceDonutRef(canvasId, newChart);
+    }
+    // Недельный график
+    if (_charts.weekly) {
+      const { canvasId, data } = _charts.weekly;
+      _charts.weekly.chart.destroy();
+      const newChart = _buildWeekly(canvasId, data);
+      _charts.weekly = { chart: newChart, canvasId, data };
+      if (typeof PotholePage !== 'undefined') PotholePage._replaceWeeklyRef(newChart);
+    }
+  }
+
+  return { donut, weekly, updateTheme };
 })();
