@@ -48,7 +48,6 @@ const DashboardPage = (() => {
     requestAnimationFrame(() => {
       ChartsManager.renderAll(analytics, filtered);
     });
-    // NOTE: observeCards() удалена — была причиной застывания карточек в opacity:0
   }
 
   function renderKPIs(a, filtered) {
@@ -81,6 +80,22 @@ const DashboardPage = (() => {
     el.className = 'progress-fill' + (v >= 75 ? ' success' : v >= 40 ? '' : ' warning');
   }
 
+  // Стрелочка изменения стройготовности — аналог renderReadinessDelta из contracts.js
+  function renderReadinessDelta(contractId) {
+    const h = AppData.getReadinessDelta(contractId);
+    if (!h) return '';
+    const delta = Math.round((h.new_value - h.prev_value) * 10) / 10;
+    if (delta === 0) return '';
+    const up    = delta > 0;
+    const color = up ? 'var(--color-success)' : 'var(--color-error)';
+    const sign  = up ? '+' : '';
+    const arrow = up
+      ? '<svg width="8" height="8" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><path d="M12 19V5M5 12l7-7 7 7"/></svg>'
+      : '<svg width="8" height="8" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><path d="M12 5v14M5 12l7 7 7-7"/></svg>';
+    const tooltip = `Было: ${h.prev_value}% → Стало: ${h.new_value}%`;
+    return `<span title="${tooltip}" style="color:${color};font-size:10px;font-weight:600;display:inline-flex;align-items:center;gap:1px;margin-left:3px">${arrow}${sign}${delta}%</span>`;
+  }
+
   function renderObjectsList(filtered) {
     const tbody = document.getElementById('objects-tbody');
     if (!tbody) return;
@@ -111,12 +126,14 @@ const DashboardPage = (() => {
       const lc       = land  >= 75 ? 'success' : land  >= 40 ? '' : 'warning';
       const hasLand  = c.landWithdrawalPct != null && String(c.landWithdrawalPct).trim() !== '';
 
-      const progressCell = (val, cls) => `
+      const progressCell = (val, cls, delta) => `
         <div style="display:flex;flex-direction:column;align-items:center;gap:2px">
           <div class="progress-wrap" style="width:52px">
             <div class="progress-fill ${cls}" style="width:${Math.min(val,100)}%"></div>
           </div>
-          <span style="font-size:10px;font-weight:600">${val}%</span>
+          <div style="display:flex;align-items:center;gap:2px">
+            <span style="font-size:10px;font-weight:600">${val}%</span>${delta || ''}
+          </div>
         </div>`;
 
       return `<tr data-ctx data-id="${c.id}">
@@ -132,18 +149,11 @@ const DashboardPage = (() => {
         </td>
         <td class="num" style="text-align:right;font-variant-numeric:tabular-nums">${formatMoneyShort(c.priceGK)}</td>
         <td class="num" style="text-align:right;font-variant-numeric:tabular-nums">${formatMoneyShort(c.completed)}</td>
-        <td style="text-align:center">${progressCell(ready, rc)}</td>
+        <td style="text-align:center">${progressCell(ready, rc, renderReadinessDelta(c.id))}</td>
         <td style="text-align:center">${hasLand ? progressCell(land, lc) : '<span style="color:var(--color-text-faint);font-size:var(--text-xs)">—</span>'}</td>
         <td style="text-align:center;font-size:var(--text-xs);color:var(--color-text-muted)">${esc(c.dptStatus||'—')}</td>
       </tr>`;
     }).join('');
-  }
-
-  function getStatusBadge(r) {
-    if (r >= 90) return '<span class="badge badge-success">Завершается</span>';
-    if (r >= 50) return '<span class="badge badge-primary">В работе</span>';
-    if (r >= 20) return '<span class="badge badge-warning">Начат</span>';
-    return '<span class="badge badge-neutral">Планирование</span>';
   }
 
   function esc(s) {
