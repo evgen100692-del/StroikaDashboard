@@ -9,12 +9,12 @@ const XLSX = require('xlsx');
 const PORT    = 3000;
 const DB_PATH = path.join(__dirname, 'data', 'stroika.db');
 
-// ── Папка data ────────────────────────────────────────────────────
+// ── Папка data ────────────────────────────────────────────────────────────────
 if (!fs.existsSync(path.join(__dirname, 'data'))) {
   fs.mkdirSync(path.join(__dirname, 'data'));
 }
 
-// ── sql.js: синхронная инициализация БД ───────────────────────────
+// ── sql.js: синхронная инициализация БД ──────────────────────────────────────
 // sql.js — чистый JS (WebAssembly), не требует компилятора C++
 const initSqlJs = require('sql.js');
 
@@ -89,7 +89,7 @@ async function initDb() {
   `);
 }
 
-// ── Сохранение БД на диск (вызывать после каждой записи) ──────────
+// ── Сохранение БД на диск (вызывать после каждой записи) ─────────────────────
 function saveDb() {
   try {
     const data = db.export();
@@ -99,7 +99,7 @@ function saveDb() {
   }
 }
 
-// ── Обёртки для удобной работы с sql.js ──────────────────────────
+// ── Обёртки для удобной работы с sql.js ──────────────────────────────────────
 // sql.js возвращает [{columns:[...], values:[[...],...]}, ...]
 // Конвертируем в массив объектов (как better-sqlite3)
 function dbAll(sql, params = []) {
@@ -130,7 +130,7 @@ function dbInsert(sql, params = [], skipSave = false) {
   return row ? row.id : null;
 }
 
-// ── MIME ─────────────────────────────────────────────────────────
+// ── MIME ──────────────────────────────────────────────────────────────────────
 const MIME = {
   '.html': 'text/html; charset=utf-8',
   '.css':  'text/css',
@@ -139,7 +139,7 @@ const MIME = {
   '.ico':  'image/x-icon',
 };
 
-// ── Вспомогательные ──────────────────────────────────────────────
+// ── Вспомогательные ───────────────────────────────────────────────────────────
 function cors(res) {
   res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Access-Control-Allow-Methods', 'GET,POST,PUT,DELETE,OPTIONS');
@@ -173,7 +173,7 @@ async function readBodyRaw(req) {
   });
 }
 
-// ── Парсер multipart/form-data ────────────────────────────────────
+// ── Парсер multipart/form-data ────────────────────────────────────────────────
 function parseMultipart(buffer, boundary) {
   const boundaryBuf = Buffer.from('--' + boundary);
   const parts = [];
@@ -209,7 +209,7 @@ function parseMultipart(buffer, boundary) {
   return parts;
 }
 
-// ── Парсер Excel ──────────────────────────────────────────────────
+// ── Парсер Excel ──────────────────────────────────────────────────────────────
 function parseExcel(buffer, reportType) {
   const workbook = XLSX.read(buffer, { type: 'buffer', cellDates: false });
 
@@ -229,9 +229,9 @@ function parseExcel(buffer, reportType) {
         const row = rows[i];
         if (!row || !row[0]) continue;
         const name = String(row[0]).trim();
-        if (name === 'Названия строк') continue;          // ← пропуск строки-заголовка
+        if (name === 'Названия строк') continue;
         const numVal = row.slice(1).find(v => v !== null && v !== '' && !isNaN(parseFloat(v)));
-        const count  = toNum(numVal ?? 0);                // ← не зависит от позиции колонки
+        const count  = toNum(numVal ?? 0);
         if (name === 'ОМС')        { inOms = true;  inMad = false; result.total.push({ name: 'ОМС', type: 'oms', count }); continue; }
         if (name === 'МАД')        { inMad = true;  inOms = false; result.total.push({ name: 'МАД', type: 'mad', count }); continue; }
         if (name === 'Общий итог') break;
@@ -247,14 +247,14 @@ function parseExcel(buffer, reportType) {
       let colIdx = -1;
       for (let i = 0; i < Math.min(rows.length, 6); i++) {
         const hi = (rows[i] || []).findIndex(v => v && String(v).trim() === 'Общий итог');
-        if (hi !== -1) { colIdx = hi; break; }            // ← найден индекс колонки
+        if (hi !== -1) { colIdx = hi; break; }
       }
       let inOms = false, inMad = false;
       for (let i = 0; i < rows.length; i++) {
         const row = rows[i];
         if (!row || !row[0]) continue;
         const name = String(row[0]).trim();
-        if (name === 'Названия строк') continue;          // ← пропуск строки-заголовка
+        if (name === 'Названия строк') continue;
         const count = toNum(colIdx !== -1 ? row[colIdx] : row[row.length - 1]);
         if (name === 'ОМС')        { inOms = true;  inMad = false; result.week.push({ name: 'ОМС', type: 'oms', count }); continue; }
         if (name === 'МАД')        { inMad = true;  inOms = false; result.week.push({ name: 'МАД', type: 'mad', count }); continue; }
@@ -289,15 +289,15 @@ function toNum(v) {
   return isNaN(n) ? 0 : n;
 }
 
-// ── HTTP-сервер ───────────────────────────────────────────────────
+// ── HTTP-сервер ───────────────────────────────────────────────────────────────
 const server = http.createServer(async (req, res) => {
   const url = req.url.split('?')[0];
 
   if (req.method === 'OPTIONS') { cors(res); res.writeHead(204); res.end(); return; }
 
-  // ════════════════════════════════════════════════════════════
+  // ════════════════════════════════════════════════════════════════════════════
   //  API: КОНТРАКТЫ
-  // ════════════════════════════════════════════════════════════
+  // ════════════════════════════════════════════════════════════════════════════
 
   if (url === '/api/contracts' && req.method === 'GET') {
     const rows = dbAll('SELECT * FROM contracts ORDER BY id');
@@ -306,28 +306,28 @@ const server = http.createServer(async (req, res) => {
     return;
   }
 
-    if (url === '/api/contracts' && req.method === 'POST') {
-      const body  = await readBodyJSON(req);
-      const cols  = Object.keys(body);
-      const vals  = Object.values(body);
-      const isSeed = body._seed === true;   // флаг из seedDemo
-      const newId = dbInsert(
-        `INSERT INTO contracts (${cols.join(',')}) VALUES (${cols.map(() => '?').join(',')})`,
-        vals,
-        isSeed  // skipSave=true при seed — не пишем файл на каждую запись
-      );
-      if (isSeed) saveDb();  // сохраняем один раз после каждой seed-записи... 
-      const row = dbGet('SELECT * FROM contracts WHERE id = ?', [newId]);
-      json(res, 201, row);
-      return;
-    }
+  if (url === '/api/contracts' && req.method === 'POST') {
+    const body  = await readBodyJSON(req);
+    const cols  = Object.keys(body);
+    const vals  = Object.values(body);
+    const isSeed = body._seed === true;
+    const newId = dbInsert(
+      `INSERT INTO contracts (${cols.join(',')}) VALUES (${cols.map(() => '?').join(',')})`,
+      vals,
+      isSeed
+    );
+    if (isSeed) saveDb();
+    const row = dbGet('SELECT * FROM contracts WHERE id = ?', [newId]);
+    json(res, 201, row);
+    return;
+  }
 
   const editMatch = url.match(/^\/api\/contracts\/(\d+)$/);
   if (editMatch) {
     const id = parseInt(editMatch[1]);
     if (req.method === 'PUT') {
       const body = await readBodyJSON(req);
-      // ── Фиксируем историю стройготовности ────────────────────────────
+      // ── Фиксируем историю стройготовности ────────────────────────────────
       if ('readinessPct' in body) {
         const prev = dbGet('SELECT readinessPct FROM contracts WHERE id = ?', [id]);
         const prevVal = prev ? parseFloat(prev.readinessPct) || 0 : 0;
@@ -339,7 +339,7 @@ const server = http.createServer(async (req, res) => {
           );
         }
       }
-      // ─────────────────────────────────────────────────────────────────
+      // ─────────────────────────────────────────────────────────────────────
       const cols = Object.keys(body);
       const vals = Object.values(body);
       dbRun(
@@ -358,9 +358,40 @@ const server = http.createServer(async (req, res) => {
     }
   }
 
-  // ════════════════════════════════════════════════════════════
+  // ════════════════════════════════════════════════════════════════════════════
+  //  API: ИСТОРИЯ СТРОЙГОТОВНОСТИ
+  // ════════════════════════════════════════════════════════════════════════════
+
+  if (url === '/api/readiness-history' && req.method === 'GET') {
+    const qid = new URL('http://x' + req.url).searchParams.get('id');
+    if (qid) {
+      // Вся история одного контракта — для будущего графика
+      const rows = dbAll(
+        'SELECT * FROM readiness_history WHERE contract_id = ? ORDER BY changed_at ASC',
+        [parseInt(qid)]
+      );
+      json(res, 200, rows);
+    } else {
+      // Последнее изменение каждого контракта — для кеша при старте
+      const rows = dbAll(`
+        SELECT rh.*
+        FROM readiness_history rh
+        INNER JOIN (
+          SELECT contract_id, MAX(changed_at) AS max_at
+          FROM readiness_history
+          GROUP BY contract_id
+        ) latest ON rh.contract_id = latest.contract_id
+                 AND rh.changed_at = latest.max_at
+        ORDER BY rh.contract_id
+      `);
+      json(res, 200, rows);
+    }
+    return;
+  }
+
+  // ════════════════════════════════════════════════════════════════════════════
   //  API: ЯМОЧНЫЙ РЕМОНТ
-  // ════════════════════════════════════════════════════════════
+  // ════════════════════════════════════════════════════════════════════════════
 
   if (url === '/api/pothole/reports' && req.method === 'GET') {
     const rows = dbAll(
@@ -453,9 +484,9 @@ const server = http.createServer(async (req, res) => {
     return;
   }
 
-  // ════════════════════════════════════════════════════════════
+  // ════════════════════════════════════════════════════════════════════════════
   //  Статические файлы
-  // ════════════════════════════════════════════════════════════
+  // ════════════════════════════════════════════════════════════════════════════
   let filePath = path.join(__dirname, url === '/' ? 'dashboard-construction-analytics.html' : url);
   const ext = path.extname(filePath);
   if (!ext) filePath += '.html';
@@ -468,7 +499,7 @@ const server = http.createServer(async (req, res) => {
   });
 });
 
-// ── Запуск ───────────────────────────────────────────────────────
+// ── Запуск ────────────────────────────────────────────────────────────────────
 async function startServer() {
   await initDb();
   server.listen(PORT, '0.0.0.0', () => {
