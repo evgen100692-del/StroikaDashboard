@@ -70,6 +70,7 @@ const AppData = (() => {
 
   async function updateContract(id, data) {
     if (isServerMode()) {
+      // 1) Сохраняем контракт
       const res = await fetch(`${API}/${id}`, {
         method:  'PUT',
         headers: { 'Content-Type': 'application/json' },
@@ -79,14 +80,21 @@ const AppData = (() => {
       const updated = await res.json();
       const idx = state.contracts.findIndex(c => c.id === id);
       if (idx !== -1) state.contracts[idx] = updated;
-      // обновляем кеш истории для этого контракта
-      try {
-        const hRes = await fetch(`/api/readiness-history?id=${id}`);
-        if (hRes.ok) {
-          const hist = await hRes.json();
-          if (hist.length) readinessHistory[id] = hist[hist.length - 1];
+
+      // 2) Обновляем кеш истории — запрашиваем последнюю запись этого контракта.
+      //    Делаем ЭТО ЗДЕСЬ и ждём результата, чтобы renderTable() увидел актуальный кеш.
+      const hRes = await fetch(`/api/readiness-history?id=${id}`);
+      if (hRes.ok) {
+        const hist = await hRes.json();
+        if (hist.length) {
+          // hist отсортирован по changed_at ASC — берём последний элемент
+          readinessHistory[id] = hist[hist.length - 1];
+        } else {
+          // Истории нет (контракт только создан или readinessPct никогда не менялся)
+          delete readinessHistory[id];
         }
-      } catch(e) {}
+      }
+
       return updated;
     } else {
       const idx = state.contracts.findIndex(c => c.id === id);
@@ -258,16 +266,16 @@ const AppData = (() => {
   }
 
   // ── Init ──────────────────────────────────────────────────────────
-    function getReadinessDelta(contractId) {
-      return readinessHistory[contractId] || null;
-    }
+  function getReadinessDelta(contractId) {
+    return readinessHistory[contractId] || null;
+  }
 
-    return {
-      load,
-      getContracts, addContract, updateContract, deleteContract, getContractById,
-      getContractors, getContractorNames, getFinancingSources, getOpeningYears,
-      filterContracts, getAnalytics,
-      getReadinessDelta,
-      num, pct,
-    };
+  return {
+    load,
+    getContracts, addContract, updateContract, deleteContract, getContractById,
+    getContractors, getContractorNames, getFinancingSources, getOpeningYears,
+    filterContracts, getAnalytics,
+    getReadinessDelta,
+    num, pct,
+  };
 })();
