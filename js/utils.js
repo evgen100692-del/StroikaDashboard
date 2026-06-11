@@ -60,24 +60,33 @@ const Toast = (() => {
 
 // ---- Theme ----
 const Theme = (() => {
+  const STORAGE_KEY = 'dashboard-theme';
   let current;
+
   function init() {
-    current = window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
+    // Читаем сохранённый выбор пользователя. Если его нет — по умолчанию светлая.
+    const saved = localStorage.getItem(STORAGE_KEY);
+    current = (saved === 'dark' || saved === 'light') ? saved : 'light';
     apply();
     const btn = document.getElementById('theme-toggle');
     if (btn) btn.addEventListener('click', toggle);
   }
+
   function apply() {
     document.documentElement.setAttribute('data-theme', current);
     const btn = document.getElementById('theme-toggle');
     if (btn) btn.innerHTML = current === 'dark' ? sunIcon() : moonIcon();
     if (typeof ChartsManager !== 'undefined') ChartsManager.updateTheme?.();
   }
+
   function toggle() {
     current = current === 'dark' ? 'light' : 'dark';
+    localStorage.setItem(STORAGE_KEY, current); // Сохраняем выбор пользователя
     apply();
   }
+
   function isDark() { return current === 'dark'; }
+
   function sunIcon() {
     return `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
       <circle cx="12" cy="12" r="5"/>
@@ -89,6 +98,7 @@ const Theme = (() => {
       <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/>
     </svg>`;
   }
+
   return { init, toggle, isDark };
 })();
 
