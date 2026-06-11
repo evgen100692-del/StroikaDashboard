@@ -33,12 +33,18 @@
   /* Status */
   --color-success:          #3b7a1e;
   --color-success-bg:       #e8f0e4;
+  --color-success-highlight:#d4dfcc;
   --color-warning:          #b05a0a;
   --color-warning-bg:       #f5e8da;
+  --color-warning-highlight:#e7d7c4;
   --color-error:            #9a2222;
   --color-error-bg:         #f5e4e4;
+  --color-error-highlight:  #e0ced7;
   --color-info:             #1a5f8a;
   --color-info-bg:          #deeef8;
+  --color-info-highlight:   #c6d8e4;
+  --color-blue:             #1a5f8a;
+  --color-blue-highlight:   #c6d8e4;
 
   /* Chart palette */
   --chart-1: #01696f;
@@ -111,12 +117,18 @@
   --color-primary-subtle:   #1e3032;
   --color-success:          #6daa45;
   --color-success-bg:       #2a3a22;
+  --color-success-highlight:#3a4435;
   --color-warning:          #e8902a;
   --color-warning-bg:       #3a2c18;
+  --color-warning-highlight:#564b3e;
   --color-error:            #d96060;
   --color-error-bg:         #3a2222;
+  --color-error-highlight:  #4c3d46;
   --color-info:             #5591c7;
   --color-info-bg:          #1e2e3e;
+  --color-info-highlight:   #3a4550;
+  --color-blue:             #5591c7;
+  --color-blue-highlight:   #3a4550;
   --chart-1: #4f98a3;
   --chart-2: #6daa45;
   --chart-3: #e8902a;
@@ -149,12 +161,18 @@
     --color-primary-subtle:   #1e3032;
     --color-success:          #6daa45;
     --color-success-bg:       #2a3a22;
+    --color-success-highlight:#3a4435;
     --color-warning:          #e8902a;
     --color-warning-bg:       #3a2c18;
+    --color-warning-highlight:#564b3e;
     --color-error:            #d96060;
     --color-error-bg:         #3a2222;
+    --color-error-highlight:  #4c3d46;
     --color-info:             #5591c7;
     --color-info-bg:          #1e2e3e;
+    --color-info-highlight:   #3a4550;
+    --color-blue:             #5591c7;
+    --color-blue-highlight:   #3a4550;
     --chart-1: #4f98a3;
     --chart-2: #6daa45;
     --chart-3: #e8902a;
