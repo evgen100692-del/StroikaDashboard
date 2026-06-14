@@ -239,68 +239,88 @@ const PotholePage = (() => {
       }
     }
 
-    _setKPI('ph-kpi-reg',  totalReg,  _latest.regional   ? _latest.regional.report_date   : null, 'ph-kpi-reg-date',  'ph-kpi-reg-delta',  'regional',   'registered', false);
-    _setKPI('ph-kpi-fix',  totalFix,  _latest.regional   ? _latest.regional.report_date   : null, 'ph-kpi-fix-date',  'ph-kpi-fix-delta',  'regional',   'fixed',       false);
-    _setKPI('ph-kpi-comp', totalComp, _latest.complaints ? _latest.complaints.report_date : null, 'ph-kpi-comp-date', 'ph-kpi-comp-delta', 'complaints', null,          true);
+    _setKPI('ph-kpi-reg',  totalReg,  _latest.regional   ? _latest.regional.report_date   : null, 'ph-kpi-reg-date',  'ph-kpi-reg-delta',  'registered', false);
+    _setKPI('ph-kpi-fix',  totalFix,  _latest.regional   ? _latest.regional.report_date   : null, 'ph-kpi-fix-date',  'ph-kpi-fix-delta',  'fixed',      false);
+    _setKPI('ph-kpi-comp', totalComp, _latest.complaints ? _latest.complaints.report_date : null, 'ph-kpi-comp-date', 'ph-kpi-comp-delta', 'complaints', true);
   }
 
   /**
-   * @param {boolean} invertDelta  true — жалобы: рост → красный, падение → зелёный
+   * Считает prevVal для дельты с учётом текущих фильтров org/ruad/mo.
+   * @param {string}  histField   'registered' | 'fixed' | 'complaints'
+   * @param {boolean} invertDelta true — жалобы: рост → красный, падение → зелёный
    */
-  function _setKPI(valId, curVal, date, dateId, deltaId, histType, histField, invertDelta) {
+  function _setKPI(valId, curVal, date, dateId, deltaId, histField, invertDelta) {
     document.getElementById(valId).textContent = curVal.toLocaleString('ru');
     if (date) document.getElementById(dateId).textContent = 'Дата отчёта: ' + _fmtDate(date);
 
-    const hist = _history[histType] || [];
-    if (hist.length >= 2) {
-      const prev = hist[hist.length - 2];
+    const useReg = _filter.org !== 'oms';
+    const useMun = _filter.org !== 'mad';
+
+    const el = document.getElementById(deltaId);
+
+    if (histField === 'complaints') {
+      const hist = _history.complaints || [];
+      if (hist.length < 2) { el.textContent = 'первый отчёт'; el.className = 'ph-kpi-delta neu'; return; }
+      const weekData = hist[hist.length - 2].data_json?.week || [];
       let prevVal = 0;
-      if (histType === 'complaints') {
-        const weekData = prev.data_json?.week || [];
-        if (_filter.ruad) {
-          const row = weekData.find(r => r.name === _filter.ruad);
-          prevVal = row ? row.count : 0;
-        } else if (_filter.mo) {
-          const row = _findCompRowByMo(weekData, _filter.mo);
-          prevVal = row ? row.count : 0;
-        } else {
-          const oR = (_filter.org !== 'mad') ? weekData.find(r => r.name === 'ОМС') : null;
-          const mR = (_filter.org !== 'oms') ? weekData.find(r => r.name === 'МАД') : null;
-          prevVal = (oR ? oR.count : 0) + (mR ? mR.count : 0);
-        }
-      } else if (histField) {
-        const prevRegRows = _filter.ruad
-          ? (prev.data_json || []).filter(r => r.name === _filter.ruad)
-          : (prev.data_json || []);
-        const prevReg = prevRegRows.reduce((s, r) => s + (r[histField] || 0), 0);
-
-        const prevMunSource = _history.municipal.length >= 2
-          ? _history.municipal[_history.municipal.length - 2].data_json || []
-          : [];
-        const prevMunRows = _filter.mo
-          ? prevMunSource.filter(r => r.name === _filter.mo)
-          : prevMunSource;
-        const prevMun = prevMunRows.reduce((s, r) => s + (r[histField] || 0), 0);
-        prevVal = prevReg + prevMun;
-      }
-
-      const diff = curVal - prevVal;
-      const el   = document.getElementById(deltaId);
-
-      if (diff === 0) {
-        el.textContent = 'без изменений';
-        el.className   = 'ph-kpi-delta neu';
-      } else if (diff > 0) {
-        el.textContent = '+' + diff.toLocaleString('ru');
-        el.className   = invertDelta ? 'ph-kpi-delta down' : 'ph-kpi-delta up';
+      if (_filter.ruad) {
+        const row = weekData.find(r => r.name === _filter.ruad);
+        prevVal = row ? row.count : 0;
+      } else if (_filter.mo) {
+        const row = _findCompRowByMo(weekData, _filter.mo);
+        prevVal = row ? row.count : 0;
       } else {
-        el.textContent = diff.toLocaleString('ru');
-        el.className   = invertDelta ? 'ph-kpi-delta up' : 'ph-kpi-delta down';
+        const oR = useReg ? weekData.find(r => r.name === 'МАД') : null;
+        const mR = useMun ? weekData.find(r => r.name === 'ОМС') : null;
+        prevVal = (oR ? oR.count : 0) + (mR ? mR.count : 0);
       }
-    } else {
-      const el = document.getElementById(deltaId);
+      _applyDelta(el, curVal, prevVal, invertDelta);
+      return;
+    }
+
+    // registered / fixed
+    const histReg = _history.regional  || [];
+    const histMun = _history.municipal || [];
+
+    // нужно минимум 2 отчёта в хотя бы одном из используемых источников
+    const hasPrevReg = useReg && histReg.length >= 2;
+    const hasPrevMun = useMun && histMun.length >= 2;
+    if (!hasPrevReg && !hasPrevMun) {
       el.textContent = 'первый отчёт';
       el.className   = 'ph-kpi-delta neu';
+      return;
+    }
+
+    let prevVal = 0;
+
+    if (hasPrevReg) {
+      const prevRows = _filter.ruad
+        ? (histReg[histReg.length - 2].data_json || []).filter(r => r.name === _filter.ruad)
+        : (histReg[histReg.length - 2].data_json || []);
+      prevVal += prevRows.reduce((s, r) => s + (r[histField] || 0), 0);
+    }
+
+    if (hasPrevMun) {
+      const prevRows = _filter.mo
+        ? (histMun[histMun.length - 2].data_json || []).filter(r => r.name === _filter.mo)
+        : (histMun[histMun.length - 2].data_json || []);
+      prevVal += prevRows.reduce((s, r) => s + (r[histField] || 0), 0);
+    }
+
+    _applyDelta(el, curVal, prevVal, invertDelta);
+  }
+
+  function _applyDelta(el, curVal, prevVal, invertDelta) {
+    const diff = curVal - prevVal;
+    if (diff === 0) {
+      el.textContent = 'без изменений';
+      el.className   = 'ph-kpi-delta neu';
+    } else if (diff > 0) {
+      el.textContent = '+' + diff.toLocaleString('ru');
+      el.className   = invertDelta ? 'ph-kpi-delta down' : 'ph-kpi-delta up';
+    } else {
+      el.textContent = diff.toLocaleString('ru');
+      el.className   = invertDelta ? 'ph-kpi-delta up' : 'ph-kpi-delta down';
     }
   }
 
@@ -422,21 +442,13 @@ const PotholePage = (() => {
     return weeks;
   }
 
-  function _sumWeek(history, field, week) {
+  function _sumWeekFiltered(history, field, week, nameFilter) {
     if (!history) return 0;
     const reports = history.filter(r => r.report_date >= week.from && r.report_date <= week.to);
     if (!reports.length) return 0;
     const last = reports[reports.length - 1];
-    return (last.data_json || []).reduce((s, r) => s + (r[field] || 0), 0);
-  }
-
-  function _sumWeekFiltered(history, field, week, ruad) {
-    if (!history) return 0;
-    const reports = history.filter(r => r.report_date >= week.from && r.report_date <= week.to);
-    if (!reports.length) return 0;
-    const last = reports[reports.length - 1];
-    const rows = ruad
-      ? (last.data_json || []).filter(r => r.name === ruad)
+    const rows = nameFilter
+      ? (last.data_json || []).filter(r => r.name === nameFilter)
       : (last.data_json || []);
     return rows.reduce((s, r) => s + (r[field] || 0), 0);
   }
@@ -460,18 +472,6 @@ const PotholePage = (() => {
     const madRow = data.week.find(r => r.name === 'МАД');
     if (_filter.org === 'oms') return omsRow ? omsRow.count : 0;
     if (_filter.org === 'mad') return madRow ? madRow.count : 0;
-    return (omsRow ? omsRow.count : 0) + (madRow ? madRow.count : 0);
-  }
-
-  function _sumCompWeek(history, week) {
-    if (!history) return 0;
-    const reports = history.filter(r => r.report_date >= week.from && r.report_date <= week.to);
-    if (!reports.length) return 0;
-    const last = reports[reports.length - 1];
-    const data = last.data_json;
-    if (!data || !data.week) return 0;
-    const omsRow = data.week.find(r => r.name === 'ОМС');
-    const madRow = data.week.find(r => r.name === 'МАД');
     return (omsRow ? omsRow.count : 0) + (madRow ? madRow.count : 0);
   }
 
