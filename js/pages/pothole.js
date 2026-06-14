@@ -23,7 +23,6 @@ const PotholePage = (() => {
     _initialized = true;
     _bindUploadModal();
     _bindUploadButtons();
-    // FIX: сбрасываем _uploadState при закрытии модала любым способом (Escape/overlay)
     const uploadOverlay = document.getElementById('upload-modal');
     if (uploadOverlay) {
       const observer = new MutationObserver(() => {
@@ -63,28 +62,20 @@ const PotholePage = (() => {
   // ════════════════════════════════════════════════════════════════════════════
   //  DASHBOARD RENDER
   // ════════════════════════════════════════════════════════════════════════════
-    function _applyRuadFilter(rows) {
+  function _applyRuadFilter(rows) {
     if (!_filter.ruad) return rows || [];
     return (rows || []).filter(r => r.name === _filter.ruad);
   }
 
-  /**
-   * Нормализует строку для сравнения МО с жалобами:
-   * убирает суффикс «го» / «г.о.» / «г/о», trim, lowercase.
-   */
   function _normalizeMoName(name) {
     if (!name) return '';
     return name.trim()
       .toLowerCase()
-      .replace(/\s*г\.?о\.?$/i, '')   // «го», «г.о.», «г.о» в конце
-      .replace(/\s*г\/о$/i, '')       // «г/о» в конце
+      .replace(/\s*г\.?о\.?$/i, '')
+      .replace(/\s*г\/о$/i, '')
       .trim();
   }
 
-  /**
-   * Ищет строку жалоб, соответствующую имени МО из фильтра.
-   * Сравнивает нормализованные имена — суффикс «го» игнорируется.
-   */
   function _findCompRowByMo(rows, moName) {
     if (!rows || !moName) return null;
     const needle = _normalizeMoName(moName);
@@ -107,164 +98,158 @@ const PotholePage = (() => {
   }
 
   function _getMoOptions() {
-  const names = new Set();
-  (_latest.municipal?.data_json || []).forEach(r => { if (r.name) names.add(r.name); });
-  return Array.from(names).sort();
-}
-
-function _renderFilterBar() {
-  const bar = document.getElementById('ph-filter-bar');
-  if (!bar) return;
-
-  // -- РУАД --
-  const ruadSelect = document.getElementById('ph-filter-ruad');
-  if (ruadSelect) {
-    const opts = _getRuadOptions();
-    const prev = _filter.ruad;
-    ruadSelect.innerHTML = '<option value="">Все РУАД</option>'
-      + opts.map(n => `<option value="${n}">${n}</option>`).join('');
-    ruadSelect.value = (prev && opts.includes(prev)) ? prev : '';
+    const names = new Set();
+    (_latest.municipal?.data_json || []).forEach(r => { if (r.name) names.add(r.name); });
+    return Array.from(names).sort();
   }
 
-  // -- МО --
-  const moSelect = document.getElementById('ph-filter-mo');
-  if (moSelect) {
-    const opts = _getMoOptions();
-    const prev = _filter.mo;
-    moSelect.innerHTML = '<option value="">Все МО</option>'
-      + opts.map(n => `<option value="${n}">${n}</option>`).join('');
-    moSelect.value = (prev && opts.includes(prev)) ? prev : '';
+  function _renderFilterBar() {
+    const bar = document.getElementById('ph-filter-bar');
+    if (!bar) return;
+
+    const ruadSelect = document.getElementById('ph-filter-ruad');
+    if (ruadSelect) {
+      const opts = _getRuadOptions();
+      const prev = _filter.ruad;
+      ruadSelect.innerHTML = '<option value="">Все РУАД</option>'
+        + opts.map(n => `<option value="${n}">${n}</option>`).join('');
+      ruadSelect.value = (prev && opts.includes(prev)) ? prev : '';
+    }
+
+    const moSelect = document.getElementById('ph-filter-mo');
+    if (moSelect) {
+      const opts = _getMoOptions();
+      const prev = _filter.mo;
+      moSelect.innerHTML = '<option value="">Все МО</option>'
+        + opts.map(n => `<option value="${n}">${n}</option>`).join('');
+      moSelect.value = (prev && opts.includes(prev)) ? prev : '';
+    }
+
+    const groupRuad = document.getElementById('ph-filter-group-ruad');
+    const groupMo   = document.getElementById('ph-filter-group-mo');
+    if (groupRuad) groupRuad.style.display = (_filter.org === 'oms') ? 'none' : '';
+    if (groupMo)   groupMo.style.display   = (_filter.org === 'mad') ? 'none' : '';
+
+    const hasData = _latest.regional || _latest.municipal || _latest.complaints;
+    bar.style.display = hasData ? '' : 'none';
   }
 
-  // -- видимость групп в зависимости от источника --
-  const groupRuad = document.getElementById('ph-filter-group-ruad');
-  const groupMo   = document.getElementById('ph-filter-group-mo');
-  if (groupRuad) groupRuad.style.display = (_filter.org === 'oms') ? 'none' : '';
-  if (groupMo)   groupMo.style.display   = (_filter.org === 'mad') ? 'none' : '';
+  function _bindFilterBar() {
+    const ruadSelect = document.getElementById('ph-filter-ruad');
+    const moSelect   = document.getElementById('ph-filter-mo');
+    const orgBtns    = document.querySelectorAll('[data-ph-org]');
 
-  const hasData = _latest.regional || _latest.municipal || _latest.complaints;
-  bar.style.display = hasData ? '' : 'none';
-}
-
-function _bindFilterBar() {
-  const ruadSelect = document.getElementById('ph-filter-ruad');
-  const moSelect   = document.getElementById('ph-filter-mo');
-  const orgBtns    = document.querySelectorAll('[data-ph-org]');
-
-  // кнопки-переключатели источника
-  orgBtns.forEach(btn => {
-    btn.addEventListener('click', () => {
-      orgBtns.forEach(b => b.classList.remove('active'));
-      btn.classList.add('active');
-      _filter.org  = btn.dataset.phOrg;
-      _filter.ruad = '';  // сбрасываем детальные фильтры при смене источника
-      _filter.mo   = '';
-      _renderFilterBar(); // перерисовываем (скрываем ненужные селекты)
-      _applyFiltersAndRedraw();
+    orgBtns.forEach(btn => {
+      btn.addEventListener('click', () => {
+        orgBtns.forEach(b => b.classList.remove('active'));
+        btn.classList.add('active');
+        _filter.org  = btn.dataset.phOrg;
+        _filter.ruad = '';
+        _filter.mo   = '';
+        _renderFilterBar();
+        _applyFiltersAndRedraw();
+      });
     });
-  });
 
-  // РУАД
-  if (ruadSelect) {
-    ruadSelect.addEventListener('change', () => {
-      _filter.ruad = ruadSelect.value;
-      _applyFiltersAndRedraw();
-    });
+    if (ruadSelect) {
+      ruadSelect.addEventListener('change', () => {
+        _filter.ruad = ruadSelect.value;
+        _applyFiltersAndRedraw();
+      });
+    }
+
+    if (moSelect) {
+      moSelect.addEventListener('change', () => {
+        _filter.mo = moSelect.value;
+        _applyFiltersAndRedraw();
+      });
+    }
+
+    const resetBtn = document.getElementById('ph-filter-reset');
+    if (resetBtn) {
+      resetBtn.addEventListener('click', () => {
+        _filter = { ruad: '', mo: '', org: 'all' };
+        orgBtns.forEach(b => b.classList.toggle('active', b.dataset.phOrg === 'all'));
+        _renderFilterBar();
+        _applyFiltersAndRedraw();
+      });
+    }
   }
 
-  // МО
-  if (moSelect) {
-    moSelect.addEventListener('change', () => {
-      _filter.mo = moSelect.value;
-      _applyFiltersAndRedraw();
-    });
+  function _applyFiltersAndRedraw() {
+    _renderKPIs();
+    _renderDonuts();
+    const sel = document.getElementById('ph-week-month');
+    if (sel && sel.value) _drawWeeklyChart(sel.value);
   }
 
-  // сброс
-  const resetBtn = document.getElementById('ph-filter-reset');
-  if (resetBtn) {
-    resetBtn.addEventListener('click', () => {
-      _filter = { ruad: '', mo: '', org: 'all' };
-      orgBtns.forEach(b => b.classList.toggle('active', b.dataset.phOrg === 'all'));
-      _renderFilterBar();
-      _applyFiltersAndRedraw();
-    });
+  function _renderDashboard() {
+    const hasData = _latest.regional || _latest.municipal || _latest.complaints;
+    document.getElementById('ph-no-data').style.display      = hasData ? 'none' : 'flex';
+    document.getElementById('ph-data-content').style.display = hasData ? '' : 'none';
+    if (!hasData) return;
+
+    _renderFilterBar();
+
+    if (!_filterBarBound) {
+      _bindFilterBar();
+      _filterBarBound = true;
+    }
+
+    _renderKPIs();
+    _renderDonuts();
+    _renderWeekly();
   }
-}
-
-function _applyFiltersAndRedraw() {
-  _renderKPIs();
-  _renderDonuts();
-  const sel = document.getElementById('ph-week-month');
-  if (sel && sel.value) _drawWeeklyChart(sel.value);
-}
-
-function _renderDashboard() {
-  const hasData = _latest.regional || _latest.municipal || _latest.complaints;
-  document.getElementById('ph-no-data').style.display      = hasData ? 'none' : 'flex';
-  document.getElementById('ph-data-content').style.display = hasData ? '' : 'none';
-  if (!hasData) return;
-
-  _renderFilterBar(); // заполняет <select> актуальными РУАД
-
-  // навешиваем слушатели только один раз
-  if (!_filterBarBound) {
-    _bindFilterBar();
-    _filterBarBound = true;
-  }
-
-  _renderKPIs();
-  _renderDonuts();
-  _renderWeekly();
-}
 
   // ── KPI ─────────────────────────────────────────────────────────────────────
-function _renderKPIs() {
-  const useReg = _filter.org !== 'oms';
-  const useMun = _filter.org !== 'mad';
+  function _renderKPIs() {
+    const useReg = _filter.org !== 'oms';
+    const useMun = _filter.org !== 'mad';
 
-  const regData = useReg
-    ? (_filter.ruad
-        ? (_latest.regional?.data_json || []).filter(r => r.name === _filter.ruad)
-        : (_latest.regional?.data_json || []))
-    : [];
+    const regData = useReg
+      ? (_filter.ruad
+          ? (_latest.regional?.data_json || []).filter(r => r.name === _filter.ruad)
+          : (_latest.regional?.data_json || []))
+      : [];
 
-  const munData = useMun
-    ? (_filter.mo
-        ? (_latest.municipal?.data_json || []).filter(r => r.name === _filter.mo)
-        : (_latest.municipal?.data_json || []))
-    : [];
+    const munData = useMun
+      ? (_filter.mo
+          ? (_latest.municipal?.data_json || []).filter(r => r.name === _filter.mo)
+          : (_latest.municipal?.data_json || []))
+      : [];
 
-  const totalReg = regData.reduce((s, r) => s + (r.registered || 0), 0)
-                 + munData.reduce((s, r) => s + (r.registered || 0), 0);
-  const totalFix = regData.reduce((s, r) => s + (r.fixed || 0), 0)
-                 + munData.reduce((s, r) => s + (r.fixed || 0), 0);
+    const totalReg = regData.reduce((s, r) => s + (r.registered || 0), 0)
+                   + munData.reduce((s, r) => s + (r.registered || 0), 0);
+    const totalFix = regData.reduce((s, r) => s + (r.fixed || 0), 0)
+                   + munData.reduce((s, r) => s + (r.fixed || 0), 0);
 
-const compData = _latest.complaints ? _latest.complaints.data_json : null;
-let totalComp = 0;
-if (compData) {
-  if (_filter.ruad) {
-    // Конкретный РУАД → ищем его строку в МАД-ветке недельных жалоб
-    const row = (compData.week || []).find(r => r.name === _filter.ruad);
-    totalComp = row ? row.count : 0;
-  } else if (_filter.mo) {
-    // Конкретное МО → ищем «<МО> го» в ОМС-ветке недельных жалоб
-    const row = _findCompRowByMo(compData.week, _filter.mo);
-    totalComp = row ? row.count : 0;
-  } else {
-    // Общий фильтр по источнику (org)
-    const omsRow = (_filter.org !== 'mad') ? (compData.week || []).find(r => r.name === 'ОМС') : null;
-    const madRow = (_filter.org !== 'oms') ? (compData.week || []).find(r => r.name === 'МАД') : null;
-    totalComp = (omsRow ? omsRow.count : 0) + (madRow ? madRow.count : 0);
+    const compData = _latest.complaints ? _latest.complaints.data_json : null;
+    let totalComp = 0;
+    if (compData) {
+      if (_filter.ruad) {
+        const row = (compData.week || []).find(r => r.name === _filter.ruad);
+        totalComp = row ? row.count : 0;
+      } else if (_filter.mo) {
+        const row = _findCompRowByMo(compData.week, _filter.mo);
+        totalComp = row ? row.count : 0;
+      } else {
+        const omsRow = (_filter.org !== 'mad') ? (compData.week || []).find(r => r.name === 'ОМС') : null;
+        const madRow = (_filter.org !== 'oms') ? (compData.week || []).find(r => r.name === 'МАД') : null;
+        totalComp = (omsRow ? omsRow.count : 0) + (madRow ? madRow.count : 0);
+      }
+    }
+
+    // для регистрации и устранения: больше = зелёный, меньше = красный (invertDelta = false)
+    // для жалоб: больше = красный, меньше = зелёный (invertDelta = true)
+    _setKPI('ph-kpi-reg',  totalReg,  _latest.regional   ? _latest.regional.report_date   : null, 'ph-kpi-reg-date',  'ph-kpi-reg-delta',  'regional',   'registered', false);
+    _setKPI('ph-kpi-fix',  totalFix,  _latest.regional   ? _latest.regional.report_date   : null, 'ph-kpi-fix-date',  'ph-kpi-fix-delta',  'regional',   'fixed',       false);
+    _setKPI('ph-kpi-comp', totalComp, _latest.complaints ? _latest.complaints.report_date : null, 'ph-kpi-comp-date', 'ph-kpi-comp-delta', 'complaints', null,          true);
   }
-}
 
-  _setKPI('ph-kpi-reg',  totalReg,  _latest.regional   ? _latest.regional.report_date   : null, 'ph-kpi-reg-date',  'ph-kpi-reg-delta',  'regional',   'registered');
-  _setKPI('ph-kpi-fix',  totalFix,  _latest.regional   ? _latest.regional.report_date   : null, 'ph-kpi-fix-date',  'ph-kpi-fix-delta',  'regional',   'fixed');
-  _setKPI('ph-kpi-comp', totalComp, _latest.complaints ? _latest.complaints.report_date : null, 'ph-kpi-comp-date', 'ph-kpi-comp-delta', 'complaints', null);
-}
-
-  function _setKPI(valId, curVal, date, dateId, deltaId, histType, histField) {
+  /**
+   * @param {boolean} invertDelta  true — жалобы: рост → красный, падение → зелёный
+   */
+  function _setKPI(valId, curVal, date, dateId, deltaId, histType, histField, invertDelta) {
     document.getElementById(valId).textContent = curVal.toLocaleString('ru');
     if (date) document.getElementById(dateId).textContent = 'Дата отчёта: ' + _fmtDate(date);
 
@@ -300,11 +285,22 @@ if (compData) {
         const prevMun = prevMunRows.reduce((s, r) => s + (r[histField] || 0), 0);
         prevVal = prevReg + prevMun;
       }
+
       const diff = curVal - prevVal;
       const el   = document.getElementById(deltaId);
-      if (diff > 0)      { el.textContent = '+' + diff.toLocaleString('ru'); el.className = 'ph-kpi-delta up'; }
-      else if (diff < 0) { el.textContent = diff.toLocaleString('ru');       el.className = 'ph-kpi-delta down'; }
-      else               { el.textContent = 'без изменений';                 el.className = 'ph-kpi-delta neu'; }
+
+      if (diff === 0) {
+        el.textContent = 'без изменений';
+        el.className   = 'ph-kpi-delta neu';
+      } else if (diff > 0) {
+        el.textContent = '+' + diff.toLocaleString('ru');
+        // рост: для жалоб — плохо (красный), для остальных — хорошо (зелёный)
+        el.className   = invertDelta ? 'ph-kpi-delta down' : 'ph-kpi-delta up';
+      } else {
+        el.textContent = diff.toLocaleString('ru');
+        // падение: для жалоб — хорошо (зелёный), для остальных — плохо (красный)
+        el.className   = invertDelta ? 'ph-kpi-delta up' : 'ph-kpi-delta down';
+      }
     } else {
       const el = document.getElementById(deltaId);
       el.textContent = 'первый отчёт';
@@ -313,51 +309,49 @@ if (compData) {
   }
 
   // ── Пончики — делегируем в PotholeCharts ────────────────────────────────────
-function _renderDonuts() {
-  const useReg = _filter.org !== 'oms';
-  const useMun = _filter.org !== 'mad';
+  function _renderDonuts() {
+    const useReg = _filter.org !== 'oms';
+    const useMun = _filter.org !== 'mad';
 
-  const regData = useReg
-    ? (_filter.ruad
-        ? (_latest.regional?.data_json || []).filter(r => r.name === _filter.ruad)
-        : (_latest.regional?.data_json || []))
-    : [];
+    const regData = useReg
+      ? (_filter.ruad
+          ? (_latest.regional?.data_json || []).filter(r => r.name === _filter.ruad)
+          : (_latest.regional?.data_json || []))
+      : [];
 
-  const munData = useMun
-    ? (_filter.mo
-        ? (_latest.municipal?.data_json || []).filter(r => r.name === _filter.mo)
-        : (_latest.municipal?.data_json || []))
-    : [];
+    const munData = useMun
+      ? (_filter.mo
+          ? (_latest.municipal?.data_json || []).filter(r => r.name === _filter.mo)
+          : (_latest.municipal?.data_json || []))
+      : [];
 
-  const compData = _latest.complaints ? _latest.complaints.data_json : null;
+    const compData = _latest.complaints ? _latest.complaints.data_json : null;
 
-  const regSum    = regData.reduce((s, r) => s + (r.registered || 0), 0);
-  const munRegSum = munData.reduce((s, r) => s + (r.registered || 0), 0);
-  const regFixSum = regData.reduce((s, r) => s + (r.fixed || 0), 0);
-  const munFixSum = munData.reduce((s, r) => s + (r.fixed || 0), 0);
+    const regSum    = regData.reduce((s, r) => s + (r.registered || 0), 0);
+    const munRegSum = munData.reduce((s, r) => s + (r.registered || 0), 0);
+    const regFixSum = regData.reduce((s, r) => s + (r.fixed || 0), 0);
+    const munFixSum = munData.reduce((s, r) => s + (r.fixed || 0), 0);
 
-let omsC = 0, madC = 0;
-if (compData) {
-  if (_filter.ruad) {
-    // Конкретный РУАД → только его МАД-строка (total)
-    const row = (compData.total || []).find(r => r.name === _filter.ruad);
-    madC = row ? row.count : 0;
-  } else if (_filter.mo) {
-    // Конкретное МО → только его ОМС-строка (total) с суффиксом «го»
-    const row = _findCompRowByMo(compData.total, _filter.mo);
-    omsC = row ? row.count : 0;
-  } else {
-    const omsRow = (useMun && compData) ? compData.total.find(r => r.name === 'ОМС') : null;
-    const madRow = (useReg && compData) ? compData.total.find(r => r.name === 'МАД') : null;
-    omsC = omsRow ? omsRow.count : 0;
-    madC = madRow ? madRow.count : 0;
+    let omsC = 0, madC = 0;
+    if (compData) {
+      if (_filter.ruad) {
+        const row = (compData.total || []).find(r => r.name === _filter.ruad);
+        madC = row ? row.count : 0;
+      } else if (_filter.mo) {
+        const row = _findCompRowByMo(compData.total, _filter.mo);
+        omsC = row ? row.count : 0;
+      } else {
+        const omsRow = (useMun && compData) ? compData.total.find(r => r.name === 'ОМС') : null;
+        const madRow = (useReg && compData) ? compData.total.find(r => r.name === 'МАД') : null;
+        omsC = omsRow ? omsRow.count : 0;
+        madC = madRow ? madRow.count : 0;
+      }
+    }
+
+    _charts['donut-reg']  = PotholeCharts.donut('ph-chart-reg-donut',  [munRegSum, regSum],    ['Муниципальные (ОМС)', 'Региональные (МАД)'], _charts['donut-reg']);
+    _charts['donut-fix']  = PotholeCharts.donut('ph-chart-fix-donut',  [munFixSum, regFixSum], ['Муниципальные (ОМС)', 'Региональные (МАД)'], _charts['donut-fix']);
+    _charts['donut-comp'] = PotholeCharts.donut('ph-chart-comp-donut', [omsC, madC],           ['ОМС (муниципальные)', 'МАД (региональные)'], _charts['donut-comp']);
   }
-}
-
-  _charts['donut-reg']  = PotholeCharts.donut('ph-chart-reg-donut',  [munRegSum, regSum],    ['Муниципальные (ОМС)', 'Региональные (МАД)'], _charts['donut-reg']);
-  _charts['donut-fix']  = PotholeCharts.donut('ph-chart-fix-donut',  [munFixSum, regFixSum], ['Муниципальные (ОМС)', 'Региональные (МАД)'], _charts['donut-fix']);
-  _charts['donut-comp'] = PotholeCharts.donut('ph-chart-comp-donut', [omsC, madC],           ['ОМС (муниципальные)', 'МАД (региональные)'], _charts['donut-comp']);
-}
 
   // ── Weekly — делегируем в PotholeCharts ─────────────────────────────────────
   function _renderWeekly() {
@@ -401,22 +395,21 @@ if (compData) {
     const [year, month] = ym.split('-').map(Number);
     const weeks = _getWeeksOfMonth(year, month);
 
-const useReg = _filter.org !== 'oms';
-const useMun = _filter.org !== 'mad';
+    const useReg = _filter.org !== 'oms';
+    const useMun = _filter.org !== 'mad';
 
-const weekData = weeks.map((w, i) => ({
-  label:      'Нед.' + (i + 1) + ' (' + _fmtDate(w.from) + '–' + _fmtDate(w.to) + ')',
-  registered: (useReg ? _sumWeekFiltered(_history.regional,  'registered', w, _filter.ruad) : 0)
-            + (useMun ? _sumWeekFiltered(_history.municipal, 'registered', w, _filter.mo)   : 0),
-  fixed:      (useReg ? _sumWeekFiltered(_history.regional,  'fixed',      w, _filter.ruad) : 0)
-            + (useMun ? _sumWeekFiltered(_history.municipal, 'fixed',      w, _filter.mo)   : 0),
-  complaints: _sumCompWeekFiltered(_history.complaints, w),
-}));
+    const weekData = weeks.map((w, i) => ({
+      label:      'Нед.' + (i + 1) + ' (' + _fmtDate(w.from) + '–' + _fmtDate(w.to) + ')',
+      registered: (useReg ? _sumWeekFiltered(_history.regional,  'registered', w, _filter.ruad) : 0)
+                + (useMun ? _sumWeekFiltered(_history.municipal, 'registered', w, _filter.mo)   : 0),
+      fixed:      (useReg ? _sumWeekFiltered(_history.regional,  'fixed',      w, _filter.ruad) : 0)
+                + (useMun ? _sumWeekFiltered(_history.municipal, 'fixed',      w, _filter.mo)   : 0),
+      complaints: _sumCompWeekFiltered(_history.complaints, w),
+    }));
 
     _charts['weekly'] = PotholeCharts.weekly('ph-chart-weekly', weekData, _charts['weekly']);
   }
 
-  // Недели пн–вс для данного месяца
   function _getWeeksOfMonth(year, month) {
     const weeks = [];
     let d = new Date(year, month - 1, 1);
@@ -558,7 +551,6 @@ const weekData = weeks.map((w, i) => ({
     }
 
     const d = r.data_json;
-
     let html = `<article class="card"><div class="card-header"><div>
       <div class="card-title">${_typeName(r.report_type)} — ${_fmtDate(r.report_date)}</div>
       <div class="card-subtitle">Загружен: ${_fmtDatetime(r.uploaded_at)}</div>
@@ -590,10 +582,10 @@ const weekData = weeks.map((w, i) => ({
     const omsWeek   = d.week  ? d.week.filter(r => r.type === 'oms')   : [];
     const madWeek   = d.week  ? d.week.filter(r => r.type === 'mad')   : [];
 
-  const omsTotalSum = (d.total ? d.total.find(r => r.name === 'ОМС') : null)?.count || 0;
-  const madTotalSum = (d.total ? d.total.find(r => r.name === 'МАД') : null)?.count || 0;
-  const omsWeekSum  = (d.week  ? d.week.find(r  => r.name === 'ОМС') : null)?.count || 0;
-  const madWeekSum  = (d.week  ? d.week.find(r  => r.name === 'МАД') : null)?.count || 0;
+    const omsTotalSum = (d.total ? d.total.find(r => r.name === 'ОМС') : null)?.count || 0;
+    const madTotalSum = (d.total ? d.total.find(r => r.name === 'МАД') : null)?.count || 0;
+    const omsWeekSum  = (d.week  ? d.week.find(r  => r.name === 'ОМС') : null)?.count || 0;
+    const madWeekSum  = (d.week  ? d.week.find(r  => r.name === 'МАД') : null)?.count || 0;
 
     function buildTable(rows, sumVal) {
       if (!rows.length) return '<p style="padding:var(--space-3);color:var(--color-text-muted);font-size:var(--text-sm)">Нет данных</p>';
@@ -605,12 +597,7 @@ const weekData = weeks.map((w, i) => ({
         </tr>`).join('');
       return `<div class="data-table-wrap">
         <table class="data-table">
-          <thead>
-            <tr>
-              <th>Исполнитель / МО</th>
-              <th style="text-align:right">Жалоб</th>
-            </tr>
-          </thead>
+          <thead><tr><th>Исполнитель / МО</th><th style="text-align:right">Жалоб</th></tr></thead>
           <tbody>
             ${bodyRows}
             <tr style="font-weight:700;border-top:2px solid var(--color-border)">
@@ -766,10 +753,6 @@ const weekData = weeks.map((w, i) => ({
     return { complaints: 'Жалобы', regional: 'Рег.', municipal: 'Мун.' }[t] || t;
   }
 
-  // ── Публичные методы для PotholeCharts.updateTheme() ──────────────────────
-  // Позволяют заменить chart-инстанс после пересоздания при смене темы.
-  // canvasId для пончиков: 'donut-reg', 'donut-fix', 'donut-comp'
-  // canvasId для weekly:   'weekly'
   function getChart(key) { return _charts[key] || null; }
   function setChart(key, chart) { _charts[key] = chart; }
 
