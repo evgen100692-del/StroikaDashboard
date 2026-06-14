@@ -9,12 +9,12 @@ const XLSX = require('xlsx');
 const PORT    = 3000;
 const DB_PATH = path.join(__dirname, 'data', 'stroika.db');
 
-// ── Папка data ─────────────────────────────────────────────────────────────────────────────
+// ── Папка data ────────────────────────────────────────────────────────────────
 if (!fs.existsSync(path.join(__dirname, 'data'))) {
   fs.mkdirSync(path.join(__dirname, 'data'));
 }
 
-// ── sql.js: синхронная инициализация БД ────────────────────────────────────────────
+// ── sql.js: синхронная инициализация БД ──────────────────────────────────────
 const initSqlJs = require('sql.js');
 
 let db;
@@ -86,7 +86,7 @@ async function initDb() {
   `);
 }
 
-// ── Сохранение БД на диск ───────────────────────────────────────────────────────────────────
+// ── Сохранение БД на диск ─────────────────────────────────────────────────────
 function saveDb() {
   try {
     const data = db.export();
@@ -96,7 +96,7 @@ function saveDb() {
   }
 }
 
-// ── Обёртки sql.js ───────────────────────────────────────────────────────────────────────────
+// ── Обёртки sql.js ────────────────────────────────────────────────────────────
 function dbAll(sql, params = []) {
   const res = db.exec(sql, params);
   if (!res.length) return [];
@@ -123,7 +123,7 @@ function dbInsert(sql, params = [], skipSave = false) {
   return row ? row.id : null;
 }
 
-// ── MIME ─────────────────────────────────────────────────────────────────────────────────
+// ── MIME ──────────────────────────────────────────────────────────────────────
 const MIME = {
   '.html': 'text/html; charset=utf-8',
   '.css':  'text/css',
@@ -132,7 +132,7 @@ const MIME = {
   '.ico':  'image/x-icon',
 };
 
-// ── Вспомогательные ────────────────────────────────────────────────────────────────────────────
+// ── Вспомогательные ───────────────────────────────────────────────────────────
 function cors(res) {
   res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Access-Control-Allow-Methods', 'GET,POST,PUT,DELETE,OPTIONS');
@@ -166,7 +166,7 @@ async function readBodyRaw(req) {
   });
 }
 
-// ── Парсер multipart/form-data ────────────────────────────────────────────────────────────────
+// ── Парсер multipart/form-data ────────────────────────────────────────────────
 function parseMultipart(buffer, boundary) {
   const boundaryBuf = Buffer.from('--' + boundary);
   const parts = [];
@@ -202,7 +202,7 @@ function parseMultipart(buffer, boundary) {
   return parts;
 }
 
-// ── Парсер Excel ─────────────────────────────────────────────────────────────────────────────────
+// ── Парсер Excel ──────────────────────────────────────────────────────────────
 function parseExcel(buffer, reportType) {
   const workbook = XLSX.read(buffer, { type: 'buffer', cellDates: false });
 
@@ -265,9 +265,11 @@ function parseExcel(buffer, reportType) {
 
 /**
  * Парсит лист регионального / муниципального отчёта.
- * Колонка B (index 1) — название РУАД / МО
- * Колонка G (index 6) — зарегистрировано ям всего
- * Колонка L (index 11) — устранено ям всего
+ * Колонка B (index 1)  — название РУАД / МО
+ * Колонка E (index 4)  — registered  (за 7 дней) → KPI, график
+ * Колонка J (index 9)  — fixed        (за 7 дней) → KPI, график
+ * Колонка G (index 6)  — registeredTotal (всего)  → пончики
+ * Колонка L (index 11) — fixedTotal      (всего)  → пончики
  */
 function _parseRegMunSheet(sheet) {
   const rows   = XLSX.utils.sheet_to_json(sheet, { header: 1, defval: null });
@@ -279,8 +281,10 @@ function _parseRegMunSheet(sheet) {
     if (!name) continue;
     result.push({
       name,
-      registered: toNum(row[6]),   // столбец G — зарегистрировано всего
-      fixed:      toNum(row[11]),  // столбец L — устранено всего
+      registered:      toNum(row[4]),   // col E — за 7 дней (KPI, график)
+      fixed:           toNum(row[9]),   // col J — за 7 дней (KPI, график)
+      registeredTotal: toNum(row[6]),   // col G — всего зарегистрировано (пончики)
+      fixedTotal:      toNum(row[11]),  // col L — всего устранено (пончики)
     });
   }
   return result;
@@ -291,7 +295,7 @@ function toNum(v) {
   return isNaN(n) ? 0 : n;
 }
 
-// ── HTTP-сервер ─────────────────────────────────────────────────────────────────────────────────
+// ── HTTP-сервер ───────────────────────────────────────────────────────────────
 const server = http.createServer(async (req, res) => {
   const url = req.url.split('?')[0];
 
@@ -514,7 +518,7 @@ const server = http.createServer(async (req, res) => {
   });
 });
 
-// ── Запуск ───────────────────────────────────────────────────────────────────────────────────
+// ── Запуск ────────────────────────────────────────────────────────────────────
 async function startServer() {
   await initDb();
   server.listen(PORT, '0.0.0.0', () => {

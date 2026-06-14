@@ -239,8 +239,6 @@ const PotholePage = (() => {
       }
     }
 
-    // для регистрации и устранения: больше = зелёный, меньше = красный (invertDelta = false)
-    // для жалоб: больше = красный, меньше = зелёный (invertDelta = true)
     _setKPI('ph-kpi-reg',  totalReg,  _latest.regional   ? _latest.regional.report_date   : null, 'ph-kpi-reg-date',  'ph-kpi-reg-delta',  'regional',   'registered', false);
     _setKPI('ph-kpi-fix',  totalFix,  _latest.regional   ? _latest.regional.report_date   : null, 'ph-kpi-fix-date',  'ph-kpi-fix-delta',  'regional',   'fixed',       false);
     _setKPI('ph-kpi-comp', totalComp, _latest.complaints ? _latest.complaints.report_date : null, 'ph-kpi-comp-date', 'ph-kpi-comp-delta', 'complaints', null,          true);
@@ -294,11 +292,9 @@ const PotholePage = (() => {
         el.className   = 'ph-kpi-delta neu';
       } else if (diff > 0) {
         el.textContent = '+' + diff.toLocaleString('ru');
-        // рост: для жалоб — плохо (красный), для остальных — хорошо (зелёный)
         el.className   = invertDelta ? 'ph-kpi-delta down' : 'ph-kpi-delta up';
       } else {
         el.textContent = diff.toLocaleString('ru');
-        // падение: для жалоб — хорошо (зелёный), для остальных — плохо (красный)
         el.className   = invertDelta ? 'ph-kpi-delta up' : 'ph-kpi-delta down';
       }
     } else {
@@ -308,7 +304,7 @@ const PotholePage = (() => {
     }
   }
 
-  // ── Пончики — делегируем в PotholeCharts ────────────────────────────────────
+  // ── Пончики — используем registeredTotal/fixedTotal (col G/L) ───────────────
   function _renderDonuts() {
     const useReg = _filter.org !== 'oms';
     const useMun = _filter.org !== 'mad';
@@ -327,10 +323,12 @@ const PotholePage = (() => {
 
     const compData = _latest.complaints ? _latest.complaints.data_json : null;
 
-    const regSum    = regData.reduce((s, r) => s + (r.registered || 0), 0);
-    const munRegSum = munData.reduce((s, r) => s + (r.registered || 0), 0);
-    const regFixSum = regData.reduce((s, r) => s + (r.fixed || 0), 0);
-    const munFixSum = munData.reduce((s, r) => s + (r.fixed || 0), 0);
+    // Пончики «Зарегистрированные» и «Устранённые» — берём col G и L (registeredTotal / fixedTotal)
+    // Для старых отчётов (без этих полей) падаем обратно на registered/fixed
+    const regSum    = regData.reduce((s, r) => s + (r.registeredTotal ?? r.registered ?? 0), 0);
+    const munRegSum = munData.reduce((s, r) => s + (r.registeredTotal ?? r.registered ?? 0), 0);
+    const regFixSum = regData.reduce((s, r) => s + (r.fixedTotal      ?? r.fixed      ?? 0), 0);
+    const munFixSum = munData.reduce((s, r) => s + (r.fixedTotal      ?? r.fixed      ?? 0), 0);
 
     let omsC = 0, madC = 0;
     if (compData) {
