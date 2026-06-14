@@ -266,10 +266,12 @@ function parseExcel(buffer, reportType) {
 /**
  * Парсит лист регионального / муниципального отчёта.
  * Колонка B (index 1)  — название РУАД / МО
- * Колонка E (index 4)  — registered  (за 7 дней) → KPI, график
- * Колонка J (index 9)  — fixed        (за 7 дней) → KPI, график
- * Колонка G (index 6)  — registeredTotal (всего)  → пончики
- * Колонка L (index 11) — fixedTotal      (всего)  → пончики
+ * Колонка C (index 2)  — registeredDay   (за сутки)   → таблица отчёта
+ * Колонка E (index 4)  — registered      (за 7 дней)  → KPI, график
+ * Колонка G (index 6)  — registeredTotal (всего)       → пончики
+ * Колонка H (index 7)  — fixedDay        (за сутки)   → таблица отчёта
+ * Колонка J (index 9)  — fixed           (за 7 дней)  → KPI, график
+ * Колонка L (index 11) — fixedTotal      (всего)       → пончики
  */
 function _parseRegMunSheet(sheet) {
   const rows   = XLSX.utils.sheet_to_json(sheet, { header: 1, defval: null });
@@ -281,9 +283,11 @@ function _parseRegMunSheet(sheet) {
     if (!name) continue;
     result.push({
       name,
+      registeredDay:   toNum(row[2]),   // col C — за сутки
       registered:      toNum(row[4]),   // col E — за 7 дней (KPI, график)
-      fixed:           toNum(row[9]),   // col J — за 7 дней (KPI, график)
       registeredTotal: toNum(row[6]),   // col G — всего зарегистрировано (пончики)
+      fixedDay:        toNum(row[7]),   // col H — устранено за сутки
+      fixed:           toNum(row[9]),   // col J — за 7 дней (KPI, график)
       fixedTotal:      toNum(row[11]),  // col L — всего устранено (пончики)
     });
   }

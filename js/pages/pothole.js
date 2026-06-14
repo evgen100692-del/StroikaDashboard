@@ -282,7 +282,6 @@ const PotholePage = (() => {
     const histReg = _history.regional  || [];
     const histMun = _history.municipal || [];
 
-    // нужно минимум 2 отчёта в хотя бы одном из используемых источников
     const hasPrevReg = useReg && histReg.length >= 2;
     const hasPrevMun = useMun && histMun.length >= 2;
     if (!hasPrevReg && !hasPrevMun) {
@@ -343,8 +342,6 @@ const PotholePage = (() => {
 
     const compData = _latest.complaints ? _latest.complaints.data_json : null;
 
-    // Пончики «Зарегистрированные» и «Устранённые» — берём col G и L (registeredTotal / fixedTotal)
-    // Для старых отчётов (без этих полей) падаем обратно на registered/fixed
     const regSum    = regData.reduce((s, r) => s + (r.registeredTotal ?? r.registered ?? 0), 0);
     const munRegSum = munData.reduce((s, r) => s + (r.registeredTotal ?? r.registered ?? 0), 0);
     const regFixSum = regData.reduce((s, r) => s + (r.fixedTotal      ?? r.fixed      ?? 0), 0);
@@ -567,8 +564,24 @@ const PotholePage = (() => {
     if (!rows || !rows.length) return '<p style="padding:var(--space-4);color:var(--color-text-muted)">Нет данных</p>';
     const col = type === 'regional' ? 'РУАД' : 'МО';
     return `<div class="data-table-wrap"><table class="data-table">
-      <thead><tr><th>${col}</th><th>Регистрация за 7 дней</th><th>Устранено за 7 дней</th></tr></thead>
-      <tbody>${rows.map(r => `<tr><td>${r.name}</td><td>${(r.registered||0).toLocaleString('ru')}</td><td>${(r.fixed||0).toLocaleString('ru')}</td></tr>`).join('')}</tbody>
+      <thead>
+        <tr>
+          <th>${col}</th>
+          <th>Регистрация за сутки</th>
+          <th>Регистрация за 7 дней</th>
+          <th>Устранено сегодня</th>
+          <th>Устранено за 7 дней</th>
+        </tr>
+      </thead>
+      <tbody>
+        ${rows.map(r => `<tr>
+          <td>${r.name}</td>
+          <td>${(r.registeredDay || 0).toLocaleString('ru')}</td>
+          <td>${(r.registered   || 0).toLocaleString('ru')}</td>
+          <td>${(r.fixedDay     || 0).toLocaleString('ru')}</td>
+          <td>${(r.fixed        || 0).toLocaleString('ru')}</td>
+        </tr>`).join('')}
+      </tbody>
     </table></div>`;
   }
 
