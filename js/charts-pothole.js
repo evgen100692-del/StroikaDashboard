@@ -16,7 +16,9 @@ const PotholeCharts = (() => {
     weekly: null
   };
 
-  // ── Плагин центрального текста пончика ──────────────────────────────────
+  // ── Плагин центрального текста пончика ───────────────────────────────────
+  // Рисует цифры через afterDraw (после всего рендера canvas).
+  // Tooltip тоже вынесен в DOM (см. ниже), поэтому они не перекрывают друг друга.
   const centerTextPlugin = {
     id: 'doughnutCenterText',
     afterDraw(chart) {
@@ -39,10 +41,10 @@ const PotholeCharts = (() => {
     },
   };
 
-  // ── External tooltip для недельного графика ──────────────────────────
-  // Толтип рендерится как DOM-элемент, а не внутри canvas,
-  // поэтому z-index работает нормально и он не обрезается границами canvas.
-  const TOOLTIP_ID = 'ph-weekly-tooltip';
+  // ── Общий external-tooltip для пончиков и недельного графика ─────────────
+  // Толтип рендерится как DOM-элемент с position:fixed и z-index:99999,
+  // поэтому он неизбежно поверх canvas (и centerText в нём в том числе).
+  const TOOLTIP_ID = 'ph-chart-tooltip';
 
   function _getOrCreateTooltipEl() {
     let el = document.getElementById(TOOLTIP_ID);
@@ -50,18 +52,18 @@ const PotholeCharts = (() => {
       el = document.createElement('div');
       el.id = TOOLTIP_ID;
       Object.assign(el.style, {
-        position:        'fixed',
-        zIndex:          '99999',
-        pointerEvents:   'none',
-        transition:      'opacity 0.15s ease',
-        opacity:         '0',
-        padding:         '10px 14px',
-        borderRadius:    '8px',
-        fontSize:        '13px',
-        lineHeight:      '1.6',
-        boxShadow:       '0 4px 16px rgba(0,0,0,0.18)',
-        minWidth:        '180px',
-        whiteSpace:      'nowrap',
+        position:      'fixed',
+        zIndex:        '99999',
+        pointerEvents: 'none',
+        transition:    'opacity 0.15s ease',
+        opacity:       '0',
+        padding:       '10px 14px',
+        borderRadius:  '8px',
+        fontSize:      '13px',
+        lineHeight:    '1.6',
+        boxShadow:     '0 4px 16px rgba(0,0,0,0.18)',
+        minWidth:      '160px',
+        whiteSpace:    'nowrap',
       });
       document.body.appendChild(el);
     }
@@ -77,20 +79,26 @@ const PotholeCharts = (() => {
       return;
     }
 
-    // Обновляем цвета под текущую тему
-    el.style.background   = bgColor();
-    el.style.border       = `1px solid ${borderColor()}`;
-    el.style.color        = textColor();
+    el.style.background = bgColor();
+    el.style.border     = `1px solid ${borderColor()}`;
+    el.style.color      = textColor();
 
-    // Заголовок
     const title = tooltip.title?.[0] || '';
-    // Строки
+
     const lines = (tooltip.body || []).map((b, i) => {
-      const ds  = chart.data.datasets[tooltip.dataPoints?.[i]?.datasetIndex ?? i];
-      const color = ds?.borderColor || '#888';
+      const dp    = tooltip.dataPoints?.[i];
+      const dsIdx = dp?.datasetIndex ?? 0;
+      const dIdx  = dp?.dataIndex    ?? 0;
+      const ds    = chart.data.datasets[dsIdx];
+      // Для пончика backgroundColor может быть массивом
+      const rawColor = Array.isArray(ds?.backgroundColor)
+        ? ds.backgroundColor[dIdx]
+        : (ds?.borderColor || '#888');
+      // Убираем альфа-суффикс 'cc' чтобы цвет шпарки был чистым
+      const color = typeof rawColor === 'string' ? rawColor.replace(/cc$/, '') : rawColor;
       const text  = b.lines?.[0] || '';
       return `<div style="display:flex;align-items:center;gap:7px;">
-        <span style="display:inline-block;width:10px;height:10px;border-radius:2px;background:${color};flex-shrink:0;"></span>
+        <span style="display:inline-block;width:10px;height:10px;border-radius:50%;background:${color};flex-shrink:0;"></span>
         <span style="color:${mutedColor()};">${text}</span>
       </div>`;
     }).join('');
@@ -100,12 +108,10 @@ const PotholeCharts = (() => {
       ${lines}
     `;
 
-    // Позиционирование: берём координаты мыши через caretX/caretY относительно canvas
     const canvasRect = chart.canvas.getBoundingClientRect();
     const tooltipX   = canvasRect.left + tooltip.caretX;
     const tooltipY   = canvasRect.top  + tooltip.caretY;
 
-    // Показываем сначала с нулевым opacity, чтобы знать размеры
     el.style.opacity = '0';
     el.style.display = 'block';
 
@@ -115,16 +121,12 @@ const PotholeCharts = (() => {
       const vw = window.innerWidth;
       const vh = window.innerHeight;
 
-      // По умолчанию — справа и снизу от курсора
-      let left = tooltipX + 12;
+      let left = tooltipX + 14;
       let top  = tooltipY - th / 2;
 
-      // Если выходит за правый край — смещаем влево
-      if (left + tw + 8 > vw) left = tooltipX - tw - 12;
-      // Если выходит за нижний край
-      if (top + th + 8 > vh) top = vh - th - 8;
-      // Если выходит за верхний край
-      if (top < 8) top = 8;
+      if (left + tw + 8 > vw) left = tooltipX - tw - 14;
+      if (top + th + 8 > vh)  top  = vh - th - 8;
+      if (top < 8)            top  = 8;
 
       el.style.left    = left + 'px';
       el.style.top     = top  + 'px';
@@ -132,7 +134,7 @@ const PotholeCharts = (() => {
     });
   }
 
-  // ── Построение пончика ───────────────────────────────────────────────
+  // ── Построение пончика ─────────────────────────────────────────────────
   function _buildDonut(canvasId, data, labels) {
     const canvas = document.getElementById(canvasId);
     if (!canvas) return null;
@@ -168,19 +170,9 @@ const PotholeCharts = (() => {
             },
           },
           tooltip: {
-            backgroundColor: bgColor(),
-            titleColor:      textColor(),
-            bodyColor:       mutedColor(),
-            borderColor:     borderColor(),
-            borderWidth:     1,
-            padding:         10,
-            callbacks: {
-              label: ctx => {
-                const val = ctx.parsed;
-                const pct = total > 0 ? ((val / total) * 100).toFixed(1) : '0.0';
-                return ` ${ctx.label}: ${val.toLocaleString('ru-RU')} (${pct}%)`;
-              },
-            },
+            // Толтип вынесен в DOM — цифры centerText на canvas его не перекроют
+            enabled:  false,
+            external: _externalTooltipHandler,
           },
           doughnutCenterText: { total },
         },
@@ -264,7 +256,6 @@ const PotholeCharts = (() => {
             labels:   { color: textColor(), font: { family: font, size: 12 } },
           },
           tooltip: {
-            // Выносим tooltip в DOM — он не обрезается canvas и не перекрывается другими элементами
             enabled:  false,
             external: _externalTooltipHandler,
           },
@@ -288,7 +279,6 @@ const PotholeCharts = (() => {
 
   // ── Пересоздаёт все графики при смене темы ──────────────────────────
   function updateTheme() {
-    // Пончики
     for (const [canvasId, entry] of Object.entries(_last.donuts)) {
       if (!entry) continue;
       const existing = _getPageChart(canvasId);
@@ -296,7 +286,6 @@ const PotholeCharts = (() => {
       const newChart = _buildDonut(canvasId, entry.data, entry.labels);
       _setPageChart(canvasId, newChart);
     }
-    // Недельный
     if (_last.weekly) {
       const { canvasId, data } = _last.weekly;
       const existing = _getPageChart('weekly');
@@ -304,7 +293,6 @@ const PotholeCharts = (() => {
       const newChart = _buildWeekly(canvasId, data);
       _setPageChart('weekly', newChart);
     }
-    // Обновляем цвета external tooltip
     const tooltipEl = document.getElementById(TOOLTIP_ID);
     if (tooltipEl) {
       tooltipEl.style.background = bgColor();
