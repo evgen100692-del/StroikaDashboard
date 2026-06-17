@@ -153,13 +153,25 @@ const ChartsManager = (() => {
   }
 
   // ---- Chart: Construction readiness (horizontal bar) ----
+  // sorted — массив объектов, каждый может содержать
+  // _delta: { prev_value, new_value } — история изменений стройготовности
   function renderReadinessChart(filtered) {
     const ctx = document.getElementById('chart-readiness');
     if (!ctx) return;
 
-    // Top 8 objects by readiness
-    const sorted = [...filtered].sort((a, b) => AppData.num(b.readinessPct) - AppData.num(a.readinessPct)).slice(0, 8);
+    const sorted = [...filtered]
+      .sort((a, b) => AppData.num(b.readinessPct) - AppData.num(a.readinessPct))
+      .slice(0, 8);
+
     const colors = chartPalette();
+
+    // Для каждого объекта получаем дельту стройготовности
+    const deltas = sorted.map(c => {
+      const d = AppData.getReadinessDelta(c.id);
+      if (!d) return null;
+      const diff = AppData.num(d.new_value) - AppData.num(d.prev_value);
+      return diff !== 0 ? diff : null;
+    });
 
     const data = {
       labels: sorted.map(c => c.objectName.length > 32 ? c.objectName.slice(0, 32) + '…' : c.objectName),
@@ -185,23 +197,81 @@ const ChartsManager = (() => {
       }]
     };
 
+    // Плагин: рисуем значения и дельту после каждого бара
+    const deltaLabelPlugin = {
+      id: 'readinessDeltaLabels',
+      afterDatasetsDraw(chart) {
+        const { ctx: c, scales: { x, y } } = chart;
+        const meta = chart.getDatasetMeta(0);
+        c.save();
+        c.textBaseline = 'middle';
+        c.font = `600 11px ${getCSSVar('--font-body') || 'Inter, sans-serif'}`;
+
+        meta.data.forEach((bar, i) => {
+          const value  = sorted[i] ? AppData.num(sorted[i].readinessPct) : 0;
+          const delta  = deltas[i];
+          const barRight = bar.x; // x правого края бара
+          const barY    = bar.y;
+
+          // Значение (темный текст)
+          c.fillStyle = getCSSVar('--color-text') || '#1e1e1c';
+          c.textAlign = 'left';
+          const valText = value + '%';
+          c.fillText(valText, barRight + 6, barY);
+
+          // Дельта (+X% / -X%) цветной меткой
+          if (delta !== null && delta !== undefined) {
+            const sign    = delta > 0 ? '+' : '';
+            const deltaText = `${sign}${delta.toFixed(1).replace('.0','')}%`;
+            const valWidth  = c.measureText(valText).width;
+
+            c.font      = `500 10px ${getCSSVar('--font-body') || 'Inter, sans-serif'}`;
+            c.fillStyle = delta > 0 ? '#22c55e' : '#ef4444'; // зелёный или красный
+            c.fillText(deltaText, barRight + 6 + valWidth + 4, barY);
+            // Возвращаем шрифт обратно перед следующей итерацией
+            c.font = `600 11px ${getCSSVar('--font-body') || 'Inter, sans-serif'}`;
+          }
+        });
+        c.restore();
+      }
+    };
+
     const opts = {
       ...baseOptions(),
       indexAxis: 'y',
+      // Оставляем место справа для подписей (ось X идёт максимум 110 а не 100)
+      layout: { padding: { right: 72 } },
     };
     opts.scales.x.min = 0;
     opts.scales.x.max = 100;
     opts.scales.x.ticks.callback = v => v + '%';
-    opts.plugins.tooltip.callbacks.label = ctx => ` ${ctx.raw}%`;
+    opts.plugins.tooltip.callbacks.label = (ctx) => {
+      const c = sorted[ctx.dataIndex];
+      const d = AppData.getReadinessDelta(c?.id);
+      let label = ` Стройготовность: ${ctx.raw}%`;
+      if (d) {
+        const diff = AppData.num(d.new_value) - AppData.num(d.prev_value);
+        if (diff !== 0) {
+          const sign = diff > 0 ? '+' : '';
+          label += `  (${sign}${diff.toFixed(1).replace('.0','')}% за последнее обновление)`;
+        }
+      }
+      return label;
+    };
     delete opts.scales.y.grid;
     opts.scales.y.grid = { display: false };
 
     if (instances.readiness) {
-      instances.readiness.data = data;
-      instances.readiness.update('active');
-    } else {
-      instances.readiness = new Chart(ctx, { type: 'bar', data, options: opts });
+      // При обновлении пересоздаём чтобы плагин получил актуальные deltas
+      instances.readiness.destroy();
+      instances.readiness = null;
     }
+    instances.readiness = new Chart(ctx, {
+      type: 'bar',
+      data,
+      options: opts,
+      plugins: [deltaLabelPlugin],
+    });
   }
 
 
