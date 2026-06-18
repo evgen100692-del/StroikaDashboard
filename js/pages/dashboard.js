@@ -8,8 +8,26 @@
 const DashboardPage = (() => {
   let currentFilters = { contractor: '', year: '', source: '', search: '' };
 
+  // Состояние сортировки таблицы объектов
+  let sortState = { col: null, dir: 'asc' };
+
+  // Колонки таблицы с метаданными для сортировки
+  const SORT_COLS = [
+    { key: 'objectName',      label: 'Объект',          type: 'str',    align: 'left'   },
+    { key: 'contractor',      label: 'Подрядчик',        type: 'str',    align: 'center' },
+    { key: 'financingSource', label: 'Источник',          type: 'str',    align: 'center' },
+    { key: 'priceGK',         label: 'Стоимость ГК',     type: 'num',    align: 'right'  },
+    { key: 'completed',       label: 'Выполнено',         type: 'num',    align: 'right'  },
+    { key: 'readinessPct',    label: 'Стройготовность', type: 'num',    align: 'center' },
+    { key: 'landWithdrawalPct', label: 'Изъятие ЗУ',       type: 'num',    align: 'center' },
+    { key: 'dptStatus',       label: 'Статус ДПТ',       type: 'str',    align: 'center' },
+  ];
+
+  const COL_WIDTHS = ['28%','14%','10%','10%','8%','9%','9%','12%'];
+
   function init() {
     bindFilters();
+    bindSortHeaders();
   }
 
   function render() {
@@ -44,9 +62,71 @@ const DashboardPage = (() => {
     const analytics = AppData.getAnalytics(filtered);
     renderKPIs(analytics, filtered);
     renderObjectsList(filtered);
-    // Графики: ждём следующий кадр чтобы секция стала видимой и canvas получил размеры
     requestAnimationFrame(() => {
       ChartsManager.renderAll(analytics, filtered);
+    });
+  }
+
+  function getSorted(list) {
+    if (!sortState.col) return list;
+    const col = SORT_COLS.find(c => c.key === sortState.col);
+    if (!col) return list;
+    return [...list].sort((a, b) => {
+      let va = a[sortState.col], vb = b[sortState.col];
+      if (col.type === 'num') {
+        va = parseFloat(va) || 0;
+        vb = parseFloat(vb) || 0;
+      } else {
+        va = String(va || '').toLowerCase();
+        vb = String(vb || '').toLowerCase();
+      }
+      if (va < vb) return sortState.dir === 'asc' ? -1 : 1;
+      if (va > vb) return sortState.dir === 'asc' ? 1 : -1;
+      return 0;
+    });
+  }
+
+  // Строим thead таблицы с иконками сортировки
+  function renderTableHead() {
+    const thead = document.querySelector('#objects-tbody');
+    if (!thead) return;
+    const table = thead.closest('table');
+    if (!table) return;
+    const existingThead = table.querySelector('thead');
+    if (!existingThead) return;
+
+    existingThead.innerHTML = '<tr>' + SORT_COLS.map((col, i) => {
+      const isActive = sortState.col === col.key;
+      const dir      = isActive ? sortState.dir : null;
+
+      const iconDefault = `<svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" style="opacity:.35"><path d="M12 5v14M5 9l7-7 7 7"/><path d="M5 15l7 7 7-7"/></svg>`;
+      const iconAsc     = `<svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" style="color:var(--color-primary)"><path d="M5 9l7-7 7 7"/><path d="M12 2v20" opacity=".3"/></svg>`;
+      const iconDesc    = `<svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" style="color:var(--color-primary)"><path d="M5 15l7 7 7-7"/><path d="M12 2v20" opacity=".3"/></svg>`;
+      const icon = !isActive ? iconDefault : dir === 'asc' ? iconAsc : iconDesc;
+
+      return `<th data-sort-col="${col.key}" style="width:${COL_WIDTHS[i]};text-align:${col.align};cursor:pointer;user-select:none;white-space:nowrap">
+        <span style="display:inline-flex;align-items:center;gap:4px">${col.label}${icon}</span>
+      </th>`;
+    }).join('') + '</tr>';
+  }
+
+  function bindSortHeaders() {
+    // Событие через делегацию на таблице — работает даже после перерендера
+    document.addEventListener('click', e => {
+      const th = e.target.closest('th[data-sort-col]');
+      if (!th) return;
+      // Проверяем, что это таблица дашборда
+      if (!th.closest('#objects-tbody')?.closest('table') && !th.closest('table')?.querySelector('#objects-tbody')) return;
+      const col = th.dataset.sortCol;
+      if (sortState.col === col) {
+        sortState.dir = sortState.dir === 'asc' ? 'desc' : 'asc';
+      } else {
+        sortState.col = col;
+        sortState.dir = 'asc';
+      }
+      renderTableHead();
+      const filtered = AppData.filterContracts(currentFilters);
+      renderObjectsList(filtered);
     });
   }
 
@@ -80,7 +160,6 @@ const DashboardPage = (() => {
     el.className = 'progress-fill' + (v >= 75 ? ' success' : v >= 40 ? '' : ' warning');
   }
 
-  // Стрелочка изменения стройготовности — аналог renderReadinessDelta из contracts.js
   function renderReadinessDelta(contractId) {
     const h = AppData.getReadinessDelta(contractId);
     if (!h) return '';
@@ -99,6 +178,10 @@ const DashboardPage = (() => {
   function renderObjectsList(filtered) {
     const tbody = document.getElementById('objects-tbody');
     if (!tbody) return;
+
+    // Первый раз — строим заголовки
+    renderTableHead();
+
     if (!tbody._ctxBound) {
       ContextMenu.bind(tbody, [
         {
@@ -119,7 +202,10 @@ const DashboardPage = (() => {
       tbody.innerHTML = `<tr><td colspan="8" style="text-align:center;padding:var(--space-8);color:var(--color-text-muted)">Нет объектов, соответствующих фильтрам</td></tr>`;
       return;
     }
-    tbody.innerHTML = filtered.map(c => {
+
+    const sorted = getSorted(filtered);
+
+    tbody.innerHTML = sorted.map(c => {
       const ready    = AppData.num(c.readinessPct);
       const rc       = ready >= 75 ? 'success' : ready >= 40 ? '' : 'warning';
       const land     = AppData.num(c.landWithdrawalPct);
