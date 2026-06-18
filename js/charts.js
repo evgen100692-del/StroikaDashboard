@@ -48,6 +48,83 @@ const ChartsManager = (() => {
     };
   }
 
+  // ──── External DOM tooltip для графика лимитов ────
+  // Рендерит тултип в DOM с position:fixed, поэтому не обрезается границами canvas.
+  function getOrCreateLimitsTooltip() {
+    let el = document.getElementById('chartjs-limits-tooltip');
+    if (!el) {
+      el = document.createElement('div');
+      el.id = 'chartjs-limits-tooltip';
+      Object.assign(el.style, {
+        position: 'fixed',
+        zIndex: '9999',
+        pointerEvents: 'none',
+        background: bgColor() || 'var(--color-surface-2)',
+        border: '1px solid ' + (getCSSVar('--color-border') || '#ddd'),
+        borderRadius: '8px',
+        padding: '10px 14px',
+        fontSize: '13px',
+        lineHeight: '1.6',
+        boxShadow: '0 4px 20px rgba(0,0,0,.15)',
+        transition: 'opacity .15s',
+        whiteSpace: 'nowrap',
+        minWidth: '160px',
+      });
+      document.body.appendChild(el);
+    }
+    return el;
+  }
+
+  function externalLimitsTooltip(context) {
+    const { chart, tooltip } = context;
+    const el = getOrCreateLimitsTooltip();
+
+    if (tooltip.opacity === 0) {
+      el.style.opacity = '0';
+      return;
+    }
+
+    // Заголовок
+    const titleLines = tooltip.title || [];
+    const bodyLines  = tooltip.body.map(b => b.lines).flat();
+
+    let html = '';
+    if (titleLines.length) {
+      html += `<div style="font-weight:700;color:${getCSSVar('--color-text') || '#111'};margin-bottom:6px">${titleLines.join('<br>')}</div>`;
+    }
+    bodyLines.forEach((line, i) => {
+      const ds = tooltip.dataPoints?.[i]?.dataset;
+      const color = ds?.borderColor || getCSSVar('--color-primary') || '#5b7cff';
+      html += `<div style="display:flex;align-items:center;gap:6px;color:${getCSSVar('--color-text-muted') || '#666'}">
+        <span style="display:inline-block;width:10px;height:10px;border-radius:3px;background:${color};flex-shrink:0"></span>
+        <span>${line}</span>
+      </div>`;
+    });
+    el.innerHTML = html;
+
+    // Позиционирование относительно viewport
+    const canvasRect = chart.canvas.getBoundingClientRect();
+    const x = canvasRect.left + tooltip.caretX + 12;
+    const y = canvasRect.top  + tooltip.caretY - el.offsetHeight / 2;
+
+    // Не даём выходить за правый край viewport
+    const vpW = window.innerWidth;
+    const elW = el.offsetWidth || 180;
+    const finalX = x + elW > vpW ? canvasRect.left + tooltip.caretX - elW - 12 : x;
+
+    el.style.left    = finalX + 'px';
+    el.style.top     = y + 'px';
+    el.style.opacity = '1';
+  }
+
+  // Скрываем внешний тултип при уходе мыши с канваса
+  function bindLimitsTooltipHide(canvas) {
+    canvas.addEventListener('mouseleave', () => {
+      const el = document.getElementById('chartjs-limits-tooltip');
+      if (el) el.style.opacity = '0';
+    });
+  }
+
   // ---- Chart: Limits by year ----
   function renderLimitsChart(analytics) {
     const ctx = document.getElementById('chart-limits');
@@ -79,6 +156,9 @@ const ChartsManager = (() => {
     };
 
     const opts = baseOptions();
+    // Используем внешний DOM-тултип — встроенный отключаем
+    opts.plugins.tooltip.enabled = false;
+    opts.plugins.tooltip.external = externalLimitsTooltip;
     opts.plugins.tooltip.callbacks.label = ctx => {
       return ` ${ctx.dataset.label}: ${formatMoneyShort(ctx.raw)}`;
     };
@@ -89,6 +169,7 @@ const ChartsManager = (() => {
       instances.limits.update('active');
     } else {
       instances.limits = new Chart(ctx, { type: 'bar', data, options: opts });
+      bindLimitsTooltipHide(ctx);
     }
   }
 
@@ -153,8 +234,6 @@ const ChartsManager = (() => {
   }
 
   // ---- Chart: Construction readiness (horizontal bar) ----
-  // sorted — массив объектов, каждый может содержать
-  // _delta: { prev_value, new_value } — история изменений стройготовности
   function renderReadinessChart(filtered) {
     const ctx = document.getElementById('chart-readiness');
     if (!ctx) return;
@@ -165,7 +244,6 @@ const ChartsManager = (() => {
 
     const colors = chartPalette();
 
-    // Для каждого объекта получаем дельту стройготовности
     const deltas = sorted.map(c => {
       const d = AppData.getReadinessDelta(c.id);
       if (!d) return null;
@@ -197,7 +275,6 @@ const ChartsManager = (() => {
       }]
     };
 
-    // Плагин: рисуем значения и дельту после каждого бара
     const deltaLabelPlugin = {
       id: 'readinessDeltaLabels',
       afterDatasetsDraw(chart) {
@@ -210,25 +287,22 @@ const ChartsManager = (() => {
         meta.data.forEach((bar, i) => {
           const value  = sorted[i] ? AppData.num(sorted[i].readinessPct) : 0;
           const delta  = deltas[i];
-          const barRight = bar.x; // x правого края бара
+          const barRight = bar.x;
           const barY    = bar.y;
 
-          // Значение (темный текст)
           c.fillStyle = getCSSVar('--color-text') || '#1e1e1c';
           c.textAlign = 'left';
           const valText = value + '%';
           c.fillText(valText, barRight + 6, barY);
 
-          // Дельта (+X% / -X%) цветной меткой
           if (delta !== null && delta !== undefined) {
             const sign    = delta > 0 ? '+' : '';
             const deltaText = `${sign}${delta.toFixed(1).replace('.0','')}%`;
             const valWidth  = c.measureText(valText).width;
 
             c.font      = `500 10px ${getCSSVar('--font-body') || 'Inter, sans-serif'}`;
-            c.fillStyle = delta > 0 ? '#22c55e' : '#ef4444'; // зелёный или красный
+            c.fillStyle = delta > 0 ? '#22c55e' : '#ef4444';
             c.fillText(deltaText, barRight + 6 + valWidth + 4, barY);
-            // Возвращаем шрифт обратно перед следующей итерацией
             c.font = `600 11px ${getCSSVar('--font-body') || 'Inter, sans-serif'}`;
           }
         });
@@ -239,7 +313,6 @@ const ChartsManager = (() => {
     const opts = {
       ...baseOptions(),
       indexAxis: 'y',
-      // Оставляем место справа для подписей (ось X идёт максимум 110 а не 100)
       layout: { padding: { right: 72 } },
     };
     opts.scales.x.min = 0;
@@ -262,7 +335,6 @@ const ChartsManager = (() => {
     opts.scales.y.grid = { display: false };
 
     if (instances.readiness) {
-      // При обновлении пересоздаём чтобы плагин получил актуальные deltas
       instances.readiness.destroy();
       instances.readiness = null;
     }
@@ -282,6 +354,12 @@ const ChartsManager = (() => {
   }
 
   function updateTheme() {
+    // Обновляем стиль внешнего тултипа при смене темы
+    const extEl = document.getElementById('chartjs-limits-tooltip');
+    if (extEl) {
+      extEl.style.background = bgColor() || 'var(--color-surface-2)';
+      extEl.style.borderColor = getCSSVar('--color-border') || '#ddd';
+    }
     for (const inst of Object.values(instances)) {
       if (!inst) continue;
       try {
