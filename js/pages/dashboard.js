@@ -13,17 +13,17 @@ const DashboardPage = (() => {
 
   // Колонки таблицы с метаданными для сортировки
   const SORT_COLS = [
-    { key: 'objectName',      label: 'Объект',          type: 'str',    align: 'left'   },
-    { key: 'contractor',      label: 'Подрядчик',        type: 'str',    align: 'center' },
-    { key: 'financingSource', label: 'Источник',          type: 'str',    align: 'center' },
-    { key: 'priceGK',         label: 'Стоимость ГК',     type: 'num',    align: 'right'  },
-    { key: 'completed',       label: 'Выполнено',         type: 'num',    align: 'right'  },
-    { key: 'readinessPct',    label: 'Стройготовность', type: 'num',    align: 'center' },
-    { key: 'landWithdrawalPct', label: 'Изъятие ЗУ',       type: 'num',    align: 'center' },
-    { key: 'dptStatus',       label: 'Статус ДПТ',       type: 'str',    align: 'center' },
+    { key: 'objectName',        label: 'Объект',            type: 'str', align: 'left'   },
+    { key: 'contractor',        label: 'Подрядчик',          type: 'str', align: 'center' },
+    { key: 'financingSource',   label: 'Источник',            type: 'str', align: 'center' },
+    { key: 'priceGK',           label: 'Стоимость ГК',       type: 'num', align: 'right'  },
+    { key: 'completed',         label: 'Выполнено',           type: 'num', align: 'right'  },
+    { key: 'readinessPct',      label: 'Стройготовность', type: 'num', align: 'center' },
+    { key: 'landWithdrawalPct', label: 'Изъятие ЗУ',         type: 'num', align: 'center' },
+    { key: 'dptStatus',         label: 'Статус ДПТ',         type: 'str', align: 'center' },
   ];
 
-  const COL_WIDTHS = ['28%','14%','10%','10%','8%','9%','9%','12%'];
+  const COL_WIDTHS = ['35%','13%','9%','9%','8%','8%','8%','10%'];
 
   function init() {
     bindFilters();
@@ -86,11 +86,10 @@ const DashboardPage = (() => {
     });
   }
 
-  // Строим thead таблицы с иконками сортировки
   function renderTableHead() {
-    const thead = document.querySelector('#objects-tbody');
-    if (!thead) return;
-    const table = thead.closest('table');
+    const tbody = document.querySelector('#objects-tbody');
+    if (!tbody) return;
+    const table = tbody.closest('table');
     if (!table) return;
     const existingThead = table.querySelector('thead');
     if (!existingThead) return;
@@ -111,11 +110,9 @@ const DashboardPage = (() => {
   }
 
   function bindSortHeaders() {
-    // Событие через делегацию на таблице — работает даже после перерендера
     document.addEventListener('click', e => {
       const th = e.target.closest('th[data-sort-col]');
       if (!th) return;
-      // Проверяем, что это таблица дашборда
       if (!th.closest('#objects-tbody')?.closest('table') && !th.closest('table')?.querySelector('#objects-tbody')) return;
       const col = th.dataset.sortCol;
       if (sortState.col === col) {
@@ -179,7 +176,6 @@ const DashboardPage = (() => {
     const tbody = document.getElementById('objects-tbody');
     if (!tbody) return;
 
-    // Первый раз — строим заголовки
     renderTableHead();
 
     if (!tbody._ctxBound) {
@@ -198,6 +194,7 @@ const DashboardPage = (() => {
       ]);
       tbody._ctxBound = true;
     }
+
     if (filtered.length === 0) {
       tbody.innerHTML = `<tr><td colspan="8" style="text-align:center;padding:var(--space-8);color:var(--color-text-muted)">Нет объектов, соответствующих фильтрам</td></tr>`;
       return;
@@ -206,11 +203,11 @@ const DashboardPage = (() => {
     const sorted = getSorted(filtered);
 
     tbody.innerHTML = sorted.map(c => {
-      const ready    = AppData.num(c.readinessPct);
-      const rc       = ready >= 75 ? 'success' : ready >= 40 ? '' : 'warning';
-      const land     = AppData.num(c.landWithdrawalPct);
-      const lc       = land  >= 75 ? 'success' : land  >= 40 ? '' : 'warning';
-      const hasLand  = c.landWithdrawalPct != null && String(c.landWithdrawalPct).trim() !== '';
+      const ready   = AppData.num(c.readinessPct);
+      const rc      = ready >= 75 ? 'success' : ready >= 40 ? '' : 'warning';
+      const land    = AppData.num(c.landWithdrawalPct);
+      const lc      = land  >= 75 ? 'success' : land  >= 40 ? '' : 'warning';
+      const hasLand = c.landWithdrawalPct != null && String(c.landWithdrawalPct).trim() !== '';
 
       const progressCell = (val, cls, delta) => `
         <div style="display:flex;flex-direction:column;align-items:center;gap:2px">
@@ -223,9 +220,9 @@ const DashboardPage = (() => {
         </div>`;
 
       return `<tr data-ctx data-id="${c.id}">
-        <td style="text-align:left;overflow:hidden">
-          <div style="font-weight:600;font-size:var(--text-sm);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;line-height:1.3" title="${esc(c.objectName||'')}">${esc(c.objectName||'—')}</div>
-          ${c.contractNum ? `<div style="color:var(--color-text-faint);font-size:10px;margin-top:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${esc(c.contractNum)}</div>` : ''}
+        <td style="text-align:left">
+          <div style="font-weight:600;font-size:var(--text-sm);line-height:1.4;word-break:break-word">${esc(c.objectName||'—')}</div>
+          ${c.contractNum ? `<div style="color:var(--color-text-faint);font-size:10px;margin-top:2px">${esc(c.contractNum)}</div>` : ''}
         </td>
         <td style="text-align:center;overflow:hidden">
           <span style="display:block;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-size:var(--text-xs)" title="${esc(c.contractor||'')}">${esc(c.contractor||'—')}</span>
