@@ -1,0 +1,257 @@
+/* ═══════════════════════════════════════════════════
+   CONTRACT VIEW MODAL
+   Дизайн: карточки-секции с иконками, min-перегрузки
+═══════════════════════════════════════════════════ */
+
+#view-modal .modal {
+  max-width: 860px;
+  --vm-gap: var(--space-4);
+}
+
+/* ── Шапка модала ── */
+.vm-header {
+  padding: var(--space-5) var(--space-6) var(--space-4);
+  border-bottom: 1px solid var(--color-divider);
+  display: flex;
+  align-items: flex-start;
+  gap: var(--space-4);
+}
+.vm-header-icon {
+  flex-shrink: 0;
+  width: 44px;
+  height: 44px;
+  border-radius: var(--radius-lg);
+  background: var(--color-primary-subtle);
+  color: var(--color-primary);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.vm-header-body {
+  flex: 1;
+  min-width: 0;
+}
+.vm-title {
+  font-size: var(--text-base);
+  font-weight: 700;
+  color: var(--color-text);
+  line-height: 1.35;
+  margin-bottom: 4px;
+  word-break: break-word;
+}
+.vm-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+  align-items: center;
+}
+.vm-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 2px 8px;
+  border-radius: var(--radius-full);
+  font-size: 11px;
+  font-weight: 600;
+  background: var(--color-surface-offset);
+  color: var(--color-text-muted);
+  white-space: nowrap;
+}
+.vm-badge.primary {
+  background: var(--color-primary-highlight);
+  color: var(--color-primary);
+}
+.vm-badge.success {
+  background: var(--color-success-bg);
+  color: var(--color-success);
+}
+.vm-badge.warning {
+  background: var(--color-warning-bg);
+  color: var(--color-warning);
+}
+.vm-badge.info {
+  background: var(--color-info-bg);
+  color: var(--color-info);
+}
+
+/* ── Тело ── */
+.vm-body {
+  padding: var(--space-5) var(--space-6);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-5);
+  overflow-y: auto;
+  max-height: calc(80vh - 140px);
+}
+
+/* ── Секции ── */
+.vm-section {
+  background: var(--color-surface-2);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  overflow: hidden;
+}
+.vm-section-header {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding: var(--space-3) var(--space-4);
+  background: var(--color-surface-offset);
+  border-bottom: 1px solid var(--color-divider);
+}
+.vm-section-label {
+  font-size: var(--text-xs);
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: .06em;
+  color: var(--color-text-muted);
+}
+.vm-section-icon {
+  color: var(--color-text-faint);
+  display: flex;
+  align-items: center;
+}
+
+/* ── Сетка полей ── */
+.vm-grid {
+  display: grid;
+  gap: 1px;
+  background: var(--color-divider);
+}
+.vm-grid.cols-2 { grid-template-columns: repeat(2, 1fr); }
+.vm-grid.cols-3 { grid-template-columns: repeat(3, 1fr); }
+.vm-grid.cols-4 { grid-template-columns: repeat(4, 1fr); }
+
+.vm-field {
+  background: var(--color-surface-2);
+  padding: var(--space-3) var(--space-4);
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.vm-field-label {
+  font-size: 10px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: .06em;
+  color: var(--color-text-faint);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.vm-field-value {
+  font-size: var(--text-sm);
+  font-weight: 600;
+  color: var(--color-text);
+  font-variant-numeric: tabular-nums lining-nums;
+}
+.vm-field-value.muted {
+  color: var(--color-text-muted);
+  font-weight: 400;
+}
+.vm-field-value.accent {
+  color: var(--color-primary);
+}
+.vm-field-sub {
+  font-size: 10px;
+  color: var(--color-text-faint);
+  font-weight: 500;
+}
+
+/* ── Прогресс-бар в просмотре ── */
+.vm-progress-wrap {
+  height: 5px;
+  background: var(--color-surface-offset-2);
+  border-radius: var(--radius-full);
+  overflow: hidden;
+  margin-top: 4px;
+  width: 100%;
+}
+.vm-progress-fill {
+  height: 100%;
+  border-radius: var(--radius-full);
+  background: var(--color-primary);
+  transition: width 0.4s ease;
+}
+.vm-progress-fill.success { background: var(--color-success); }
+.vm-progress-fill.warning { background: var(--color-warning); }
+
+/* ── Лимиты: таблица-сетка ── */
+.vm-limits-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 1px;
+  background: var(--color-divider);
+}
+.vm-limits-year {
+  background: var(--color-surface-2);
+  padding: var(--space-3) var(--space-4);
+}
+.vm-limits-year-label {
+  font-size: var(--text-xs);
+  font-weight: 700;
+  color: var(--color-primary);
+  margin-bottom: var(--space-2);
+}
+.vm-limits-row {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.vm-limits-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: var(--space-2);
+}
+.vm-limits-item-label {
+  font-size: 10px;
+  color: var(--color-text-faint);
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: .04em;
+  white-space: nowrap;
+}
+.vm-limits-item-value {
+  font-size: var(--text-xs);
+  font-weight: 700;
+  color: var(--color-text);
+  font-variant-numeric: tabular-nums;
+  text-align: right;
+}
+
+/* ── Статусы ── */
+.vm-status-ok   { color: var(--color-success); }
+.vm-status-warn { color: var(--color-warning); }
+.vm-status-no   { color: var(--color-text-faint); font-weight: 400; }
+
+/* ── Footer ── */
+.vm-footer {
+  padding: var(--space-3) var(--space-5);
+  border-top: 1px solid var(--color-divider);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+  flex-wrap: wrap;
+}
+.vm-footer-id {
+  font-size: var(--text-xs);
+  color: var(--color-text-faint);
+  font-weight: 600;
+}
+
+/* ── Responsive ── */
+@media (max-width: 700px) {
+  .vm-grid.cols-3,
+  .vm-grid.cols-4,
+  .vm-limits-grid { grid-template-columns: repeat(2, 1fr); }
+  .vm-grid.cols-2 { grid-template-columns: 1fr; }
+  #view-modal .modal { max-width: 100%; }
+}
+@media (max-width: 480px) {
+  .vm-grid.cols-2,
+  .vm-grid.cols-3,
+  .vm-grid.cols-4,
+  .vm-limits-grid { grid-template-columns: 1fr; }
+}
