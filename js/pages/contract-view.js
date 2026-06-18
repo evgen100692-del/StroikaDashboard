@@ -119,19 +119,12 @@ const ContractView = (() => {
 
     overlay.querySelector('#view-modal-body').innerHTML = `
 
-      <!-- ── Заголовок объекта ── -->
-      <div style="margin-bottom:var(--space-5)">
-        <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:var(--space-4);flex-wrap:wrap">
-          <div style="flex:1;min-width:0">
-            <h2 style="font-size:var(--text-base);font-weight:700;color:var(--color-text);line-height:1.4;margin-bottom:var(--space-2)">${esc(c.objectName || '—')}</h2>
-            <div style="display:flex;align-items:center;gap:var(--space-3);flex-wrap:wrap">
-              ${c.financingSource ? badge(c.financingSource, 'info') : ''}
-              ${c.contractor     ? `<span style="font-size:var(--text-xs);color:var(--color-text-muted);font-weight:500">Подрядчик: <strong style="color:var(--color-text)">${esc(c.contractor)}</strong></span>` : ''}
-              ${c.contractNum    ? `<span style="font-size:var(--text-xs);color:var(--color-text-muted)">№ ${esc(c.contractNum)}</span>` : ''}
-            </div>
-          </div>
-          ${c.dptStatus ? `<div style="flex-shrink:0">${badge(c.dptStatus, dptBadgeType)}</div>` : ''}
-        </div>
+      <!-- ── Подзаголовок: источник, подрядчик, контракт, статус ДПТ ── -->
+      <div style="display:flex;align-items:center;gap:var(--space-3);flex-wrap:wrap;margin-bottom:var(--space-5)">
+        ${c.financingSource ? badge(c.financingSource, 'info') : ''}
+        ${c.contractor     ? `<span style="font-size:var(--text-xs);color:var(--color-text-muted);font-weight:500">Подрядчик: <strong style="color:var(--color-text)">${esc(c.contractor)}</strong></span>` : ''}
+        ${c.contractNum    ? `<span style="font-size:var(--text-xs);color:var(--color-text-muted)">№ ${esc(c.contractNum)}</span>` : ''}
+        ${c.dptStatus      ? badge(c.dptStatus, dptBadgeType) : ''}
       </div>
 
       <!-- ── Стройготовность (большой прогресс) ── -->
