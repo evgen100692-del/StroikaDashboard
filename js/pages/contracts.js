@@ -9,14 +9,10 @@ const ContractsPage = (() => {
   let tableFilters = { search: '', contractor: '', source: '' };
   let _ctxBound  = false;
 
-  // Поля формы (суффиксы id после "cf-")
-  // Для лимитов: форма использует суффикс p/c (план/текущий),
-  // а БД хранит was/cur — маппинг делается в getFormData() и fillForm().
   const FORM_FIELDS = [
     'objectName','financingSource','contractor','contractNum','contractDate',
     'priceGK','advanceGK','advancePaid','unworkedAdvance','paidTotal','completed',
     'completed2025','paid2025',
-    // лимиты — суффиксы формы: p=план(was), c=текущий(cur)
     'limit2026p','limit2026c',
     'completed2026','paid2026',
     'limit2027p','limit2027c',
@@ -26,19 +22,22 @@ const ContractsPage = (() => {
     'landWithdrawalPct','plannedIntroDate','plannedOpenDate','contractEndDate'
   ];
 
-  // Маппинг: ключ формы → ключ БД (только расходящиеся имена)
   const FIELD_TO_DB = {
     limit2026p: 'limit2026was', limit2026c: 'limit2026cur',
     limit2027p: 'limit2027was', limit2027c: 'limit2027cur',
     limit2028p: 'limit2028was', limit2028c: 'limit2028cur',
     limit2029p: 'limit2029was', limit2029c: 'limit2029cur',
   };
-  // Обратный маппинг: ключ БД → ключ формы
   const DB_TO_FIELD = Object.fromEntries(
     Object.entries(FIELD_TO_DB).map(([k, v]) => [v, k])
   );
 
   const CTX_ITEMS = [
+    {
+      key: 'view', label: 'Просмотр',
+      icon: '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>',
+      action: (id) => openView(Number(id))
+    },
     {
       key: 'edit', label: 'Изменить',
       icon: '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>',
@@ -154,6 +153,10 @@ const ContractsPage = (() => {
     openModal('contract-modal');
   }
 
+  function openView(id) {
+    ContractView.open(id);
+  }
+
   function confirmDelete(id) {
     const c = AppData.getContractById(id);
     confirmDialog(`Удалить контракт "${c?.objectName || id}"? Это действие нельзя отменить.`, async () => {
@@ -167,12 +170,10 @@ const ContractsPage = (() => {
     });
   }
 
-  // Заполняем форму из объекта контракта (ключи БД → поля формы)
   function fillForm(c) {
     FORM_FIELDS.forEach(f => {
       const el = document.getElementById('cf-' + f);
       if (!el) return;
-      // Для лимитов: форм-поле «p» берёт значение из БД-ключа «was», «c» — из «cur»
       const dbKey = FIELD_TO_DB[f] || f;
       el.value = c[dbKey] ?? '';
     });
@@ -182,13 +183,12 @@ const ContractsPage = (() => {
     const form = document.getElementById('contract-form'); if (form) form.reset();
   }
 
-  // Собираем данные из формы и маппим ключи формы → ключи БД
   function getFormData() {
     const data = {};
     FORM_FIELDS.forEach(f => {
       const el = document.getElementById('cf-' + f);
       if (!el) return;
-      const dbKey = FIELD_TO_DB[f] || f;  // p→was, c→cur; остальные без изменений
+      const dbKey = FIELD_TO_DB[f] || f;
       data[dbKey] = el.value;
     });
     return data;
@@ -324,5 +324,5 @@ const ContractsPage = (() => {
     return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
   }
 
-  return { init, render, refresh: render, openAdd, openEdit, confirmDelete, renderTable };
+  return { init, render, refresh: render, openAdd, openEdit, openView, confirmDelete, renderTable };
 })();
