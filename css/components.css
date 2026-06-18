@@ -220,10 +220,17 @@
   display: grid;
   gap: var(--space-4);
 }
+.form-row.cols-1 { grid-template-columns: 1fr; }
 .form-row.cols-2 { grid-template-columns: repeat(2, 1fr); }
 .form-row.cols-3 { grid-template-columns: repeat(3, 1fr); }
+.form-row.cols-4 { grid-template-columns: repeat(4, 1fr); }
+@media (max-width: 900px) {
+  .form-row.cols-4 { grid-template-columns: repeat(2, 1fr); }
+}
 @media (max-width: 640px) {
-  .form-row.cols-2, .form-row.cols-3 { grid-template-columns: 1fr; }
+  .form-row.cols-2,
+  .form-row.cols-3,
+  .form-row.cols-4 { grid-template-columns: 1fr; }
 }
 
 .form-divider {
@@ -292,8 +299,8 @@
 }
 .data-table {
   width: 100%;
-  table-layout: fixed;           /* ключевое: фиксированная раскладка */
-  font-size: 11px;               /* компактнее чем text-xs */
+  table-layout: fixed;
+  font-size: 11px;
   border-collapse: collapse;
   font-variant-numeric: tabular-nums lining-nums;
 }
@@ -334,7 +341,6 @@
   text-overflow: ellipsis;
   white-space: nowrap;
 }
-/* Колонка с названием объекта — переносится, не обрезается */
 .data-table td.wrap {
   white-space: normal;
   word-break: break-word;
@@ -343,23 +349,22 @@
 .data-table td.num  { text-align: right; font-weight: 600; }
 .data-table td.muted { color: var(--color-text-muted); }
 
-/* Row actions (единственное правило — дубль удалён) */
 .row-actions { display: flex; gap: var(--space-1); opacity: 0; transition: opacity var(--transition); }
 .data-table tbody tr:hover .row-actions { opacity: 1; }
 
-/* Ширины колонок таблицы контрактов (12 колонок) */
-#contracts-table th:nth-child(1)  { width: 22%; }  /* Объект */
-#contracts-table th:nth-child(2)  { width: 9%; }   /* Источник */
-#contracts-table th:nth-child(3)  { width: 12%; }  /* Подрядчик */
-#contracts-table th:nth-child(4)  { width: 7%; }   /* Стоимость ГК */
-#contracts-table th:nth-child(5)  { width: 7%; }   /* Аванс */
-#contracts-table th:nth-child(6)  { width: 7%; }   /* Оплачено */
-#contracts-table th:nth-child(7)  { width: 7%; }   /* Выполнено */
-#contracts-table th:nth-child(8)  { width: 8%; }   /* Стройготовность */
-#contracts-table th:nth-child(9)  { width: 7%; }   /* Срок контракта */
-#contracts-table th:nth-child(10) { width: 7%; }   /* Плановое открытие */
-#contracts-table th:nth-child(11) { width: 5%; }   /* Статус ДПТ */
-#contracts-table th:nth-child(12) { width: 5%; }   /* Действия */
+/* Ширины колонок таблицы контрактов */
+#contracts-table th:nth-child(1)  { width: 22%; }
+#contracts-table th:nth-child(2)  { width: 9%; }
+#contracts-table th:nth-child(3)  { width: 12%; }
+#contracts-table th:nth-child(4)  { width: 7%; }
+#contracts-table th:nth-child(5)  { width: 7%; }
+#contracts-table th:nth-child(6)  { width: 7%; }
+#contracts-table th:nth-child(7)  { width: 7%; }
+#contracts-table th:nth-child(8)  { width: 8%; }
+#contracts-table th:nth-child(9)  { width: 7%; }
+#contracts-table th:nth-child(10) { width: 7%; }
+#contracts-table th:nth-child(11) { width: 5%; }
+#contracts-table th:nth-child(12) { width: 5%; }
 
 /* Ширины колонок таблицы подрядчиков */
 #contractors-table th:nth-child(1)  { width: 18%; }
@@ -432,6 +437,13 @@
   gap: var(--space-3);
   padding: var(--space-4) var(--space-6);
   border-top: 1px solid var(--color-divider);
+}
+
+/* ---- Contract modal — wider variant ---- */
+/* Только для модала контракта: увеличиваем ширину до 1100px      */
+/* Остальные модалы (upload, confirm) остаются на стандартном 760px */
+#contract-modal .modal {
+  max-width: 1100px;
 }
 
 /* ---- Filters Bar ---- */
@@ -534,9 +546,6 @@
   position: relative;
   width: 100%;
 }
-/* display:block убирает inline baseline gap под canvas;
-   height:100% позволяет Chart.js (maintainAspectRatio:false)
-   корректно заполнить контейнер с фиксированной высотой */
 .chart-container canvas {
   display: block;
   max-width: 100%;
