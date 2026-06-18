@@ -85,7 +85,6 @@ const ContractView = (() => {
   }
 
   function badge(text, type) {
-    // type: success | warning | error | info | neutral
     const styles = {
       success: 'background:var(--color-success-bg);color:var(--color-success)',
       warning: 'background:var(--color-warning-bg);color:var(--color-warning)',
@@ -105,10 +104,6 @@ const ContractView = (() => {
     if (!overlay) return;
 
     const readiness   = parseFloat(c.readinessPct) || 0;
-    const paidPct     = c.priceGK ? (c.paidTotal   / c.priceGK * 100) : 0;
-    const completePct = c.priceGK ? (c.completed    / c.priceGK * 100) : 0;
-    const advPct      = c.priceGK ? (c.advanceGK    / c.priceGK * 100) : 0;
-
     const readinessColor = pctColor(readiness);
 
     // Статус ДПТ
@@ -119,12 +114,11 @@ const ContractView = (() => {
 
     overlay.querySelector('#view-modal-body').innerHTML = `
 
-      <!-- ── Подзаголовок: источник, подрядчик, контракт, статус ДПТ ── -->
+      <!-- ── Подзаголовок: источник, подрядчик, номер контракта ── -->
       <div style="display:flex;align-items:center;gap:var(--space-3);flex-wrap:wrap;margin-bottom:var(--space-5)">
         ${c.financingSource ? badge(c.financingSource, 'info') : ''}
         ${c.contractor     ? `<span style="font-size:var(--text-xs);color:var(--color-text-muted);font-weight:500">Подрядчик: <strong style="color:var(--color-text)">${esc(c.contractor)}</strong></span>` : ''}
         ${c.contractNum    ? `<span style="font-size:var(--text-xs);color:var(--color-text-muted)">№ ${esc(c.contractNum)}</span>` : ''}
-        ${c.dptStatus      ? badge(c.dptStatus, dptBadgeType) : ''}
       </div>
 
       <!-- ── Стройготовность (большой прогресс) ── -->
@@ -144,7 +138,7 @@ const ContractView = (() => {
         ${kpiBox('Аванс по ГК',    fmt(c.advanceGK),  fmtPct(c.advanceGK, c.priceGK), 'var(--color-text)')}
       </div>
 
-      <!-- ── Два столбца: Финансы | Прочее ── -->
+      <!-- ── Два столбца: Финансы | Сроки и объект ── -->
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:var(--space-5);margin-bottom:var(--space-5)">
 
         <!-- Финансовые показатели -->
@@ -159,20 +153,21 @@ const ContractView = (() => {
           ${statRow('Остаток финансирования', fmt(c.remainder),      null)}
         </div>
 
-        <!-- Прочие данные -->
+        <!-- Сроки и объект -->
         <div>
           <div style="font-size:var(--text-xs);font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--color-text-faint);padding-bottom:var(--space-2);border-bottom:2px solid var(--color-border);margin-bottom:var(--space-1)">Сроки и объект</div>
           ${statRow('Дата заключения',         fmtDate(c.contractDate),       null)}
           ${statRow('Срок окончания контракта', fmtDate(c.contractEndDate),   null)}
           ${statRow('Плановый срок ввода',      fmtDate(c.plannedIntroDate),  null)}
           ${statRow('Планируемое открытие',     fmtDate(c.plannedOpenDate),   null)}
+          ${statRow('Статус ДПТ', c.dptStatus ? badge(c.dptStatus, dptBadgeType) : '—', null)}
           ${statRow('Рабочих / Техника',
             `<span style="display:inline-flex;gap:var(--space-3)">
               <span>👷 ${c.workers || 0} чел.</span>
               <span>🚧 ${c.equipment || 0} ед.</span>
             </span>`, null)}
           ${statRow('Изъятие ЗУ', c.landWithdrawalPct ? progressBar(parseFloat(c.landWithdrawalPct), pctColor(parseFloat(c.landWithdrawalPct))) : '—', null)}
-          ${statRow('МОГЭ',      esc(c.moge || '—'), null)}
+          ${statRow('МОГЭ', esc(c.moge || '—'), null)}
         </div>
       </div>
 
