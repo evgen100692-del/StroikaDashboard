@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="ru">
+<html lang="ru" data-theme="light">
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
@@ -70,7 +70,6 @@
       border-color: var(--color-text-faint);
     }
     .btn-back-home svg { flex-shrink: 0; }
-    /* скрываем текст на мобильных, оставляем только иконку */
     @media (max-width: 480px) {
       .btn-back-home .btn-back-label { display: none; }
     }
@@ -311,7 +310,7 @@
       .upload-type-grid { grid-template-columns:1fr; }
     }
     /* ══════════════════════════════════════════════════
-   POTHOLE FILTER BAR — новый дизайн
+   POTHOLE FILTER BAR
 ══════════════════════════════════════════════════ */
 .ph-source-switcher {
   display: flex;
@@ -498,7 +497,6 @@
         <div class="header-title" id="header-title">Дашборд</div>
         <div class="header-actions">
           <div class="header-chip" id="header-chip">Интерактивная аналитика</div>
-          <button class="btn btn-secondary btn-icon" id="theme-toggle" type="button" aria-label="Переключить тему"></button>
         </div>
       </header>
 
@@ -621,7 +619,6 @@
             </button>
           </div>
 
-          <!-- no-data stub -->
           <div id="ph-no-data" class="ph-no-data" style="display:none">
             <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
             <h3>Нет данных</h3>
@@ -632,55 +629,42 @@
             </button>
           </div>
 
-          <!-- data content -->
           <div id="ph-data-content">
-            <!-- ── Фильтры дашборда Ямочный ремонт ── -->
-<div id="ph-filter-bar" style="display:none; margin-bottom:var(--space-5);">
+            <div id="ph-filter-bar" style="display:none; margin-bottom:var(--space-5);">
+              <div class="ph-source-switcher">
+                <span class="ph-source-label">Источник данных</span>
+                <div class="ph-seg" role="group" aria-label="Источник данных">
+                  <button class="ph-seg-btn active" data-ph-org="all"  type="button">Все дороги</button>
+                  <button class="ph-seg-btn"        data-ph-org="mad"  type="button">МАД (региональные)</button>
+                  <button class="ph-seg-btn"        data-ph-org="oms"  type="button">ОМС (муниципальные)</button>
+                </div>
+              </div>
+              <div class="ph-filter-row">
+                <div class="ph-filter-group" id="ph-filter-group-ruad">
+                  <label class="ph-filter-lbl" for="ph-filter-ruad">
+                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/></svg>
+                    РУАД (региональные)
+                  </label>
+                  <select class="ph-filter-select" id="ph-filter-ruad">
+                    <option value="">Все РУАД</option>
+                  </select>
+                </div>
+                <div class="ph-filter-group" id="ph-filter-group-mo">
+                  <label class="ph-filter-lbl" for="ph-filter-mo">
+                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><rect x="2" y="7" width="20" height="14" rx="2"/><path d="M16 7V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v2"/></svg>
+                    МО (муниципальные)
+                  </label>
+                  <select class="ph-filter-select" id="ph-filter-mo">
+                    <option value="">Все МО</option>
+                  </select>
+                </div>
+                <button class="ph-filter-reset-btn" id="ph-filter-reset" type="button">
+                  <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/><path d="M3 3v5h5"/></svg>
+                  Сбросить
+                </button>
+              </div>
+            </div>
 
-  <!-- строка 1: переключатель источника -->
-  <div class="ph-source-switcher">
-    <span class="ph-source-label">Источник данных</span>
-    <div class="ph-seg" role="group" aria-label="Источник данных">
-      <button class="ph-seg-btn active" data-ph-org="all"  type="button">Все дороги</button>
-      <button class="ph-seg-btn"        data-ph-org="mad"  type="button">МАД (региональные)</button>
-      <button class="ph-seg-btn"        data-ph-org="oms"  type="button">ОМС (муниципальные)</button>
-    </div>
-  </div>
-
-  <!-- строка 2: детальные фильтры -->
-  <div class="ph-filter-row">
-
-    <!-- РУАД — только если выбрано «МАД» или «Все» -->
-    <div class="ph-filter-group" id="ph-filter-group-ruad">
-      <label class="ph-filter-lbl" for="ph-filter-ruad">
-        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/></svg>
-        РУАД (региональные)
-      </label>
-      <select class="ph-filter-select" id="ph-filter-ruad">
-        <option value="">Все РУАД</option>
-      </select>
-    </div>
-
-    <!-- МО — только если выбрано «ОМС» или «Все» -->
-    <div class="ph-filter-group" id="ph-filter-group-mo">
-      <label class="ph-filter-lbl" for="ph-filter-mo">
-        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><rect x="2" y="7" width="20" height="14" rx="2"/><path d="M16 7V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v2"/></svg>
-        МО (муниципальные)
-      </label>
-      <select class="ph-filter-select" id="ph-filter-mo">
-        <option value="">Все МО</option>
-      </select>
-    </div>
-
-    <button class="ph-filter-reset-btn" id="ph-filter-reset" type="button">
-      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/><path d="M3 3v5h5"/></svg>
-      Сбросить
-    </button>
-  </div>
-
-</div>
-
-            <!-- Donuts -->
             <div class="ph-donut-grid">
               <article class="card">
                 <div class="card-header"><div><div class="card-title">Зарегистрированные ямы</div><div class="card-subtitle">Муниципальные / региональные</div></div></div>
@@ -696,44 +680,30 @@
               </article>
             </div>
 
-            <!-- KPI row -->
             <div class="kpi-grid-3" id="ph-kpi-grid">
               <div class="ph-kpi-card">
                 <div class="ph-kpi-label">Зарегистрировано ям за 7 дней</div>
-                <div class="ph-kpi-row">
-                  <div class="ph-kpi-value" id="ph-kpi-reg">—</div>
-                  <div class="ph-kpi-delta neu" id="ph-kpi-reg-delta">нет данных</div>
-                </div>
+                <div class="ph-kpi-row"><div class="ph-kpi-value" id="ph-kpi-reg">—</div><div class="ph-kpi-delta neu" id="ph-kpi-reg-delta">нет данных</div></div>
                 <div class="ph-kpi-sub">Муниципальные + региональные</div>
                 <div class="ph-kpi-date" id="ph-kpi-reg-date"></div>
               </div>
               <div class="ph-kpi-card">
                 <div class="ph-kpi-label">Устранено ям за 7 дней</div>
-                <div class="ph-kpi-row">
-                  <div class="ph-kpi-value" id="ph-kpi-fix">—</div>
-                  <div class="ph-kpi-delta neu" id="ph-kpi-fix-delta">нет данных</div>
-                </div>
+                <div class="ph-kpi-row"><div class="ph-kpi-value" id="ph-kpi-fix">—</div><div class="ph-kpi-delta neu" id="ph-kpi-fix-delta">нет данных</div></div>
                 <div class="ph-kpi-sub">Муниципальные + региональные</div>
                 <div class="ph-kpi-date" id="ph-kpi-fix-date"></div>
               </div>
               <div class="ph-kpi-card">
                 <div class="ph-kpi-label">Жалоб за 7 дней</div>
-                <div class="ph-kpi-row">
-                  <div class="ph-kpi-value" id="ph-kpi-comp">—</div>
-                  <div class="ph-kpi-delta neu" id="ph-kpi-comp-delta">нет данных</div>
-                </div>
+                <div class="ph-kpi-row"><div class="ph-kpi-value" id="ph-kpi-comp">—</div><div class="ph-kpi-delta neu" id="ph-kpi-comp-delta">нет данных</div></div>
                 <div class="ph-kpi-sub">ОМС + МАД</div>
                 <div class="ph-kpi-date" id="ph-kpi-comp-date"></div>
               </div>
             </div>
 
-            <!-- Weekly bar chart -->
             <article class="card ph-bar-row">
               <div class="card-header">
-                <div>
-                  <div class="card-title">Динамика за неделю</div>
-                  <div class="card-subtitle">Регистрация ям, устранение, жалобы — по неделям месяца</div>
-                </div>
+                <div><div class="card-title">Динамика за неделю</div><div class="card-subtitle">Регистрация ям, устранение, жалобы — по неделям месяца</div></div>
                 <div class="ph-week-controls">
                   <select class="filter-select" id="ph-week-month" style="min-width:160px"></select>
                 </div>
@@ -759,9 +729,7 @@
           </div>
           <div class="ph-layout">
             <div class="ph-reports-panel">
-              <div class="ph-reports-header">
-                <span class="ph-reports-title">Отчёты</span>
-              </div>
+              <div class="ph-reports-header"><span class="ph-reports-title">Отчёты</span></div>
               <div class="ph-reports-list" id="ph-reports-sidebar"></div>
             </div>
             <div id="ph-report-detail">
@@ -858,10 +826,9 @@
     </div>
   </div>
 
-  <!-- VIEW MODAL — просмотр объекта -->
+  <!-- VIEW MODAL -->
   <div class="modal-overlay" id="view-modal" aria-hidden="true">
-    <div class="modal" role="dialog" aria-modal="true" aria-labelledby="view-modal-title"
-         style="max-width:900px">
+    <div class="modal" role="dialog" aria-modal="true" aria-labelledby="view-modal-title" style="max-width:900px">
       <div class="modal-header" style="align-items:flex-start">
         <div style="display:flex;align-items:flex-start;gap:var(--space-3);min-width:0;flex:1">
           <div style="width:32px;height:32px;border-radius:var(--radius-md);background:var(--color-primary-subtle);display:flex;align-items:center;justify-content:center;flex-shrink:0;margin-top:2px">

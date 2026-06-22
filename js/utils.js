@@ -1,5 +1,5 @@
 /**
- * utils.js — Formatting helpers, toast, theme, number animation
+ * utils.js — Formatting helpers, toast, number animation
  */
 
 // ---- Formatting ----
@@ -55,50 +55,13 @@ const Toast = (() => {
   return { show, success: m => show(m, 'success'), error: m => show(m, 'error'), info: m => show(m, 'info') };
 })();
 
-// ---- Theme ----
+// ---- Theme (зафиксирована светлая, переключатель удалён) ----
 const Theme = (() => {
-  const STORAGE_KEY = 'dashboard-theme';
-  let current;
-
   function init() {
-    // Читаем сохранённый выбор пользователя. Если нет — по умолчанию светлая.
-    const saved = localStorage.getItem(STORAGE_KEY);
-    current = (saved === 'dark' || saved === 'light') ? saved : 'light';
-    apply();
-    const btn = document.getElementById('theme-toggle');
-    if (btn) btn.addEventListener('click', toggle);
+    document.documentElement.setAttribute('data-theme', 'light');
   }
-
-  function apply() {
-    document.documentElement.setAttribute('data-theme', current);
-    const btn = document.getElementById('theme-toggle');
-    if (btn) btn.innerHTML = current === 'dark' ? sunIcon() : moonIcon();
-    // Обновляем графики Chart.js с новыми CSS-цветами
-    if (typeof PotholeCharts !== 'undefined') PotholeCharts.updateTheme();
-    if (typeof ChartsManager !== 'undefined') ChartsManager.updateTheme?.();
-  }
-
-  function toggle() {
-    current = current === 'dark' ? 'light' : 'dark';
-    localStorage.setItem(STORAGE_KEY, current);
-    apply();
-  }
-
-  function isDark() { return current === 'dark'; }
-
-  function sunIcon() {
-    return `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-      <circle cx="12" cy="12" r="5"/>
-      <path d="M12 1v2M12 21v2M4.22 4.22l1.42 1.42M18.36 18.36l1.42 1.42M1 12h2M21 12h2M4.22 19.78l1.42-1.42M18.36 5.64l1.42-1.42"/>
-    </svg>`;
-  }
-  function moonIcon() {
-    return `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-      <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/>
-    </svg>`;
-  }
-
-  return { init, toggle, isDark };
+  function isDark() { return false; }
+  return { init, isDark };
 })();
 
 // ---- Number animation ----
@@ -190,11 +153,11 @@ function getCSSVar(name) {
 
 function chartPalette() {
   return [
-    getCSSVar('--chart-1')  || getCSSVar('--color-primary') || '#01696f',
-    getCSSVar('--chart-2')  || getCSSVar('--color-orange')  || '#da7101',
-    getCSSVar('--chart-3')  || getCSSVar('--color-blue')    || '#006494',
-    getCSSVar('--chart-4')  || getCSSVar('--color-success') || '#437a22',
-    getCSSVar('--chart-5')  || getCSSVar('--color-purple')  || '#7a39bb',
-    getCSSVar('--chart-6')  || getCSSVar('--color-gold')    || '#d19900',
+    getCSSVar('--chart-1')  || getCSSVar('--color-primary') || '#3b5bdb',
+    getCSSVar('--chart-2')  || getCSSVar('--color-success') || '#2a7a3b',
+    getCSSVar('--chart-3')  || '#995200',
+    getCSSVar('--chart-4')  || getCSSVar('--color-blue')    || '#1265a8',
+    getCSSVar('--chart-5')  || '#7048d8',
+    getCSSVar('--chart-6')  || getCSSVar('--color-error')   || '#b52a2a',
   ];
 }
