@@ -1,59 +1,59 @@
 /* =============================================
    TOKENS.CSS — Design System Variables
    Art direction: Construction finance dashboard
-   Palette: warm stone surfaces + emerald accent
+   Palette: тёплый кремовый фон + глубокий slate-blue акцент
    Typography: Satoshi (body/UI)
    Density: balanced/dense
    Mode: light only (fixed)
    ============================================= */
 
 :root {
-  /* ── Surfaces: тёплый stone-white ── */
-  --color-bg:               #f4f3f0;
-  --color-surface:          #f9f8f6;
-  --color-surface-2:        #ffffff;
-  --color-surface-offset:   #edebe7;
-  --color-surface-offset-2: #e3e1dc;
-  --color-surface-dynamic:  #d8d5cf;
-  --color-divider:          #dbd8d3;
-  --color-border:           #ccc9c2;
+  /* ── Surfaces: тёплый кремово-песочный ── */
+  --color-bg:               #f0ede8;
+  --color-surface:          #f5f2ed;
+  --color-surface-2:        #faf8f5;
+  --color-surface-offset:   #e8e4de;
+  --color-surface-offset-2: #ddd9d2;
+  --color-surface-dynamic:  #d2cec7;
+  --color-divider:          #d5d0c8;
+  --color-border:           #c8c3ba;
 
   /* ── Text ── */
-  --color-text:             #1c1b18;
-  --color-text-muted:       #5e5c56;
-  --color-text-faint:       #9e9b94;
-  --color-text-inverse:     #ffffff;
+  --color-text:             #1c1a17;
+  --color-text-muted:       #625e57;
+  --color-text-faint:       #a8a39b;
+  --color-text-inverse:     #faf8f5;
 
-  /* ── Primary Accent: изумрудный ── */
-  --color-primary:          #0d6e4f;
-  --color-primary-hover:    #0a5a40;
-  --color-primary-active:   #074733;
-  --color-primary-highlight:#cde8de;
-  --color-primary-subtle:   #e8f5f0;
+  /* ── Primary Accent: глубокий slate-blue ── */
+  --color-primary:          #2c4a7c;
+  --color-primary-hover:    #1e3660;
+  --color-primary-active:   #142548;
+  --color-primary-highlight:#c8d5eb;
+  --color-primary-subtle:   #eaeff7;
 
   /* ── Status ── */
-  --color-success:          #276f3a;
+  --color-success:          #2e6b3e;
   --color-success-bg:       #e2f2e7;
   --color-success-highlight:#bfe0c9;
-  --color-warning:          #8a4e00;
-  --color-warning-bg:       #fdf0da;
-  --color-warning-highlight:#f5d9a5;
+  --color-warning:          #a05c00;
+  --color-warning-bg:       #fdf3e0;
+  --color-warning-highlight:#f0dfc0;
   --color-error:            #a82828;
   --color-error-bg:         #fce8e8;
   --color-error-highlight:  #f4c9c9;
-  --color-info:             #1059a0;
-  --color-info-bg:          #daeafc;
-  --color-info-highlight:   #b7d3f7;
-  --color-blue:             #1059a0;
-  --color-blue-highlight:   #b7d3f7;
+  --color-info:             #2c4a7c;
+  --color-info-bg:          #eaeff7;
+  --color-info-highlight:   #c8d5eb;
+  --color-blue:             #2c4a7c;
+  --color-blue-highlight:   #c8d5eb;
 
   /* ── Chart palette ── */
-  --chart-1: #0d6e4f;
-  --chart-2: #276f3a;
-  --chart-3: #8a4e00;
-  --chart-4: #1059a0;
-  --chart-5: #6b3bb5;
-  --chart-6: #a82828;
+  --chart-1: #2c4a7c;
+  --chart-2: #2e6b3e;
+  --chart-3: #a05c00;
+  --chart-4: #6b3bb5;
+  --chart-5: #a82828;
+  --chart-6: #1a7a8a;
 
   /* ── Spacing ── */
   --space-1:  0.25rem;
@@ -85,14 +85,14 @@
 
   /* ── Shadows: тёплые, земляные ── */
   --shadow-sm:
-    0 1px 2px rgba(28, 27, 24, 0.05),
-    0 1px 4px rgba(28, 27, 24, 0.04);
+    0 1px 2px rgba(28, 26, 23, 0.06),
+    0 1px 4px rgba(28, 26, 23, 0.04);
   --shadow-md:
-    0 2px 4px rgba(28, 27, 24, 0.05),
-    0 6px 18px rgba(28, 27, 24, 0.08);
+    0 2px 4px rgba(28, 26, 23, 0.05),
+    0 6px 18px rgba(28, 26, 23, 0.09);
   --shadow-lg:
-    0 4px 8px rgba(28, 27, 24, 0.06),
-    0 16px 40px rgba(28, 27, 24, 0.10);
+    0 4px 8px rgba(28, 26, 23, 0.07),
+    0 16px 40px rgba(28, 26, 23, 0.11);
 
   /* ── Layout ── */
   --sidebar-width:     220px;
