@@ -141,14 +141,19 @@
     // 4. UI
     initNavigation();
     DashboardSwitcher.init();
-
     initSidebar();
-    // NOTE: observeCards() убран — IntersectionObserver ставил opacity:0 на все
-    // карточки пока страницы были display:none, и они никогда не восстанавливались.
-    // Анимация появления карточек теперь через CSS transition в layout.css.
 
-    // 5. Первый экран
-    Router.navigate('dashboard');
+    // 5. Первый экран:
+    //    Если перешли с главной с ?dashboard=pothole — открываем ямочный ремонт,
+    //    если ?dashboard=construction (или нет параметра) — открываем строительство.
+    const urlParams    = new URLSearchParams(window.location.search);
+    const dashboardParam = urlParams.get('dashboard');
+
+    if (dashboardParam === 'pothole') {
+      DashboardSwitcher.switchTo('pothole');
+    } else {
+      Router.navigate('dashboard');
+    }
   });
 
   window.DashboardSwitcher = DashboardSwitcher;
