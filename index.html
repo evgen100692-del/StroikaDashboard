@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="ru">
+<html lang="ru" data-theme="light">
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
@@ -7,10 +7,9 @@
 
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://api.fontshare.com/v2/css?f[]=satoshi@400,500,700&display=swap" rel="stylesheet">
+  <link href="https://api.fontshare.com/v2/css?f[]=satoshi@400,500,600,700&display=swap" rel="stylesheet">
 
   <style>
-    /* ── Reset & Base ── */
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
     html {
       -webkit-font-smoothing: antialiased;
@@ -20,26 +19,38 @@
     }
 
     /* ── Design Tokens ── */
-    :root, [data-theme="light"] {
-      --color-bg:               #f4f4f2;
-      --color-surface:          #f9f9f7;
-      --color-surface-2:        #ffffff;
-      --color-surface-offset:   #eeeeed;
-      --color-surface-dynamic:  #e0e0dd;
-      --color-divider:          #d8d8d5;
-      --color-border:           #cecece;
-      --color-text:             #1e1e1c;
-      --color-text-muted:       #6b6b68;
-      --color-text-faint:       #b0b0ac;
-      --color-text-inverse:     #f9f9f7;
-      --color-primary:          #01696f;
-      --color-primary-hover:    #0c4e54;
-      --color-primary-active:   #0f3638;
-      --color-primary-highlight:#cedcd8;
-      --color-primary-subtle:   #e8f3f3;
-      --color-success:          #3b7a1e;
-      --color-success-highlight:#d4dfcc;
+    :root {
+      /* Palette: глубокий slate-синий акцент на тёплом кремовом фоне */
+      --color-bg:               #f0ede8;
+      --color-surface:          #f7f4f0;
+      --color-surface-2:        #faf8f5;
+      --color-surface-offset:   #e8e4de;
+      --color-surface-dynamic:  #ddd9d2;
+      --color-divider:          #d5d0c8;
+      --color-border:           #c8c3ba;
 
+      --color-text:             #1c1a17;
+      --color-text-muted:       #625e57;
+      --color-text-faint:       #a8a39b;
+      --color-text-inverse:     #faf8f5;
+
+      /* Акцент — насыщенный сине-стальной */
+      --color-primary:          #2c4a7c;
+      --color-primary-hover:    #1e3660;
+      --color-primary-active:   #142548;
+      --color-primary-highlight:#c8d5eb;
+      --color-primary-subtle:   #eaeff7;
+
+      /* Второй акцент — тёплый янтарный для ямочного ремонта */
+      --color-amber:            #a05c00;
+      --color-amber-hover:      #7d4800;
+      --color-amber-highlight:  #f0dfc0;
+      --color-amber-subtle:     #faf3e6;
+
+      --color-success:          #2e6b3e;
+      --color-success-highlight:#c8e2d0;
+
+      /* Spacing */
       --space-1:  0.25rem;
       --space-2:  0.5rem;
       --space-3:  0.75rem;
@@ -51,6 +62,7 @@
       --space-12: 3rem;
       --space-16: 4rem;
 
+      /* Type */
       --text-xs:   clamp(0.75rem,  0.7rem  + 0.25vw, 0.875rem);
       --text-sm:   clamp(0.875rem, 0.8rem  + 0.35vw, 1rem);
       --text-base: clamp(1rem,     0.95rem + 0.25vw, 1.125rem);
@@ -67,64 +79,12 @@
       --radius-2xl:  1.5rem;
       --radius-full: 9999px;
 
-      --shadow-sm: 0 1px 2px oklch(0.2 0.01 80 / 0.06);
-      --shadow-md: 0 4px 12px oklch(0.2 0.01 80 / 0.09);
-      --shadow-lg: 0 12px 32px oklch(0.2 0.01 80 / 0.13);
-      --shadow-xl: 0 24px 48px oklch(0.2 0.01 80 / 0.16);
+      --shadow-sm: 0 1px 3px oklch(0.25 0.02 60 / 0.08), 0 1px 2px oklch(0.25 0.02 60 / 0.04);
+      --shadow-md: 0 4px 12px oklch(0.25 0.02 60 / 0.10), 0 2px 4px oklch(0.25 0.02 60 / 0.05);
+      --shadow-lg: 0 12px 32px oklch(0.25 0.02 60 / 0.13), 0 4px 8px oklch(0.25 0.02 60 / 0.06);
+      --shadow-xl: 0 24px 48px oklch(0.25 0.02 60 / 0.18), 0 8px 16px oklch(0.25 0.02 60 / 0.08);
 
       --transition: 200ms cubic-bezier(0.16, 1, 0.3, 1);
-    }
-
-    [data-theme="dark"] {
-      --color-bg:               #131312;
-      --color-surface:          #1a1a18;
-      --color-surface-2:        #1f1f1d;
-      --color-surface-offset:   #222220;
-      --color-surface-dynamic:  #2e2e2c;
-      --color-divider:          #2a2a28;
-      --color-border:           #343432;
-      --color-text:             #d8d8d4;
-      --color-text-muted:       #7a7a76;
-      --color-text-faint:       #4e4e4c;
-      --color-text-inverse:     #1a1a18;
-      --color-primary:          #4f98a3;
-      --color-primary-hover:    #227f8b;
-      --color-primary-active:   #1a626b;
-      --color-primary-highlight:#2a3d3e;
-      --color-primary-subtle:   #1e3032;
-      --color-success:          #6daa45;
-      --color-success-highlight:#3a4435;
-      --shadow-sm: 0 1px 2px oklch(0 0 0 / 0.25);
-      --shadow-md: 0 4px 12px oklch(0 0 0 / 0.35);
-      --shadow-lg: 0 12px 32px oklch(0 0 0 / 0.45);
-      --shadow-xl: 0 24px 48px oklch(0 0 0 / 0.55);
-    }
-
-    @media (prefers-color-scheme: dark) {
-      :root:not([data-theme]) {
-        --color-bg:               #131312;
-        --color-surface:          #1a1a18;
-        --color-surface-2:        #1f1f1d;
-        --color-surface-offset:   #222220;
-        --color-surface-dynamic:  #2e2e2c;
-        --color-divider:          #2a2a28;
-        --color-border:           #343432;
-        --color-text:             #d8d8d4;
-        --color-text-muted:       #7a7a76;
-        --color-text-faint:       #4e4e4c;
-        --color-text-inverse:     #1a1a18;
-        --color-primary:          #4f98a3;
-        --color-primary-hover:    #227f8b;
-        --color-primary-active:   #1a626b;
-        --color-primary-highlight:#2a3d3e;
-        --color-primary-subtle:   #1e3032;
-        --color-success:          #6daa45;
-        --color-success-highlight:#3a4435;
-        --shadow-sm: 0 1px 2px oklch(0 0 0 / 0.25);
-        --shadow-md: 0 4px 12px oklch(0 0 0 / 0.35);
-        --shadow-lg: 0 12px 32px oklch(0 0 0 / 0.45);
-        --shadow-xl: 0 24px 48px oklch(0 0 0 / 0.55);
-      }
     }
 
     @media (prefers-reduced-motion: reduce) {
@@ -143,6 +103,10 @@
       font-size: var(--text-base);
       color: var(--color-text);
       background-color: var(--color-bg);
+      /* Тонкий зернистый паттерн для глубины */
+      background-image:
+        radial-gradient(ellipse 80% 50% at 50% -10%, oklch(0.55 0.06 250 / 0.08) 0%, transparent 60%),
+        url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='4' height='4'%3E%3Crect width='1' height='1' x='0' y='0' fill='%23000' fill-opacity='0.025'/%3E%3C/svg%3E");
       line-height: 1.6;
     }
 
@@ -152,8 +116,10 @@
       align-items: center;
       justify-content: space-between;
       padding: var(--space-4) var(--space-8);
+      background: oklch(from var(--color-surface) l c h / 0.85);
+      backdrop-filter: blur(12px);
+      -webkit-backdrop-filter: blur(12px);
       border-bottom: 1px solid var(--color-divider);
-      background: var(--color-surface);
       position: sticky;
       top: 0;
       z-index: 10;
@@ -183,26 +149,34 @@
       font-weight: 400;
     }
 
-    .theme-toggle {
-      width: 36px;
-      height: 36px;
-      border: 1px solid var(--color-border);
-      border-radius: var(--radius-md);
-      background: var(--color-surface-2);
-      color: var(--color-text-muted);
-      cursor: pointer;
-      display: flex;
+    /* Версия / статус вместо кнопки темы */
+    .header-badge {
+      display: inline-flex;
       align-items: center;
-      justify-content: center;
-      transition: background var(--transition), color var(--transition), border-color var(--transition);
+      gap: var(--space-2);
+      padding: var(--space-1) var(--space-3);
+      border-radius: var(--radius-full);
+      background: var(--color-primary-subtle);
+      border: 1px solid var(--color-primary-highlight);
+      color: var(--color-primary);
+      font-size: var(--text-xs);
+      font-weight: 600;
+      letter-spacing: 0.01em;
+      user-select: none;
     }
-    .theme-toggle:hover {
-      background: var(--color-surface-offset);
-      color: var(--color-text);
-      border-color: var(--color-primary);
+    .header-badge-dot {
+      width: 6px;
+      height: 6px;
+      border-radius: 50%;
+      background: var(--color-primary);
+      animation: pulse 2.5s ease-in-out infinite;
+    }
+    @keyframes pulse {
+      0%, 100% { opacity: 1; transform: scale(1); }
+      50%       { opacity: 0.55; transform: scale(0.85); }
     }
 
-    /* ── Hero section ── */
+    /* ── Hero ── */
     .hero {
       flex: 1;
       display: flex;
@@ -217,51 +191,61 @@
       display: inline-flex;
       align-items: center;
       gap: var(--space-2);
-      padding: var(--space-1) var(--space-4);
+      padding: calc(var(--space-1) + 2px) var(--space-4);
       border-radius: var(--radius-full);
-      background: var(--color-primary-subtle);
-      border: 1px solid var(--color-primary-highlight);
-      color: var(--color-primary);
+      background: var(--color-surface-2);
+      border: 1px solid var(--color-border);
+      color: var(--color-text-muted);
       font-size: var(--text-xs);
-      font-weight: 700;
-      letter-spacing: 0.06em;
+      font-weight: 600;
+      letter-spacing: 0.07em;
       text-transform: uppercase;
       margin-bottom: var(--space-6);
-    }
-    .hero-eyebrow svg {
-      flex-shrink: 0;
+      box-shadow: var(--shadow-sm);
     }
 
     .hero-title {
       font-size: var(--text-2xl);
       font-weight: 700;
-      letter-spacing: -0.03em;
+      letter-spacing: -0.035em;
       color: var(--color-text);
-      line-height: 1.15;
-      max-width: 22ch;
-      margin-bottom: var(--space-4);
+      line-height: 1.1;
+      max-width: 20ch;
+      margin-bottom: var(--space-5);
       text-wrap: balance;
     }
     .hero-title em {
       font-style: normal;
       color: var(--color-primary);
+      position: relative;
+    }
+    /* подчёркивание акцента */
+    .hero-title em::after {
+      content: '';
+      position: absolute;
+      left: 0; right: 0;
+      bottom: -3px;
+      height: 2px;
+      border-radius: 2px;
+      background: var(--color-primary-highlight);
     }
 
     .hero-desc {
       font-size: var(--text-base);
       color: var(--color-text-muted);
-      max-width: 52ch;
+      max-width: 50ch;
       margin-bottom: var(--space-12);
       text-wrap: pretty;
+      line-height: 1.7;
     }
 
-    /* ── Dashboard Cards ── */
+    /* ── Cards ── */
     .cards-grid {
       display: grid;
       grid-template-columns: repeat(2, 1fr);
       gap: var(--space-5);
       width: 100%;
-      max-width: 760px;
+      max-width: 780px;
     }
 
     .dash-card {
@@ -281,44 +265,68 @@
       transition:
         border-color var(--transition),
         box-shadow var(--transition),
-        transform var(--transition);
+        transform var(--transition),
+        background var(--transition);
     }
+
+    /* Фоновый паттерн-сетка */
+    .dash-card::after {
+      content: '';
+      position: absolute;
+      inset: 0;
+      background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='24' height='24'%3E%3Cpath d='M0 24V0h1v23h23v1z' fill='%23000' fill-opacity='0.025'/%3E%3C/svg%3E");
+      opacity: 0;
+      transition: opacity var(--transition);
+      pointer-events: none;
+      border-radius: inherit;
+    }
+    .dash-card:hover::after { opacity: 1; }
+
+    /* цветной gradient-overlay */
     .dash-card::before {
       content: '';
       position: absolute;
       inset: 0;
-      background: linear-gradient(135deg, var(--card-accent-from) 0%, transparent 60%);
+      background: linear-gradient(135deg, var(--card-accent-from) 0%, transparent 55%);
       opacity: 0;
       transition: opacity var(--transition);
       pointer-events: none;
+      border-radius: inherit;
     }
     .dash-card:hover {
       border-color: var(--card-border-hover);
       box-shadow: var(--shadow-xl);
-      transform: translateY(-3px);
+      transform: translateY(-4px);
+      background: var(--color-surface-2);
     }
-    .dash-card:hover::before {
-      opacity: 1;
-    }
+    .dash-card:hover::before { opacity: 1; }
     .dash-card:active {
       transform: translateY(-1px);
       box-shadow: var(--shadow-lg);
     }
 
-    /* Construction card accent */
     .dash-card--construction {
       --card-accent-from: oklch(from var(--color-primary) l c h / 0.07);
       --card-border-hover: var(--color-primary);
     }
-    /* Pothole card accent */
     .dash-card--pothole {
-      --card-accent-from: oklch(from var(--color-success) l c h / 0.07);
-      --card-border-hover: var(--color-success);
+      --card-accent-from: oklch(from var(--color-amber) l c h / 0.09);
+      --card-border-hover: var(--color-amber);
     }
 
+    /* Цветная полоса сверху карточки */
+    .card-stripe {
+      position: absolute;
+      top: 0; left: 0; right: 0;
+      height: 3px;
+      border-radius: var(--radius-2xl) var(--radius-2xl) 0 0;
+    }
+    .dash-card--construction .card-stripe { background: var(--color-primary); }
+    .dash-card--pothole      .card-stripe { background: var(--color-amber); }
+
     .card-icon {
-      width: 48px;
-      height: 48px;
+      width: 44px;
+      height: 44px;
       border-radius: var(--radius-lg);
       display: flex;
       align-items: center;
@@ -327,14 +335,17 @@
       flex-shrink: 0;
       position: relative;
       z-index: 1;
+      box-shadow: var(--shadow-sm);
     }
     .dash-card--construction .card-icon {
       background: var(--color-primary-subtle);
       color: var(--color-primary);
+      border: 1px solid var(--color-primary-highlight);
     }
     .dash-card--pothole .card-icon {
-      background: var(--color-success-highlight);
-      color: var(--color-success);
+      background: var(--color-amber-subtle);
+      color: var(--color-amber);
+      border: 1px solid var(--color-amber-highlight);
     }
 
     .card-content {
@@ -345,7 +356,7 @@
     .card-title {
       font-size: var(--text-lg);
       font-weight: 700;
-      letter-spacing: -0.02em;
+      letter-spacing: -0.025em;
       color: var(--color-text);
       margin-bottom: var(--space-2);
       line-height: 1.2;
@@ -353,7 +364,7 @@
     .card-desc {
       font-size: var(--text-sm);
       color: var(--color-text-muted);
-      line-height: 1.5;
+      line-height: 1.55;
       margin-bottom: var(--space-5);
     }
 
@@ -378,7 +389,7 @@
       flex-shrink: 0;
     }
     .dash-card--construction .card-feature-dot { background: var(--color-primary); }
-    .dash-card--pothole      .card-feature-dot { background: var(--color-success); }
+    .dash-card--pothole      .card-feature-dot { background: var(--color-amber); }
 
     .card-cta {
       display: inline-flex;
@@ -391,26 +402,56 @@
       border: none;
       cursor: pointer;
       pointer-events: none;
-      transition: background var(--transition), box-shadow var(--transition);
       position: relative;
       z-index: 1;
+      transition: filter var(--transition);
     }
     .dash-card--construction .card-cta {
       background: var(--color-primary);
       color: var(--color-text-inverse);
     }
     .dash-card--pothole .card-cta {
-      background: var(--color-success);
+      background: var(--color-amber);
       color: var(--color-text-inverse);
     }
-    .dash-card--construction:hover .card-cta { background: var(--color-primary-hover); }
-    .dash-card--pothole:hover      .card-cta { background: var(--color-success); filter: brightness(0.9); }
+    .dash-card:hover .card-cta { filter: brightness(0.92); }
 
     .card-arrow {
       transition: transform var(--transition);
     }
-    .dash-card:hover .card-arrow {
-      transform: translateX(3px);
+    .dash-card:hover .card-arrow { transform: translateX(4px); }
+
+    /* ── Stats strip ── */
+    .stats-strip {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: var(--space-8);
+      padding: var(--space-6) var(--space-8);
+      margin-top: var(--space-10);
+    }
+    .stat-item {
+      text-align: center;
+    }
+    .stat-value {
+      font-size: var(--text-xl);
+      font-weight: 700;
+      letter-spacing: -0.04em;
+      color: var(--color-text);
+      line-height: 1;
+    }
+    .stat-label {
+      font-size: var(--text-xs);
+      color: var(--color-text-faint);
+      font-weight: 500;
+      letter-spacing: 0.04em;
+      text-transform: uppercase;
+      margin-top: var(--space-1);
+    }
+    .stat-divider {
+      width: 1px;
+      height: 36px;
+      background: var(--color-divider);
     }
 
     /* ── Footer ── */
@@ -430,7 +471,8 @@
         grid-template-columns: 1fr;
         max-width: 400px;
       }
-      .hero-title { font-size: clamp(1.5rem, 5vw, 2rem); }
+      .hero-title { font-size: clamp(1.6rem, 6vw, 2rem); }
+      .stats-strip { gap: var(--space-5); }
     }
   </style>
 </head>
@@ -449,7 +491,10 @@
         СтройкаДашборд <span>/ Платформа</span>
       </div>
     </a>
-    <button class="theme-toggle" id="theme-toggle" type="button" aria-label="Переключить тему"></button>
+    <div class="header-badge" aria-label="Статус системы: онлайн">
+      <span class="header-badge-dot" aria-hidden="true"></span>
+      Онлайн
+    </div>
   </header>
 
   <!-- ── Hero ── -->
@@ -475,8 +520,9 @@
       <a class="dash-card dash-card--construction"
          href="./dashboard-construction-analytics.html?dashboard=construction"
          aria-label="Открыть дашборд Строительство">
+        <div class="card-stripe" aria-hidden="true"></div>
         <div class="card-icon" aria-hidden="true">
-          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
                stroke-linecap="round" stroke-linejoin="round">
             <path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/>
             <polyline points="9 22 9 12 15 12 15 22"/>
@@ -505,12 +551,13 @@
       <a class="dash-card dash-card--pothole"
          href="./dashboard-construction-analytics.html?dashboard=pothole"
          aria-label="Открыть дашборд Ямочный ремонт">
+        <div class="card-stripe" aria-hidden="true"></div>
         <div class="card-icon" aria-hidden="true">
-          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
                stroke-linecap="round" stroke-linejoin="round">
             <circle cx="12" cy="12" r="10"/>
             <circle cx="12" cy="12" r="4"/>
-            <path d="M4.93 4.93l4.24 4.24M14.83 14.83l4.24 4.24M14.83 9.17l4.24-4.24M14.83 9.17l3.53-3.53M4.93 19.07l4.24-4.24"/>
+            <path d="M4.93 4.93l4.24 4.24M14.83 14.83l4.24 4.24M14.83 9.17l4.24-4.24M4.93 19.07l4.24-4.24"/>
           </svg>
         </div>
         <div class="card-content">
@@ -534,34 +581,29 @@
 
     </nav>
 
+    <div class="stats-strip" aria-hidden="true">
+      <div class="stat-item">
+        <div class="stat-value">2</div>
+        <div class="stat-label">Раздела</div>
+      </div>
+      <div class="stat-divider"></div>
+      <div class="stat-item">
+        <div class="stat-value">REST</div>
+        <div class="stat-label">API</div>
+      </div>
+      <div class="stat-divider"></div>
+      <div class="stat-item">
+        <div class="stat-value">SQLite</div>
+        <div class="stat-label">База данных</div>
+      </div>
+    </div>
+
   </main>
 
   <!-- ── Footer ── -->
   <footer class="site-footer">
     СтройкаДашборд &mdash; внутренняя аналитическая платформа
   </footer>
-
-  <script>
-    // ── Theme toggle ──
-    (function () {
-      const toggle = document.getElementById('theme-toggle');
-      const html   = document.documentElement;
-
-      const SUN_SVG  = '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="5"/><path d="M12 1v2M12 21v2M4.22 4.22l1.42 1.42M18.36 18.36l1.42 1.42M1 12h2M21 12h2M4.22 19.78l1.42-1.42M18.36 5.64l1.42-1.42"/></svg>';
-      const MOON_SVG = '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>';
-
-      let dark = window.matchMedia('(prefers-color-scheme: dark)').matches;
-      apply();
-
-      toggle.addEventListener('click', () => { dark = !dark; apply(); });
-
-      function apply() {
-        html.setAttribute('data-theme', dark ? 'dark' : 'light');
-        toggle.innerHTML      = dark ? SUN_SVG : MOON_SVG;
-        toggle.setAttribute('aria-label', 'Переключить на ' + (dark ? 'светлую' : 'тёмную') + ' тему');
-      }
-    })();
-  </script>
 
 </body>
 </html>
