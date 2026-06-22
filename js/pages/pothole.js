@@ -12,6 +12,10 @@ const PotholePage = (() => {
   let _filter = { ruad: '', mo: '', org: 'all' };
   let _filterBarBound = false;
 
+  // ── состояние страницы Отчёты ───────────────────────────────────────────────
+  let _repActiveType = 'complaints'; // текущий выбранный тип
+  let _repTypeBound  = false;        // обработчики кнопок навешены один раз
+
   // ════════════════════════════════════════════════════════════════════════════
   //  PUBLIC: init()
   // ════════════════════════════════════════════════════════════════════════════
@@ -53,7 +57,7 @@ const PotholePage = (() => {
       _history = { complaints: hC, regional: hR, municipal: hM };
 
       _renderDashboard();
-      _renderReportsSidebar();
+      _renderReportsPage();
     } catch (e) {
       console.error('[PotholePage] reload error', e);
     }
@@ -600,66 +604,148 @@ const PotholePage = (() => {
   }
 
   // ════════════════════════════════════════════════════════════════════════════
-  //  REPORTS PAGE
+  //  REPORTS PAGE — новая реализация под HTML с тремя кнопками
   // ════════════════════════════════════════════════════════════════════════════
-  function _renderReportsSidebar() {
-    const container = document.getElementById('ph-reports-sidebar');
-    if (!container) return;
 
-    if (!_reports.length) {
-      container.innerHTML = '<div class="ph-reports-empty">Отчётов пока нет</div>';
-      return;
+  /**
+   * Главная функция рендера страницы «Отчёты».
+   * Вызывается после каждого _reload().
+   */
+  function _renderReportsPage() {
+    // 1. Обновляем бейджи-счётчики на трёх кнопках
+    _updateRepCounts();
+
+    // 2. Навешиваем обработчики кнопок (один раз)
+    if (!_repTypeBound) {
+      _bindRepTypeButtons();
+      _bindRepDeleteButton();
+      _bindRepUploadEmptyButton();
+      _repTypeBound = true;
     }
 
-    const groups = {
-      complaints: { label: 'Жалобы',               items: [] },
-      regional:   { label: 'Региональный ремонт',  items: [] },
-      municipal:  { label: 'Муниципальный ремонт', items: [] },
-    };
-    _reports.forEach(r => { if (groups[r.report_type]) groups[r.report_type].items.push(r); });
+    // 3. Обновляем список дат для текущего типа и показываем деталь
+    _updateRepDateSelect(_repActiveType);
+  }
 
-    let html = '';
-    Object.entries(groups).forEach(([type, g]) => {
-      if (!g.items.length) return;
-      html += `<div class="ph-report-group">`;
-      html += `<div class="ph-report-group-label">${g.label}</div>`;
-      g.items.forEach(item => {
-        html += `<div class="ph-report-item" data-id="${item.id}">
-          <span class="ph-report-date">${_fmtDate(item.report_date)}</span>
-          <span class="ph-report-badge ${item.report_type}">${_shortType(item.report_type)}</span>
-          <button class="ph-report-del" data-del="${item.id}" aria-label="Удалить" title="Удалить">
-            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/></svg>
-          </button>
-        </div>`;
-      });
-      html += `</div>`;
+  /** Обновляет числа в бейджах ph-rep-count-* */
+  function _updateRepCounts() {
+    const counts = { complaints: 0, regional: 0, municipal: 0 };
+    _reports.forEach(r => {
+      if (counts[r.report_type] !== undefined) counts[r.report_type]++;
     });
-    container.innerHTML = html;
-
-    container.querySelectorAll('.ph-report-item').forEach(el => {
-      el.addEventListener('click', async (e) => {
-        if (e.target.closest('[data-del]')) return;
-        const id = el.dataset.id;
-        container.querySelectorAll('.ph-report-item').forEach(x => x.classList.remove('active'));
-        el.classList.add('active');
-        await _showReportDetail(id);
-      });
+    ['complaints', 'regional', 'municipal'].forEach(t => {
+      const el = document.getElementById('ph-rep-count-' + t);
+      if (el) el.textContent = counts[t];
     });
+  }
 
-    container.querySelectorAll('[data-del]').forEach(btn => {
-      btn.addEventListener('click', async (e) => {
-        e.stopPropagation();
-        const id = btn.dataset.del;
-        if (!confirm('Удалить этот отчёт?')) return;
-        await fetch('/api/pothole/reports/' + id, { method: 'DELETE' });
-        Toast.success('Отчёт удалён');
-        await _reload();
+  /** Навешивает клики на три кнопки типа (один раз) */
+  function _bindRepTypeButtons() {
+    document.querySelectorAll('.ph-rep-type-btn').forEach(btn => {
+      btn.addEventListener('click', () => {
+        // Снимаем active со всех
+        document.querySelectorAll('.ph-rep-type-btn').forEach(b => b.classList.remove('active'));
+        btn.classList.add('active');
+        _repActiveType = btn.dataset.type;
+        _updateRepDateSelect(_repActiveType);
       });
     });
   }
 
+  /** Навешивает клик на кнопку «Удалить этот отчёт» (один раз) */
+  function _bindRepDeleteButton() {
+    const btn = document.getElementById('ph-rep-delete-btn');
+    if (!btn) return;
+    btn.addEventListener('click', async () => {
+      const sel = document.getElementById('ph-rep-date-select');
+      const id  = sel ? sel.value : '';
+      if (!id) return;
+      if (!confirm('Удалить этот отчёт?')) return;
+      try {
+        await fetch('/api/pothole/reports/' + id, { method: 'DELETE' });
+        Toast.success('Отчёт удалён');
+        await _reload();
+      } catch (e) {
+        Toast.error('Ошибка при удалении: ' + e.message);
+      }
+    });
+  }
+
+  /** Навешивает клик на кнопку «Загрузить отчёт» в пустом состоянии (один раз) */
+  function _bindRepUploadEmptyButton() {
+    const btn = document.getElementById('ph-rep-upload-empty-btn');
+    if (btn) btn.addEventListener('click', () => _openUploadModal());
+  }
+
+  /**
+   * Заполняет селект дат для выбранного типа отчёта и инициирует показ детали.
+   * @param {string} type — 'complaints' | 'regional' | 'municipal'
+   */
+  function _updateRepDateSelect(type) {
+    const sel    = document.getElementById('ph-rep-date-select');
+    const delBtn = document.getElementById('ph-rep-delete-btn');
+    if (!sel) return;
+
+    // Фильтруем отчёты по типу, сортируем по дате убывания (новые сначала)
+    const filtered = _reports
+      .filter(r => r.report_type === type)
+      .sort((a, b) => (a.report_date > b.report_date ? -1 : 1));
+
+    if (!filtered.length) {
+      sel.innerHTML = '<option value="">Нет отчётов</option>';
+      sel.disabled  = true;
+      if (delBtn) delBtn.style.display = 'none';
+      _showRepEmpty();
+      return;
+    }
+
+    sel.disabled  = false;
+    sel.innerHTML = filtered
+      .map(r => `<option value="${r.id}">${_fmtDate(r.report_date)}</option>`)
+      .join('');
+
+    // Показываем кнопку удаления
+    if (delBtn) delBtn.style.display = '';
+
+    // Навешиваем обработчик изменения даты (перезаписываем onchange)
+    sel.onchange = () => {
+      if (sel.value) _showReportDetail(sel.value);
+    };
+
+    // Показываем деталь для первого (свежего) отчёта
+    _showReportDetail(filtered[0].id);
+  }
+
+  /** Показывает пустое состояние в ph-rep-detail */
+  function _showRepEmpty() {
+    const detail = document.getElementById('ph-rep-detail');
+    if (!detail) return;
+    detail.innerHTML = `
+      <div class="ph-rep-empty">
+        <svg width="44" height="44" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+          <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
+          <path d="M14 2v6h6"/>
+        </svg>
+        <h3>Нет отчётов</h3>
+        <p>Для этого типа отчётов ещё ничего не загружено</p>
+        <button class="btn btn-primary" type="button" id="ph-rep-upload-empty-btn">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+            <polyline points="17 8 12 3 7 8"/>
+            <line x1="12" y1="3" x2="12" y2="15"/>
+          </svg>
+          Загрузить отчёт
+        </button>
+      </div>`;
+    // Перенавешиваем кнопку (DOM пересоздан)
+    const btn = document.getElementById('ph-rep-upload-empty-btn');
+    if (btn) btn.addEventListener('click', () => _openUploadModal());
+  }
+
+  /** Загружает и рендерит содержимое отчёта по id в #ph-rep-detail */
   async function _showReportDetail(id) {
-    const detail = document.getElementById('ph-report-detail');
+    const detail = document.getElementById('ph-rep-detail');
+    if (!detail) return;
     detail.innerHTML = '<div style="padding:var(--space-6);color:var(--color-text-muted)">Загрузка...</div>';
 
     let r;
