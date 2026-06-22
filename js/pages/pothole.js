@@ -394,158 +394,55 @@ const PotholePage = (() => {
   }
 
   // ════════════════════════════════════════════════════════════════════════════
-  //  WEEKLY CHART — скользящая неделя + выбор месяца
+  //  WEEKLY CHART — 12 последних недель от сегодня
   // ════════════════════════════════════════════════════════════════════════════
 
-  // Текущий режим: 'week7' | YYYY-MM
-  let _weeklyMode = 'week7';
+  /**
+   * Возвращает массив из N объектов { from, to, label },
+   * порядок: старые → новые (index 0 = самая старая, index N-1 = текущая).
+   */
+  function _getRecentWeeks(n) {
+    const weeks = [];
+    const today = new Date();
+    const dow = today.getDay() === 0 ? 6 : today.getDay() - 1; // 0=пн
+    const startOfCurrentWeek = new Date(today);
+    startOfCurrentWeek.setDate(today.getDate() - dow);
 
-  function _renderWeekly() {
-    _buildWeeklyControls();
+    for (let i = n - 1; i >= 0; i--) {
+      const from = new Date(startOfCurrentWeek);
+      from.setDate(startOfCurrentWeek.getDate() - i * 7);
+      const to = new Date(from);
+      to.setDate(from.getDate() + 6);
+      weeks.push({
+        from:  _toISO(from),
+        to:    _toISO(to),
+        label: _fmtShortWeek(from, to),
+      });
+    }
+    return weeks; // порядок: старые → новые
   }
 
-  function _buildWeeklyControls() {
-    const sel     = document.getElementById('ph-week-month');
-    const weekBtn = document.getElementById('ph-week-btn-7days');
-    if (!sel) return;
-
-    // Собираем уникальные YYYY-MM из истории
-    const months = new Set();
-    ['regional', 'municipal', 'complaints'].forEach(t => {
-      (_history[t] || []).forEach(r => {
-        const d = r.report_date ? r.report_date.slice(0, 7) : null;
-        if (d) months.add(d);
-      });
-    });
-
-    const sorted = Array.from(months).sort().reverse();
-
-    // Строим <option> для месяцев
-    if (sorted.length) {
-      sel.innerHTML = sorted.map(m => {
-        const [y, mo] = m.split('-');
-        const name = new Date(+y, +mo - 1, 1).toLocaleDateString('ru', { month: 'long', year: 'numeric' });
-        return `<option value="${m}">${name}</option>`;
-      }).join('');
-    } else {
-      sel.innerHTML = '<option value="">Нет данных</option>';
+  /** Форматирует метку «22–28 июн» */
+  function _fmtShortWeek(from, to) {
+    const months = ['янв','фев','мар','апр','май','июн','июл','авг','сен','окт','ноя','дек'];
+    const sameMonth = from.getMonth() === to.getMonth();
+    if (sameMonth) {
+      return from.getDate() + '–' + to.getDate() + ' ' + months[from.getMonth()];
     }
+    return from.getDate() + ' ' + months[from.getMonth()] + ' – ' + to.getDate() + ' ' + months[to.getMonth()];
+  }
 
-    // Обработчики переключения режима
-    if (weekBtn && !weekBtn._bound) {
-      weekBtn._bound = true;
-      weekBtn.addEventListener('click', () => {
-        _weeklyMode = 'week7';
-        _syncWeeklyControls();
-        _redrawWeeklyChart();
-      });
-    }
-
-    sel.onchange = () => {
-      if (sel.value) {
-        _weeklyMode = sel.value;
-        _syncWeeklyControls();
-        _redrawWeeklyChart();
-      }
-    };
-
-    // Устанавливаем начальный режим
-    _syncWeeklyControls();
+  function _renderWeekly() {
     _redrawWeeklyChart();
   }
 
-  /** Синхронизирует визуальное состояние кнопки и селектора с _weeklyMode */
-  function _syncWeeklyControls() {
-    const sel     = document.getElementById('ph-week-month');
-    const weekBtn = document.getElementById('ph-week-btn-7days');
-
-    if (_weeklyMode === 'week7') {
-      if (weekBtn) weekBtn.classList.add('active');
-      if (sel) sel.style.opacity = '0.5';
-    } else {
-      if (weekBtn) weekBtn.classList.remove('active');
-      if (sel) {
-        sel.style.opacity = '1';
-        // Устанавливаем значение селектора, если оно есть среди опций
-        const opts = Array.from(sel.options).map(o => o.value);
-        if (opts.includes(_weeklyMode)) sel.value = _weeklyMode;
-      }
-    }
-  }
-
   function _redrawWeeklyChart() {
-    if (_weeklyMode === 'week7') {
-      _drawWeek7Chart();
-    } else {
-      _drawMonthChart(_weeklyMode);
-    }
-  }
-
-  // ── Режим «Последние 7 дней» от сегодня ─────────────────────────────────
-  function _drawWeek7Chart() {
-    const today   = _todayISO();
-    const weekAgo = _daysAgoISO(7);
-    const useReg  = _filter.org !== 'oms';
-    const useMun  = _filter.org !== 'mad';
-
-    // Собираем все даты отчётов в диапазоне [weekAgo, today]
-    const allDates = new Set();
-    ['regional', 'municipal', 'complaints'].forEach(type => {
-      (_history[type] || []).forEach(r => {
-        if (r.report_date >= weekAgo && r.report_date <= today) {
-          allDates.add(r.report_date);
-        }
-      });
-    });
-
-    // Если в диапазоне нет отчётов — показываем пустой график с подсказкой
-    if (!allDates.size) {
-      const today2 = _todayISO();
-      // Проверяем есть ли вообще хоть какие-то данные
-      const hasAny = ['regional','municipal','complaints'].some(t => (_history[t] || []).length > 0);
-      const points = hasAny
-        ? [{ label: 'Нет отчётов за 7 дн.', registered: 0, fixed: 0, complaints: 0 }]
-        : [{ label: 'Нет данных', registered: 0, fixed: 0, complaints: 0 }];
-      _charts['weekly'] = PotholeCharts.weekly('ph-chart-weekly', points, _charts['weekly']);
-      return;
-    }
-
-    const sortedDates = Array.from(allDates).sort();
-
-    const weekData = sortedDates.map(date => {
-      const regRep  = useReg ? _findLatestBefore(_history.regional,  date) : null;
-      const munRep  = useMun ? _findLatestBefore(_history.municipal, date) : null;
-      const compRep = _findLatestBefore(_history.complaints, date);
-
-      // Берём только отчёты с этой точной датой (иначе получим накопленное)
-      const regRepExact  = (regRep  && regRep.report_date  === date) ? regRep  : null;
-      const munRepExact  = (munRep  && munRep.report_date  === date) ? munRep  : null;
-      const compRepExact = (compRep && compRep.report_date === date) ? compRep : null;
-
-      return {
-        label:      _fmtDate(date),
-        registered: _sumReportField(regRepExact,  'registered', _filter.ruad)
-                  + _sumReportField(munRepExact,  'registered', _filter.mo),
-        fixed:      _sumReportField(regRepExact,  'fixed', _filter.ruad)
-                  + _sumReportField(munRepExact,  'fixed', _filter.mo),
-        complaints: _sumCompReport(compRepExact, useReg, useMun),
-      };
-    });
-
-    _charts['weekly'] = PotholeCharts.weekly('ph-chart-weekly', weekData, _charts['weekly']);
-  }
-
-  // ── Режим «По неделям месяца» ────────────────────────────────────────────
-  function _drawMonthChart(ym) {
-    if (!ym) return;
-    const [year, month] = ym.split('-').map(Number);
-    const weeks = _getWeeksOfMonth(year, month);
-
+    const weeks  = _getRecentWeeks(12);
     const useReg = _filter.org !== 'oms';
     const useMun = _filter.org !== 'mad';
 
-    const weekData = weeks.map((w, i) => ({
-      label:      'Нед.' + (i + 1) + ' (' + _fmtDate(w.from) + '–' + _fmtDate(w.to) + ')',
+    const weekData = weeks.map(w => ({
+      label:      w.label,
       registered: (useReg ? _sumWeekFiltered(_history.regional,  'registered', w, _filter.ruad) : 0)
                 + (useMun ? _sumWeekFiltered(_history.municipal, 'registered', w, _filter.mo)   : 0),
       fixed:      (useReg ? _sumWeekFiltered(_history.regional,  'fixed',      w, _filter.ruad) : 0)
@@ -554,20 +451,6 @@ const PotholePage = (() => {
     }));
 
     _charts['weekly'] = PotholeCharts.weekly('ph-chart-weekly', weekData, _charts['weekly']);
-  }
-
-  function _getWeeksOfMonth(year, month) {
-    const weeks = [];
-    let d = new Date(year, month - 1, 1);
-    while (d.getDay() !== 1) d = new Date(d.getTime() - 86400000);
-    const monthEnd = new Date(year, month, 0);
-    while (d.getTime() <= monthEnd.getTime()) {
-      const from = new Date(d);
-      const to   = new Date(d.getTime() + 6 * 86400000);
-      weeks.push({ from: _toISO(from), to: _toISO(to) });
-      d = new Date(d.getTime() + 7 * 86400000);
-    }
-    return weeks;
   }
 
   function _sumWeekFiltered(history, field, week, nameFilter) {
