@@ -401,26 +401,24 @@ const PotholePage = (() => {
    * Возвращает массив из N объектов { from, to, label },
    * порядок: старые → новые (index 0 = самая старая, index N-1 = текущая).
    */
-  function _getRecentWeeks(n) {
-    const weeks = [];
-    const today = new Date();
-    const dow = today.getDay() === 0 ? 6 : today.getDay() - 1; // 0=пн
-    const startOfCurrentWeek = new Date(today);
-    startOfCurrentWeek.setDate(today.getDate() - dow);
+function _getRecentWeeks(n) {
+  const weeks = [];
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
 
-    for (let i = n - 1; i >= 0; i--) {
-      const from = new Date(startOfCurrentWeek);
-      from.setDate(startOfCurrentWeek.getDate() - i * 7);
-      const to = new Date(from);
-      to.setDate(from.getDate() + 6);
-      weeks.push({
-        from:  _toISO(from),
-        to:    _toISO(to),
-        label: _fmtShortWeek(from, to),
-      });
-    }
-    return weeks; // порядок: старые → новые
+  for (let i = n - 1; i >= 0; i--) {
+    const to = new Date(today);
+    to.setDate(today.getDate() - i * 7);
+    const from = new Date(to);
+    from.setDate(to.getDate() - 6);
+    weeks.push({
+      from:  _toISO(from),
+      to:    _toISO(to),
+      label: _fmtShortWeek(from, to),
+    });
   }
+  return weeks;
+}
 
   /** Форматирует метку «22–28 июн» */
   function _fmtShortWeek(from, to) {
@@ -453,38 +451,40 @@ const PotholePage = (() => {
     _charts['weekly'] = PotholeCharts.weekly('ph-chart-weekly', weekData, _charts['weekly']);
   }
 
-  function _sumWeekFiltered(history, field, week, nameFilter) {
-    if (!history) return 0;
-    const reports = history.filter(r => r.report_date >= week.from && r.report_date <= week.to);
-    if (!reports.length) return 0;
-    const last = reports[reports.length - 1];
-    const rows = nameFilter
-      ? (last.data_json || []).filter(r => r.name === nameFilter)
-      : (last.data_json || []);
-    return rows.reduce((s, r) => s + (r[field] || 0), 0);
-  }
+function _sumWeekFiltered(history, field, week, nameFilter) {
+  if (!history || !history.length) return 0;
+  // Берём ближайший отчёт с report_date <= конца недели
+  const candidates = history.filter(r => r.report_date <= week.to);
+  if (!candidates.length) return 0;
+  const report = candidates[candidates.length - 1]; // последний по дате
+  const rows = nameFilter
+    ? (report.data_json || []).filter(r => r.name === nameFilter)
+    : (report.data_json || []);
+  return rows.reduce((s, r) => s + (r[field] || 0), 0);
+}
 
   function _sumCompWeekFiltered(history, week) {
-    if (!history) return 0;
-    const reports = history.filter(r => r.report_date >= week.from && r.report_date <= week.to);
-    if (!reports.length) return 0;
-    const last = reports[reports.length - 1];
-    const data = last.data_json;
-    if (!data || !data.week) return 0;
-    if (_filter.ruad) {
-      const row = data.week.find(r => r.name === _filter.ruad);
-      return row ? row.count : 0;
-    }
-    if (_filter.mo) {
-      const row = _findCompRowByMo(data.week, _filter.mo);
-      return row ? row.count : 0;
-    }
-    const omsRow = data.week.find(r => r.name === 'ОМС');
-    const madRow = data.week.find(r => r.name === 'МАД');
-    if (_filter.org === 'oms') return omsRow ? omsRow.count : 0;
-    if (_filter.org === 'mad') return madRow ? madRow.count : 0;
-    return (omsRow ? omsRow.count : 0) + (madRow ? madRow.count : 0);
+  if (!history || !history.length) return 0;
+  const candidates = history.filter(r => r.report_date <= week.to);
+  if (!candidates.length) return 0;
+  const report = candidates[candidates.length - 1];
+  const data = report.data_json;
+  if (!data || !data.week) return 0;
+
+  if (_filter.ruad) {
+    const row = data.week.find(r => r.name === _filter.ruad);
+    return row ? row.count : 0;
   }
+  if (_filter.mo) {
+    const row = _findCompRowByMo(data.week, _filter.mo);
+    return row ? row.count : 0;
+  }
+  const omsRow = data.week.find(r => r.name === 'ОМС');
+  const madRow = data.week.find(r => r.name === 'МАД');
+  if (_filter.org === 'oms') return omsRow ? omsRow.count : 0;
+  if (_filter.org === 'mad') return madRow ? madRow.count : 0;
+  return (omsRow ? omsRow.count : 0) + (madRow ? madRow.count : 0);
+}
 
   // ════════════════════════════════════════════════════════════════════════════
   //  REPORTS PAGE — новая реализация под HTML с тремя кнопками
