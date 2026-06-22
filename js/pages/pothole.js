@@ -60,6 +60,71 @@ const PotholePage = (() => {
   }
 
   // ════════════════════════════════════════════════════════════════════════════
+  //  HELPERS: работа с датами
+  // ════════════════════════════════════════════════════════════════════════════
+
+  /** Сегодняшняя дата в формате YYYY-MM-DD */
+  function _todayISO() {
+    return _toISO(new Date());
+  }
+
+  /** Дата N дней назад от сегодня в формате YYYY-MM-DD */
+  function _daysAgoISO(n) {
+    const d = new Date();
+    d.setDate(d.getDate() - n);
+    return _toISO(d);
+  }
+
+  /**
+   * Находит последний отчёт в истории с датой <= targetISO.
+   * Если targetISO не передан — берёт самый последний.
+   */
+  function _findLatestBefore(history, targetISO) {
+    if (!history || !history.length) return null;
+    const sorted = [...history].sort((a, b) => a.report_date > b.report_date ? 1 : -1);
+    if (!targetISO) return sorted[sorted.length - 1];
+    // ищем последний с датой <= targetISO
+    let best = null;
+    for (const r of sorted) {
+      if (r.report_date <= targetISO) best = r;
+      else break;
+    }
+    return best;
+  }
+
+  /**
+   * Считает сумму поля field из отчёта (regional/municipal),
+   * применяя фильтр по nameFilter.
+   */
+  function _sumReportField(report, field, nameFilter) {
+    if (!report) return 0;
+    const rows = nameFilter
+      ? (report.data_json || []).filter(r => r.name === nameFilter)
+      : (report.data_json || []);
+    return rows.reduce((s, r) => s + (r[field] || 0), 0);
+  }
+
+  /**
+   * Считает жалобы из отчёта complaints с учётом фильтров.
+   */
+  function _sumCompReport(report, useReg, useMun) {
+    if (!report) return 0;
+    const data = report.data_json;
+    if (!data || !data.week) return 0;
+    if (_filter.ruad) {
+      const row = (data.week || []).find(r => r.name === _filter.ruad);
+      return row ? row.count : 0;
+    }
+    if (_filter.mo) {
+      const row = _findCompRowByMo(data.week, _filter.mo);
+      return row ? row.count : 0;
+    }
+    const omsRow = useMun ? data.week.find(r => r.name === 'ОМС') : null;
+    const madRow = useReg ? data.week.find(r => r.name === 'МАД') : null;
+    return (omsRow ? omsRow.count : 0) + (madRow ? madRow.count : 0);
+  }
+
+  // ════════════════════════════════════════════════════════════════════════════
   //  DASHBOARD RENDER
   // ════════════════════════════════════════════════════════════════════════════
   function _applyRuadFilter(rows) {
@@ -80,15 +145,6 @@ const PotholePage = (() => {
     if (!rows || !moName) return null;
     const needle = _normalizeMoName(moName);
     return rows.find(r => _normalizeMoName(r.name) === needle) || null;
-  }
-
-  function _applyOrgFilter(compDataJson) {
-    if (!compDataJson || _filter.org === 'all') return compDataJson;
-    const targetName = _filter.org === 'oms' ? 'ОМС' : 'МАД';
-    return {
-      total: (compDataJson.total || []).filter(r => r.name === targetName || r.type === _filter.org),
-      week:  (compDataJson.week  || []).filter(r => r.name === targetName || r.type === _filter.org),
-    };
   }
 
   function _getRuadOptions() {
@@ -179,8 +235,7 @@ const PotholePage = (() => {
   function _applyFiltersAndRedraw() {
     _renderKPIs();
     _renderDonuts();
-    const sel = document.getElementById('ph-week-month');
-    if (sel && sel.value) _drawWeeklyChart(sel.value);
+    _redrawWeeklyChart();
   }
 
   function _renderDashboard() {
@@ -201,109 +256,75 @@ const PotholePage = (() => {
     _renderWeekly();
   }
 
-  // ── KPI ─────────────────────────────────────────────────────────────────────
+  // ── KPI — скользящее окно 7 дней от сегодня ─────────────────────────────────
   function _renderKPIs() {
     const useReg = _filter.org !== 'oms';
     const useMun = _filter.org !== 'mad';
 
-    const regData = useReg
-      ? (_filter.ruad
-          ? (_latest.regional?.data_json || []).filter(r => r.name === _filter.ruad)
-          : (_latest.regional?.data_json || []))
-      : [];
+    const today   = _todayISO();
+    const weekAgo = _daysAgoISO(7);
 
-    const munData = useMun
-      ? (_filter.mo
-          ? (_latest.municipal?.data_json || []).filter(r => r.name === _filter.mo)
-          : (_latest.municipal?.data_json || []))
-      : [];
+    // ── Зарегистрировано и Устранено ──
+    // Берём отчёт, ближайший к сегодняшнему дню, и отчёт 7 дней назад
+    const curRegReport  = useReg ? _findLatestBefore(_history.regional,  today)   : null;
+    const prevRegReport = useReg ? _findLatestBefore(_history.regional,  weekAgo) : null;
+    const curMunReport  = useMun ? _findLatestBefore(_history.municipal, today)   : null;
+    const prevMunReport = useMun ? _findLatestBefore(_history.municipal, weekAgo) : null;
 
-    const totalReg = regData.reduce((s, r) => s + (r.registered || 0), 0)
-                   + munData.reduce((s, r) => s + (r.registered || 0), 0);
-    const totalFix = regData.reduce((s, r) => s + (r.fixed || 0), 0)
-                   + munData.reduce((s, r) => s + (r.fixed || 0), 0);
+    const curReg  = _sumReportField(curRegReport,  'registered', _filter.ruad)
+                  + _sumReportField(curMunReport,  'registered', _filter.mo);
+    const prevReg = _sumReportField(prevRegReport, 'registered', _filter.ruad)
+                  + _sumReportField(prevMunReport, 'registered', _filter.mo);
 
-    const compData = _latest.complaints ? _latest.complaints.data_json : null;
-    let totalComp = 0;
-    if (compData) {
-      if (_filter.ruad) {
-        const row = (compData.week || []).find(r => r.name === _filter.ruad);
-        totalComp = row ? row.count : 0;
-      } else if (_filter.mo) {
-        const row = _findCompRowByMo(compData.week, _filter.mo);
-        totalComp = row ? row.count : 0;
-      } else {
-        const omsRow = (_filter.org !== 'mad') ? (compData.week || []).find(r => r.name === 'ОМС') : null;
-        const madRow = (_filter.org !== 'oms') ? (compData.week || []).find(r => r.name === 'МАД') : null;
-        totalComp = (omsRow ? omsRow.count : 0) + (madRow ? madRow.count : 0);
-      }
-    }
+    const curFix  = _sumReportField(curRegReport,  'fixed', _filter.ruad)
+                  + _sumReportField(curMunReport,  'fixed', _filter.mo);
+    const prevFix = _sumReportField(prevRegReport, 'fixed', _filter.ruad)
+                  + _sumReportField(prevMunReport, 'fixed', _filter.mo);
 
-    _setKPI('ph-kpi-reg',  totalReg,  _latest.regional   ? _latest.regional.report_date   : null, 'ph-kpi-reg-date',  'ph-kpi-reg-delta',  'registered', false);
-    _setKPI('ph-kpi-fix',  totalFix,  _latest.regional   ? _latest.regional.report_date   : null, 'ph-kpi-fix-date',  'ph-kpi-fix-delta',  'fixed',      false);
-    _setKPI('ph-kpi-comp', totalComp, _latest.complaints ? _latest.complaints.report_date : null, 'ph-kpi-comp-date', 'ph-kpi-comp-delta', 'complaints', true);
+    // ── Жалобы ──
+    const curCompReport  = _findLatestBefore(_history.complaints, today);
+    const prevCompReport = _findLatestBefore(_history.complaints, weekAgo);
+
+    const curComp  = _sumCompReport(curCompReport,  useReg, useMun);
+    const prevComp = _sumCompReport(prevCompReport, useReg, useMun);
+
+    // Дата последнего отчёта для подписи
+    const regDate  = curRegReport?.report_date  || curMunReport?.report_date  || null;
+    const compDate = curCompReport?.report_date || null;
+
+    _setKPI('ph-kpi-reg',  curReg,  prevReg,  regDate,  'ph-kpi-reg-date',  'ph-kpi-reg-delta',  false);
+    _setKPI('ph-kpi-fix',  curFix,  prevFix,  regDate,  'ph-kpi-fix-date',  'ph-kpi-fix-delta',  false);
+    _setKPI('ph-kpi-comp', curComp, prevComp, compDate, 'ph-kpi-comp-date', 'ph-kpi-comp-delta', true);
   }
 
   /**
-   * Считает prevVal для дельты с учётом текущих фильтров org/ruad/mo.
-   * @param {string}  histField   'registered' | 'fixed' | 'complaints'
-   * @param {boolean} invertDelta true — жалобы: рост → красный, падение → зелёный
+   * Обновляет один KPI-блок.
+   * @param {string}  valId        id элемента значения
+   * @param {number}  curVal       текущее значение
+   * @param {number}  prevVal      значение 7 дней назад
+   * @param {string|null} date     дата отчёта (ISO)
+   * @param {string}  dateId       id элемента даты
+   * @param {string}  deltaId      id элемента дельты
+   * @param {boolean} invertDelta  true → рост красный (жалобы)
    */
-  function _setKPI(valId, curVal, date, dateId, deltaId, histField, invertDelta) {
+  function _setKPI(valId, curVal, prevVal, date, dateId, deltaId, invertDelta) {
     document.getElementById(valId).textContent = curVal.toLocaleString('ru');
-    if (date) document.getElementById(dateId).textContent = 'Дата отчёта: ' + _fmtDate(date);
 
-    const useReg = _filter.org !== 'oms';
-    const useMun = _filter.org !== 'mad';
+    const dateEl = document.getElementById(dateId);
+    if (dateEl) {
+      dateEl.textContent = date
+        ? 'Отчёт: ' + _fmtDate(date) + ' (Δ 7 дн. от ' + _fmtDate(_daysAgoISO(7)) + ')'
+        : '';
+    }
 
     const el = document.getElementById(deltaId);
+    if (!el) return;
 
-    if (histField === 'complaints') {
-      const hist = _history.complaints || [];
-      if (hist.length < 2) { el.textContent = 'первый отчёт'; el.className = 'ph-kpi-delta neu'; return; }
-      const weekData = hist[hist.length - 2].data_json?.week || [];
-      let prevVal = 0;
-      if (_filter.ruad) {
-        const row = weekData.find(r => r.name === _filter.ruad);
-        prevVal = row ? row.count : 0;
-      } else if (_filter.mo) {
-        const row = _findCompRowByMo(weekData, _filter.mo);
-        prevVal = row ? row.count : 0;
-      } else {
-        const oR = useReg ? weekData.find(r => r.name === 'МАД') : null;
-        const mR = useMun ? weekData.find(r => r.name === 'ОМС') : null;
-        prevVal = (oR ? oR.count : 0) + (mR ? mR.count : 0);
-      }
-      _applyDelta(el, curVal, prevVal, invertDelta);
-      return;
-    }
-
-    // registered / fixed
-    const histReg = _history.regional  || [];
-    const histMun = _history.municipal || [];
-
-    const hasPrevReg = useReg && histReg.length >= 2;
-    const hasPrevMun = useMun && histMun.length >= 2;
-    if (!hasPrevReg && !hasPrevMun) {
-      el.textContent = 'первый отчёт';
+    // Если предыдущего отчёта нет — нет базы для сравнения
+    if (prevVal === 0 && curVal === 0) {
+      el.textContent = 'нет данных';
       el.className   = 'ph-kpi-delta neu';
       return;
-    }
-
-    let prevVal = 0;
-
-    if (hasPrevReg) {
-      const prevRows = _filter.ruad
-        ? (histReg[histReg.length - 2].data_json || []).filter(r => r.name === _filter.ruad)
-        : (histReg[histReg.length - 2].data_json || []);
-      prevVal += prevRows.reduce((s, r) => s + (r[histField] || 0), 0);
-    }
-
-    if (hasPrevMun) {
-      const prevRows = _filter.mo
-        ? (histMun[histMun.length - 2].data_json || []).filter(r => r.name === _filter.mo)
-        : (histMun[histMun.length - 2].data_json || []);
-      prevVal += prevRows.reduce((s, r) => s + (r[histField] || 0), 0);
     }
 
     _applyDelta(el, curVal, prevVal, invertDelta);
@@ -368,15 +389,23 @@ const PotholePage = (() => {
     _charts['donut-comp'] = PotholeCharts.donut('ph-chart-comp-donut', [omsC, madC],           ['ОМС (муниципальные)', 'МАД (региональные)'], _charts['donut-comp']);
   }
 
-  // ── Weekly — делегируем в PotholeCharts ─────────────────────────────────────
+  // ════════════════════════════════════════════════════════════════════════════
+  //  WEEKLY CHART — скользящая неделя + выбор месяца
+  // ════════════════════════════════════════════════════════════════════════════
+
+  // Текущий режим: 'week7' | YYYY-MM
+  let _weeklyMode = 'week7';
+
   function _renderWeekly() {
-    _buildMonthSelector();
+    _buildWeeklyControls();
   }
 
-  function _buildMonthSelector() {
-    const sel = document.getElementById('ph-week-month');
+  function _buildWeeklyControls() {
+    const sel     = document.getElementById('ph-week-month');
+    const weekBtn = document.getElementById('ph-week-btn-7days');
     if (!sel) return;
 
+    // Собираем уникальные YYYY-MM из истории
     const months = new Set();
     ['regional', 'municipal', 'complaints'].forEach(t => {
       (_history[t] || []).forEach(r => {
@@ -386,26 +415,124 @@ const PotholePage = (() => {
     });
 
     const sorted = Array.from(months).sort().reverse();
-    if (!sorted.length) {
+
+    // Строим <option> для месяцев
+    if (sorted.length) {
+      sel.innerHTML = sorted.map(m => {
+        const [y, mo] = m.split('-');
+        const name = new Date(+y, +mo - 1, 1).toLocaleDateString('ru', { month: 'long', year: 'numeric' });
+        return `<option value="${m}">${name}</option>`;
+      }).join('');
+    } else {
       sel.innerHTML = '<option value="">Нет данных</option>';
+    }
+
+    // Обработчики переключения режима
+    if (weekBtn && !weekBtn._bound) {
+      weekBtn._bound = true;
+      weekBtn.addEventListener('click', () => {
+        _weeklyMode = 'week7';
+        _syncWeeklyControls();
+        _redrawWeeklyChart();
+      });
+    }
+
+    sel.onchange = () => {
+      if (sel.value) {
+        _weeklyMode = sel.value;
+        _syncWeeklyControls();
+        _redrawWeeklyChart();
+      }
+    };
+
+    // Устанавливаем начальный режим
+    _syncWeeklyControls();
+    _redrawWeeklyChart();
+  }
+
+  /** Синхронизирует визуальное состояние кнопки и селектора с _weeklyMode */
+  function _syncWeeklyControls() {
+    const sel     = document.getElementById('ph-week-month');
+    const weekBtn = document.getElementById('ph-week-btn-7days');
+
+    if (_weeklyMode === 'week7') {
+      if (weekBtn) weekBtn.classList.add('active');
+      if (sel) sel.style.opacity = '0.5';
+    } else {
+      if (weekBtn) weekBtn.classList.remove('active');
+      if (sel) {
+        sel.style.opacity = '1';
+        // Устанавливаем значение селектора, если оно есть среди опций
+        const opts = Array.from(sel.options).map(o => o.value);
+        if (opts.includes(_weeklyMode)) sel.value = _weeklyMode;
+      }
+    }
+  }
+
+  function _redrawWeeklyChart() {
+    if (_weeklyMode === 'week7') {
+      _drawWeek7Chart();
+    } else {
+      _drawMonthChart(_weeklyMode);
+    }
+  }
+
+  // ── Режим «Последние 7 дней» от сегодня ─────────────────────────────────
+  function _drawWeek7Chart() {
+    const today   = _todayISO();
+    const weekAgo = _daysAgoISO(7);
+    const useReg  = _filter.org !== 'oms';
+    const useMun  = _filter.org !== 'mad';
+
+    // Собираем все даты отчётов в диапазоне [weekAgo, today]
+    const allDates = new Set();
+    ['regional', 'municipal', 'complaints'].forEach(type => {
+      (_history[type] || []).forEach(r => {
+        if (r.report_date >= weekAgo && r.report_date <= today) {
+          allDates.add(r.report_date);
+        }
+      });
+    });
+
+    // Если в диапазоне нет отчётов — показываем пустой график с подсказкой
+    if (!allDates.size) {
+      const today2 = _todayISO();
+      // Проверяем есть ли вообще хоть какие-то данные
+      const hasAny = ['regional','municipal','complaints'].some(t => (_history[t] || []).length > 0);
+      const points = hasAny
+        ? [{ label: 'Нет отчётов за 7 дн.', registered: 0, fixed: 0, complaints: 0 }]
+        : [{ label: 'Нет данных', registered: 0, fixed: 0, complaints: 0 }];
+      _charts['weekly'] = PotholeCharts.weekly('ph-chart-weekly', points, _charts['weekly']);
       return;
     }
 
-    const prev = sel.value;
-    sel.innerHTML = sorted.map(m => {
-      const [y, mo] = m.split('-');
-      const name = new Date(+y, +mo - 1, 1).toLocaleDateString('ru', { month: 'long', year: 'numeric' });
-      return `<option value="${m}">${name}</option>`;
-    }).join('');
+    const sortedDates = Array.from(allDates).sort();
 
-    if (prev && sorted.includes(prev)) sel.value = prev;
-    else sel.value = sorted[0];
+    const weekData = sortedDates.map(date => {
+      const regRep  = useReg ? _findLatestBefore(_history.regional,  date) : null;
+      const munRep  = useMun ? _findLatestBefore(_history.municipal, date) : null;
+      const compRep = _findLatestBefore(_history.complaints, date);
 
-    sel.onchange = () => _drawWeeklyChart(sel.value);
-    _drawWeeklyChart(sel.value);
+      // Берём только отчёты с этой точной датой (иначе получим накопленное)
+      const regRepExact  = (regRep  && regRep.report_date  === date) ? regRep  : null;
+      const munRepExact  = (munRep  && munRep.report_date  === date) ? munRep  : null;
+      const compRepExact = (compRep && compRep.report_date === date) ? compRep : null;
+
+      return {
+        label:      _fmtDate(date),
+        registered: _sumReportField(regRepExact,  'registered', _filter.ruad)
+                  + _sumReportField(munRepExact,  'registered', _filter.mo),
+        fixed:      _sumReportField(regRepExact,  'fixed', _filter.ruad)
+                  + _sumReportField(munRepExact,  'fixed', _filter.mo),
+        complaints: _sumCompReport(compRepExact, useReg, useMun),
+      };
+    });
+
+    _charts['weekly'] = PotholeCharts.weekly('ph-chart-weekly', weekData, _charts['weekly']);
   }
 
-  function _drawWeeklyChart(ym) {
+  // ── Режим «По неделям месяца» ────────────────────────────────────────────
+  function _drawMonthChart(ym) {
     if (!ym) return;
     const [year, month] = ym.split('-').map(Number);
     const weeks = _getWeeksOfMonth(year, month);
