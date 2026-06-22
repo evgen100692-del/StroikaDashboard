@@ -509,8 +509,9 @@ const server = http.createServer(async (req, res) => {
 
   // ════════════════════════════════════════════════════════════════════════════
   //  Статические файлы
+  //  Маршрут "/" → index.html (страница выбора дашборда)
   // ════════════════════════════════════════════════════════════════════════════
-  let filePath = path.join(__dirname, url === '/' ? 'dashboard-construction-analytics.html' : url);
+  let filePath = path.join(__dirname, url === '/' ? 'index.html' : url);
   const ext = path.extname(filePath);
   if (!ext) filePath += '.html';
 
