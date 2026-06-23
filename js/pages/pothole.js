@@ -58,6 +58,7 @@ const PotholePage = (() => {
 
       _renderDashboard();
       _renderReportsPage();
+      refreshRating();   // ← обновляем страницу Рейтинг после загрузки данных
     } catch (e) {
       console.error('[PotholePage] reload error', e);
     }
@@ -879,6 +880,18 @@ const PotholePage = (() => {
   }
 
   // ════════════════════════════════════════════════════════════════════════════
+  //  RATING PAGE
+  // ════════════════════════════════════════════════════════════════════════════
+
+  // ── обновление страницы Рейтинг ────────────────────────────────────────────
+  function refreshRating() {
+    if (typeof PotholeRating === 'undefined') return;
+    const ruadNames = _getRuadOptions();   // массив строк из _latest.regional
+    const moNames   = _getMoOptions();     // массив строк из _latest.municipal
+    PotholeRating.init(ruadNames, moNames);
+  }
+
+  // ════════════════════════════════════════════════════════════════════════════
   //  HELPERS
   // ════════════════════════════════════════════════════════════════════════════
   function _fmtDate(iso) {
@@ -905,5 +918,5 @@ const PotholePage = (() => {
   function getChart(key) { return _charts[key] || null; }
   function setChart(key, chart) { _charts[key] = chart; }
 
-  return { init, refresh: _reload, refreshReports: _reload, getChart, setChart };
+  return { init, refresh: _reload, refreshReports: _reload, refreshRating, getChart, setChart };
 })();
