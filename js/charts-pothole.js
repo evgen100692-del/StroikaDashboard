@@ -17,8 +17,6 @@ const PotholeCharts = (() => {
   };
 
   // ── Плагин центрального текста пончика ───────────────────────────────────
-  // Рисует цифры через afterDraw (после всего рендера canvas).
-  // Tooltip тоже вынесен в DOM (см. ниже), поэтому они не перекрывают друг друга.
   const centerTextPlugin = {
     id: 'doughnutCenterText',
     afterDraw(chart) {
@@ -41,9 +39,7 @@ const PotholeCharts = (() => {
     },
   };
 
-  // ── Общий external-tooltip для пончиков и недельного графика ─────────────
-  // Толтип рендерится как DOM-элемент с position:fixed и z-index:99999,
-  // поэтому он неизбежно поверх canvas (и centerText в нём в том числе).
+  // ── Общий external-tooltip ─────────────────────────────────────────────────
   const TOOLTIP_ID = 'ph-chart-tooltip';
 
   function _getOrCreateTooltipEl() {
@@ -90,11 +86,9 @@ const PotholeCharts = (() => {
       const dsIdx = dp?.datasetIndex ?? 0;
       const dIdx  = dp?.dataIndex    ?? 0;
       const ds    = chart.data.datasets[dsIdx];
-      // Для пончика backgroundColor может быть массивом
       const rawColor = Array.isArray(ds?.backgroundColor)
         ? ds.backgroundColor[dIdx]
         : (ds?.borderColor || '#888');
-      // Убираем альфа-суффикс 'cc' чтобы цвет шпарки был чистым
       const color = typeof rawColor === 'string' ? rawColor.replace(/cc$/, '') : rawColor;
       const text  = b.lines?.[0] || '';
       return `<div style="display:flex;align-items:center;gap:7px;">
@@ -171,7 +165,6 @@ const PotholeCharts = (() => {
             },
           },
           tooltip: {
-            // Толтип вынесен в DOM — цифры centerText на canvas его не перекроют
             enabled:  false,
             external: _externalTooltipHandler,
           },
@@ -200,6 +193,16 @@ const PotholeCharts = (() => {
     if (!canvas) return null;
     const col  = chartPalette();
     const font = fontFamily();
+
+    // Общие параметры баров: занимают 80% ячейки, плотно
+    const barCfg = {
+      barPercentage:      0.85,
+      categoryPercentage: 0.75,
+      borderRadius:       4,
+      borderWidth:        1,
+      minBarLength:       2,
+    };
+
     return new Chart(canvas, {
       type: 'bar',
       data: {
@@ -210,24 +213,21 @@ const PotholeCharts = (() => {
             data:            data.map(d => d.registered),
             backgroundColor: col[0] + 'cc',
             borderColor:     col[0],
-            borderWidth:     1,
-            borderRadius:    4,
+            ...barCfg,
           },
           {
             label:           'Устранено ям',
             data:            data.map(d => d.fixed),
             backgroundColor: col[3] + 'cc',
             borderColor:     col[3],
-            borderWidth:     1,
-            borderRadius:    4,
+            ...barCfg,
           },
           {
             label:           'Жалобы',
             data:            data.map(d => d.complaints),
             backgroundColor: col[1] + 'cc',
             borderColor:     col[1],
-            borderWidth:     1,
-            borderRadius:    4,
+            ...barCfg,
           },
         ],
       },
@@ -235,10 +235,22 @@ const PotholeCharts = (() => {
         responsive:          true,
         maintainAspectRatio: false,
         animation: { duration: 600, easing: 'easeOutQuart' },
+        layout: { padding: { left: 0, right: 0, top: 4, bottom: 0 } },
         scales: {
           x: {
+            // bounds:'data' — ось растягивается строго по меткам,
+            // первый бар всегда у левого края chartArea
+            bounds:          'data',
+            alignToPixels:   true,
+            offset:          true,
             grid:  { color: borderColor() + '55' },
-            ticks: { color: mutedColor(), font: { family: font, size: 12 } },
+            ticks: {
+              color:        mutedColor(),
+              font:         { family: font, size: 11 },
+              maxRotation:  0,
+              autoSkip:     true,
+              maxTicksLimit: 12,
+            },
           },
           y: {
             beginAtZero: true,
