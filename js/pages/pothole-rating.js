@@ -1,5 +1,5 @@
 // js/pages/pothole-rating.js
-// Модуль «Метаданные» — заполнение протяжённости сети и населения по PYAD/MO
+// Модуль «Рейтинг» — таблица рейтинга РУАД (и будущая МАД)
 
 const PotholeRating = (() => {
   'use strict';
@@ -8,22 +8,30 @@ const PotholeRating = (() => {
   let _meta      = [];   // кэш из /api/pothole/metadata
   let _ruadNames = [];
   let _moNames   = [];
+  let _latestRegional   = null;   // последний региональный отчёт
+  let _latestComplaints = null;   // последний отчёт по жалобам
+
+  // активная таблица рейтинга
+  let _ratingTab = 'ruad';   // 'ruad' | 'mad'
 
   // активная вкладка в каждом модале: 'ruad' | 'mo'
   let _netTab = 'ruad';
   let _popTab = 'ruad';
 
   // ── Инициализация ──────────────────────────────────────────────────────────
-  function init(ruadNames, moNames) {
-    _ruadNames = ruadNames || [];
-    _moNames   = moNames   || [];
+  function init(ruadNames, moNames, latestRegional, latestComplaints) {
+    _ruadNames        = ruadNames        || [];
+    _moNames          = moNames          || [];
+    _latestRegional   = latestRegional   || null;
+    _latestComplaints = latestComplaints || null;
     _bindButtons();
+    _renderRatingContent();
   }
 
   // ── Привязка кнопок ────────────────────────────────────────────────────────
   function _bindButtons() {
-    const btnNet = document.getElementById('ph-rating-btn-ruad');   // кнопка «Протяжённость сети»
-    const btnPop = document.getElementById('ph-rating-btn-mo');     // кнопка «Население»
+    const btnNet = document.getElementById('ph-rating-btn-ruad');   // «Протяжённость сети»
+    const btnPop = document.getElementById('ph-rating-btn-mo');     // «Население»
 
     if (btnNet) {
       btnNet.onclick = null;
@@ -34,14 +42,12 @@ const PotholeRating = (() => {
       btnPop.addEventListener('click', () => _openModal('population'));
     }
 
-    // Привязать вкладки и сохранение в обоих модалах
     _bindModalEvents('network');
     _bindModalEvents('population');
   }
 
   // ── Открыть модальное окно ─────────────────────────────────────────────────
   async function _openModal(type) {
-    // Загружаем актуальные метаданные
     try {
       const r = await fetch('/api/pothole/metadata');
       _meta = await r.json();
@@ -67,7 +73,6 @@ const PotholeRating = (() => {
     if (!modal) return;
 
     modal.addEventListener('click', e => {
-      // Вкладка
       const tabBtn = e.target.closest('[data-ph-meta-tab]');
       if (tabBtn) {
         const tab = tabBtn.dataset.phMetaTab;
@@ -76,7 +81,6 @@ const PotholeRating = (() => {
         _renderModalBody(type, tab);
         return;
       }
-      // Кнопка «Сохранить»
       const saveBtn = e.target.closest('[data-ph-meta-save]');
       if (saveBtn) {
         _saveModal(type);
@@ -91,7 +95,7 @@ const PotholeRating = (() => {
     const body     = document.getElementById(bodyId);
     if (!body) return;
 
-    const orgType     = tab;   // 'ruad' | 'mo'
+    const orgType     = tab;
     const names       = tab === 'ruad' ? _ruadNames : _moNames;
     const field       = type === 'network' ? 'net_length' : 'population';
     const fieldLabel  = type === 'network' ? 'Протяжённость сети (км)' : 'Население (чел.)';
@@ -125,7 +129,6 @@ const PotholeRating = (() => {
     } else {
       const rows = names.map(name => {
         const existing = _meta.find(m => m.org_type === orgType && m.name === name);
-        // Используем != null чтобы 0 тоже отображался (0 != null → true)
         const val = (existing && existing[field] != null) ? existing[field] : '';
         return `
           <tr>
@@ -161,20 +164,19 @@ const PotholeRating = (() => {
       <div class="form-actions" style="margin-top:var(--space-4);padding-top:var(--space-4);border-top:1px solid var(--color-border)">
         <button class="btn btn-ghost" type="button" onclick="closeModal('${modalId}')">Отмена</button>
         <button class="btn btn-primary" type="button" data-ph-meta-save>
-          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg>
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M19 21H5a2 2 0 0 1-2 2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg>
           Сохранить
         </button>
       </div>`;
   }
 
-  // ── Безопасное преобразование (0 → 0, '' → null, 'abc' → null) ───────────
+  // ── Сохранение данных ──────────────────────────────────────────────────────
   function _toFloatOrNull(val) {
     if (val === '' || val === null || val === undefined) return null;
     const n = parseFloat(String(val));
     return isNaN(n) ? null : n;
   }
 
-  // ── Сохранение данных ────────────────────────────────────────────────────────
   async function _saveModal(type) {
     const bodyId  = type === 'network' ? 'rating-ruad-body' : 'rating-mo-body';
     const modalId = type === 'network' ? 'rating-ruad-modal' : 'rating-mo-modal';
@@ -192,8 +194,6 @@ const PotholeRating = (() => {
       const org_type = inp.dataset.org;
       const name     = inp.dataset.name;
       const rawVal   = inp.value.trim();
-      // Передаём строку как есть — сервер сам применит toFloatOrNull
-      // Пустая строка → сервер запишет NULL; число (в т.ч. 0) → сохранится корректно
       try {
         await fetch('/api/pothole/metadata', {
           method:  'POST',
@@ -205,7 +205,7 @@ const PotholeRating = (() => {
       }
     }));
 
-    // Обновить кэш — данные подтянутся при следующем открытии модала
+    // Обновляем кэш метаданных
     try {
       const r = await fetch('/api/pothole/metadata');
       _meta = await r.json();
@@ -218,10 +218,249 @@ const PotholeRating = (() => {
     } else {
       if (typeof Toast !== 'undefined') Toast.success('Данные сохранены');
       if (typeof closeModal === 'function') closeModal(modalId);
+      // Перерисовываем таблицу рейтинга с новыми данными
+      _renderRatingContent();
     }
   }
 
+  // ══════════════════════════════════════════════════════════════════════════
+  //  РЕЙТИНГ РУАД
+  // ══════════════════════════════════════════════════════════════════════════
+
+  /**
+   * Рендерит блок переключения вкладок и вызывает нужную таблицу.
+   */
+  function _renderRatingContent() {
+    const container = document.getElementById('ph-rating-content');
+    if (!container) return;
+
+    container.innerHTML = `
+      <div class="ph-rating-tabs-row">
+        <div class="ph-seg" role="group" aria-label="Таблица рейтинга">
+          <button class="ph-seg-btn${_ratingTab === 'ruad' ? ' active' : ''}" data-rating-tab="ruad" type="button">
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/></svg>
+            Рейтинг РУАД
+          </button>
+          <button class="ph-seg-btn${_ratingTab === 'mad' ? ' active' : ''}" data-rating-tab="mad" type="button">
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="7" width="20" height="14" rx="2"/><path d="M16 7V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v2"/></svg>
+            Рейтинг МАД
+          </button>
+        </div>
+      </div>
+      <div id="ph-rating-table-wrap" style="margin-top:var(--space-4)"></div>`;
+
+    // Навешиваем переключение вкладок
+    container.querySelectorAll('[data-rating-tab]').forEach(btn => {
+      btn.addEventListener('click', () => {
+        _ratingTab = btn.dataset.ratingTab;
+        container.querySelectorAll('[data-rating-tab]').forEach(b =>
+          b.classList.toggle('active', b.dataset.ratingTab === _ratingTab)
+        );
+        _renderRatingTable();
+      });
+    });
+
+    _renderRatingTable();
+  }
+
+  /**
+   * Рендерит таблицу рейтинга для активной вкладки.
+   */
+  function _renderRatingTable() {
+    const wrap = document.getElementById('ph-rating-table-wrap');
+    if (!wrap) return;
+
+    if (_ratingTab === 'ruad') {
+      wrap.innerHTML = _buildRuadTable();
+    } else {
+      wrap.innerHTML = _buildMadPlaceholder();
+    }
+  }
+
+  /**
+   * Строит HTML таблицы рейтинга РУАД.
+   * Формула рейтинга:
+   *   (Зарег/Протяж)*0.2 + (Отрем/Протяж)*0.3 + (1 - (Жалобы/Население)*1000)*0.5
+   */
+  function _buildRuadTable() {
+    if (!_ruadNames.length) {
+      return `<article class="card">
+        <div class="card-body">
+          <div class="ph-rep-empty">
+            <svg width="44" height="44" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+            <h3>Нет данных</h3>
+            <p>Загрузите региональные отчёты ямочного ремонта — список РУАД заполнится автоматически.</p>
+          </div>
+        </div>
+      </article>`;
+    }
+
+    // Собираем данные по каждому РУАД
+    const regData  = (_latestRegional   && _latestRegional.data_json)   ? _latestRegional.data_json   : [];
+    const compData = (_latestComplaints && _latestComplaints.data_json)  ? _latestComplaints.data_json  : null;
+
+    // Жалобы по РУАД из complaints (МАД): строки type='mad', name = имя РУАД
+    const compByName = {};
+    if (compData && compData.total) {
+      compData.total
+        .filter(r => r.type === 'mad' && r.name !== 'МАД')
+        .forEach(r => { compByName[r.name] = r.count; });
+    }
+
+    // Строим строки
+    const rows = _ruadNames.map(name => {
+      const regRow = regData.find(r => r.name === name);
+      const meta   = _meta.find(m => m.org_type === 'ruad' && m.name === name);
+
+      const registered = regRow ? (regRow.registeredTotal ?? regRow.registered ?? 0) : 0;
+      const repaired   = regRow ? (regRow.fixedTotal       ?? regRow.fixed       ?? 0) : 0;
+      const complaints = compByName[name] != null ? compByName[name] : null;
+      const netLength  = (meta && meta.net_length  != null) ? meta.net_length  : null;
+      const population = (meta && meta.population  != null) ? meta.population  : null;
+
+      const rating = _calcRating(registered, repaired, complaints, netLength, population);
+
+      return { name, registered, repaired, complaints, netLength, population, rating };
+    });
+
+    // Сортируем: строки с рассчитанным рейтингом — по убыванию; без данных — в конец
+    rows.sort((a, b) => {
+      if (a.rating !== null && b.rating !== null) return b.rating - a.rating;
+      if (a.rating !== null) return -1;
+      if (b.rating !== null) return  1;
+      return a.name.localeCompare(b.name, 'ru');
+    });
+
+    // Нумеруем только строки с рассчитанным рейтингом
+    let rank = 1;
+    const rowsHtml = rows.map(r => {
+      const hasRating = r.rating !== null;
+      const rankCell  = hasRating ? `<td class="ph-rating-rank">${rank++}</td>` : `<td class="ph-rating-rank" style="color:var(--color-text-faint)">—</td>`;
+
+      const netLenStr  = r.netLength  != null ? _fmtNum(r.netLength,  2) : _missingBadge('Не задано');
+      const popStr     = r.population != null ? _fmtNum(r.population, 0) : _missingBadge('Не задано');
+      const compStr    = r.complaints != null ? _fmtNum(r.complaints, 0) : _missingBadge('Нет данных');
+      const ratingStr  = hasRating
+        ? `<span class="ph-rating-score" style="${_ratingColor(r.rating)}">${r.rating.toFixed(4)}</span>`
+        : _missingBadge('Недостаточно данных');
+
+      return `<tr>
+        ${rankCell}
+        <td>${_esc(r.name)}</td>
+        <td style="text-align:right;font-variant-numeric:tabular-nums">${netLenStr}</td>
+        <td style="text-align:right;font-variant-numeric:tabular-nums">${popStr}</td>
+        <td style="text-align:right;font-variant-numeric:tabular-nums">${_fmtNum(r.registered, 0)}</td>
+        <td style="text-align:right;font-variant-numeric:tabular-nums">${_fmtNum(r.repaired,   0)}</td>
+        <td style="text-align:right;font-variant-numeric:tabular-nums">${compStr}</td>
+        <td style="text-align:center">${ratingStr}</td>
+      </tr>`;
+    }).join('');
+
+    // Дата источника данных
+    const regDate  = _latestRegional   ? _latestRegional.report_date   : null;
+    const compDate = _latestComplaints ? _latestComplaints.report_date : null;
+    const dateLine = [regDate && ('Региональный ремонт: ' + _fmtDate(regDate)), compDate && ('Жалобы: ' + _fmtDate(compDate))]
+      .filter(Boolean).join(' · ');
+
+    // Пояснение по формуле
+    const formulaHint = `
+      <div class="ph-rating-formula-hint">
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <circle cx="12" cy="12" r="10"/>
+          <line x1="12" y1="8" x2="12" y2="12"/>
+          <line x1="12" y1="16" x2="12.01" y2="16"/>
+        </svg>
+        <span>Рейтинг = (Зарег / Протяж) × 0,2 + (Отрем / Протяж) × 0,3 + (1 − (Жалобы / Население) × 1000) × 0,5</span>
+        ${dateLine ? `<span class="ph-rating-src-date">${dateLine}</span>` : ''}
+      </div>`;
+
+    return `
+      <article class="card">
+        <div class="card-header">
+          <div>
+            <div class="card-title">Рейтинг РУАД</div>
+            <div class="card-subtitle">Сортировка по убыванию рейтинга. Чтобы задать протяжённость сети и население — нажмите кнопки в заголовке страницы.</div>
+          </div>
+        </div>
+        ${formulaHint}
+        <div class="card-body" style="padding:0">
+          <div class="data-table-wrap">
+            <table class="data-table ph-rating-table">
+              <thead>
+                <tr>
+                  <th style="width:40px;text-align:center">#</th>
+                  <th>Наименование РУАД</th>
+                  <th style="text-align:right">Протяжённость сети, км</th>
+                  <th style="text-align:right">Население, чел.</th>
+                  <th style="text-align:right">Зарег. с нач. года</th>
+                  <th style="text-align:right">Отрем. с нач. года</th>
+                  <th style="text-align:right">Жалобы с нач. года</th>
+                  <th style="text-align:center">Рейтинг</th>
+                </tr>
+              </thead>
+              <tbody>${rowsHtml}</tbody>
+            </table>
+          </div>
+        </div>
+      </article>`;
+  }
+
+  /**
+   * Вычисляет рейтинг по формуле.
+   * Возвращает null если недостаточно данных (нет протяжённости или населения).
+   */
+  function _calcRating(registered, repaired, complaints, netLength, population) {
+    if (netLength == null || netLength === 0) return null;
+    if (population == null || population === 0) return null;
+    if (complaints == null) return null;
+
+    const part1 = (registered / netLength) * 0.2;
+    const part2 = (repaired   / netLength) * 0.3;
+    const part3 = (1 - (complaints / population) * 1000) * 0.5;
+    return part1 + part2 + part3;
+  }
+
+  /**
+   * Возвращает inline-style для цвета рейтинга:
+   *   > 0.4  → зелёный (хорошо)
+   *   0.2–0.4 → оранжевый
+   *   < 0.2  → красный
+   */
+  function _ratingColor(val) {
+    if (val > 0.4)  return 'color:var(--color-success);font-weight:700';
+    if (val >= 0.2) return 'color:var(--color-warning);font-weight:700';
+    return 'color:var(--color-error);font-weight:700';
+  }
+
+  /** Заглушка для вкладки МАД — пока не реализовано */
+  function _buildMadPlaceholder() {
+    return `<article class="card">
+      <div class="card-body">
+        <div class="ph-rep-empty">
+          <svg width="44" height="44" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M12 20V10"/><path d="M18 20V4"/><path d="M6 20v-4"/></svg>
+          <h3>Рейтинг МАД</h3>
+          <p>Таблица будет добавлена в следующей версии.</p>
+        </div>
+      </div>
+    </article>`;
+  }
+
   // ── Утилиты ────────────────────────────────────────────────────────────────
+  function _fmtNum(val, decimals) {
+    if (val == null) return '—';
+    return Number(val).toLocaleString('ru', { minimumFractionDigits: decimals, maximumFractionDigits: decimals });
+  }
+
+  function _fmtDate(iso) {
+    if (!iso) return '';
+    const d = iso.slice(0, 10).split('-');
+    return d[2] + '.' + d[1] + '.' + d[0];
+  }
+
+  function _missingBadge(text) {
+    return `<span style="font-size:var(--text-xs);color:var(--color-text-faint);font-style:italic">${text}</span>`;
+  }
+
   function _esc(str) {
     return String(str)
       .replace(/&/g, '&amp;')
