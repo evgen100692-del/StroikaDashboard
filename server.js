@@ -176,6 +176,13 @@ async function readBodyRaw(req) {
   });
 }
 
+// ── Безопасное преобразование в число (0 сохраняется как 0, не как NULL) ──────
+function toFloatOrNull(val) {
+  if (val === '' || val === null || val === undefined) return null;
+  const n = parseFloat(String(val).replace(/\s/g, '').replace(',', '.'));
+  return isNaN(n) ? null : n;
+}
+
 // ── Парсер multipart/form-data ────────────────────────────────────────────────
 function parseMultipart(buffer, boundary) {
   const boundaryBuf = Buffer.from('--' + boundary);
@@ -544,10 +551,11 @@ const server = http.createServer(async (req, res) => {
 
       if (existing) {
         // Обновляем только переданные поля
+        // toFloatOrNull: '' → null, число → число (в т.ч. 0 → 0, не null)
         const updates = [];
         const vals    = [];
-        if ('net_length' in body) { updates.push('net_length = ?'); vals.push(body.net_length === '' ? null : parseFloat(body.net_length) || null); }
-        if ('population' in body) { updates.push('population = ?'); vals.push(body.population === '' ? null : parseFloat(body.population) || null); }
+        if ('net_length' in body) { updates.push('net_length = ?'); vals.push(toFloatOrNull(body.net_length)); }
+        if ('population' in body) { updates.push('population = ?'); vals.push(toFloatOrNull(body.population)); }
         if (updates.length) {
           dbRun(
             `UPDATE pothole_metadata SET ${updates.join(', ')} WHERE org_type = ? AND name = ?`,
@@ -560,8 +568,8 @@ const server = http.createServer(async (req, res) => {
           [
             org_type,
             name,
-            'net_length' in body ? (body.net_length === '' ? null : parseFloat(body.net_length) || null) : null,
-            'population' in body ? (body.population === '' ? null : parseFloat(body.population) || null) : null,
+            'net_length' in body ? toFloatOrNull(body.net_length) : null,
+            'population' in body ? toFloatOrNull(body.population) : null,
           ]
         );
       }

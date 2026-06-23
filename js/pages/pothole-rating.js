@@ -125,8 +125,8 @@ const PotholeRating = (() => {
     } else {
       const rows = names.map(name => {
         const existing = _meta.find(m => m.org_type === orgType && m.name === name);
-        const val = existing && existing[field] !== null && existing[field] !== undefined
-          ? existing[field] : '';
+        // Используем != null чтобы 0 тоже отображался (0 != null → true)
+        const val = (existing && existing[field] != null) ? existing[field] : '';
         return `
           <tr>
             <td class="ph-meta-name-cell">${_esc(name)}</td>
@@ -167,6 +167,13 @@ const PotholeRating = (() => {
       </div>`;
   }
 
+  // ── Безопасное преобразование (0 → 0, '' → null, 'abc' → null) ───────────
+  function _toFloatOrNull(val) {
+    if (val === '' || val === null || val === undefined) return null;
+    const n = parseFloat(String(val));
+    return isNaN(n) ? null : n;
+  }
+
   // ── Сохранение данных ────────────────────────────────────────────────────────
   async function _saveModal(type) {
     const bodyId  = type === 'network' ? 'rating-ruad-body' : 'rating-mo-body';
@@ -185,18 +192,20 @@ const PotholeRating = (() => {
       const org_type = inp.dataset.org;
       const name     = inp.dataset.name;
       const rawVal   = inp.value.trim();
+      // Передаём строку как есть — сервер сам применит toFloatOrNull
+      // Пустая строка → сервер запишет NULL; число (в т.ч. 0) → сохранится корректно
       try {
         await fetch('/api/pothole/metadata', {
           method:  'POST',
           headers: { 'Content-Type': 'application/json' },
-          body:    JSON.stringify({ org_type, name, [field]: rawVal === '' ? '' : rawVal }),
+          body:    JSON.stringify({ org_type, name, [field]: rawVal }),
         });
       } catch (e) {
         errCount++;
       }
     }));
 
-    // Обновить кэш
+    // Обновить кэш — данные подтянутся при следующем открытии модала
     try {
       const r = await fetch('/api/pothole/metadata');
       _meta = await r.json();
