@@ -394,51 +394,73 @@ const PotholePage = (() => {
   }
 
   // ════════════════════════════════════════════════════════════════════════════
-  //  WEEKLY CHART — 12 последних недель от сегодня
+  //  WEEKLY CHART
   // ════════════════════════════════════════════════════════════════════════════
 
   /**
-   * Возвращает массив из N объектов { from, to, label },
-   * порядок: старые → новые (index 0 = самая старая, index N-1 = текущая).
+   * Самая поздняя report_date среди всей загруженной истории.
+   * Fallback на сегодня.
    */
-/**
- * Берёт самую позднюю report_date среди всей загруженной истории.
- * Fallback на сегодня, если данных ещё нет.
- */
-function _getAnchorDate() {
-  const dates = [];
-  ['regional', 'municipal', 'complaints'].forEach(key => {
-    const h = _history[key];
-    if (h && h.length) dates.push(h[h.length - 1].report_date);
-  });
-  if (!dates.length) return new Date();
-  const iso = dates.sort().pop(); // 'YYYY-MM-DD' — самая поздняя
-  const [y, m, d] = iso.split('-').map(Number);
-  const dt = new Date(y, m - 1, d);
-  dt.setHours(0, 0, 0, 0);
-  return dt;
-}
-
-/**
- * 12 скользящих недель назад от даты последнего отчёта.
- * Порядок: старые → новые (index 0 = самая старая).
- */
-function _getRecentWeeks(n) {
-  const anchor = _getAnchorDate();
-  const weeks  = [];
-  for (let i = n - 1; i >= 0; i--) {
-    const to = new Date(anchor);
-    to.setDate(anchor.getDate() - i * 7);
-    const from = new Date(to);
-    from.setDate(to.getDate() - 6);
-    weeks.push({
-      from:  _toISO(from),
-      to:    _toISO(to),
-      label: _fmtShortWeek(from, to),
+  function _getAnchorDate() {
+    const dates = [];
+    ['regional', 'municipal', 'complaints'].forEach(key => {
+      const h = _history[key];
+      if (h && h.length) dates.push(h[h.length - 1].report_date);
     });
+    if (!dates.length) return new Date();
+    const iso = dates.sort().pop();
+    const [y, m, d] = iso.split('-').map(Number);
+    const dt = new Date(y, m - 1, d);
+    dt.setHours(0, 0, 0, 0);
+    return dt;
   }
-  return weeks;
-}
+
+  /**
+   * Самая ранняя report_date среди всей загруженной истории.
+   * Fallback на anchor (= единственная точка).
+   */
+  function _getEarliestDate() {
+    const dates = [];
+    ['regional', 'municipal', 'complaints'].forEach(key => {
+      const h = _history[key];
+      if (h && h.length) dates.push(h[0].report_date);
+    });
+    if (!dates.length) return _getAnchorDate();
+    const iso = dates.sort()[0]; // самая ранняя
+    const [y, m, d] = iso.split('-').map(Number);
+    const dt = new Date(y, m - 1, d);
+    dt.setHours(0, 0, 0, 0);
+    return dt;
+  }
+
+  /**
+   * Строит недели от самого раннего отчёта до anchor.
+   * Максимум n недель; если отчётов меньше — возвращает столько, сколько есть.
+   * Порядок: старые → новые.
+   */
+  function _getRecentWeeks(n) {
+    const anchor  = _getAnchorDate();
+    const earliest = _getEarliestDate();
+
+    // Считаем сколько полных 7-дневных интервалов от earliest до anchor
+    const msPerWeek   = 7 * 24 * 60 * 60 * 1000;
+    const totalWeeks  = Math.floor((anchor - earliest) / msPerWeek) + 1;
+    const count       = Math.min(totalWeeks, n); // не больше n
+
+    const weeks = [];
+    for (let i = count - 1; i >= 0; i--) {
+      const to = new Date(anchor);
+      to.setDate(anchor.getDate() - i * 7);
+      const from = new Date(to);
+      from.setDate(to.getDate() - 6);
+      weeks.push({
+        from:  _toISO(from),
+        to:    _toISO(to),
+        label: _fmtShortWeek(from, to),
+      });
+    }
+    return weeks;
+  }
 
   /** Форматирует метку «22–28 июн» */
   function _fmtShortWeek(from, to) {
@@ -471,40 +493,40 @@ function _getRecentWeeks(n) {
     _charts['weekly'] = PotholeCharts.weekly('ph-chart-weekly', weekData, _charts['weekly']);
   }
 
-function _sumWeekFiltered(history, field, week, nameFilter) {
-  if (!history || !history.length) return 0;
-  // Берём ближайший отчёт с report_date <= конца недели
-  const candidates = history.filter(r => r.report_date <= week.to);
-  if (!candidates.length) return 0;
-  const report = candidates[candidates.length - 1]; // последний по дате
-  const rows = nameFilter
-    ? (report.data_json || []).filter(r => r.name === nameFilter)
-    : (report.data_json || []);
-  return rows.reduce((s, r) => s + (r[field] || 0), 0);
-}
+  function _sumWeekFiltered(history, field, week, nameFilter) {
+    if (!history || !history.length) return 0;
+    // Берём ближайший отчёт с report_date <= конца недели
+    const candidates = history.filter(r => r.report_date <= week.to);
+    if (!candidates.length) return 0;
+    const report = candidates[candidates.length - 1]; // последний по дате
+    const rows = nameFilter
+      ? (report.data_json || []).filter(r => r.name === nameFilter)
+      : (report.data_json || []);
+    return rows.reduce((s, r) => s + (r[field] || 0), 0);
+  }
 
   function _sumCompWeekFiltered(history, week) {
-  if (!history || !history.length) return 0;
-  const candidates = history.filter(r => r.report_date <= week.to);
-  if (!candidates.length) return 0;
-  const report = candidates[candidates.length - 1];
-  const data = report.data_json;
-  if (!data || !data.week) return 0;
+    if (!history || !history.length) return 0;
+    const candidates = history.filter(r => r.report_date <= week.to);
+    if (!candidates.length) return 0;
+    const report = candidates[candidates.length - 1];
+    const data = report.data_json;
+    if (!data || !data.week) return 0;
 
-  if (_filter.ruad) {
-    const row = data.week.find(r => r.name === _filter.ruad);
-    return row ? row.count : 0;
+    if (_filter.ruad) {
+      const row = data.week.find(r => r.name === _filter.ruad);
+      return row ? row.count : 0;
+    }
+    if (_filter.mo) {
+      const row = _findCompRowByMo(data.week, _filter.mo);
+      return row ? row.count : 0;
+    }
+    const omsRow = data.week.find(r => r.name === 'ОМС');
+    const madRow = data.week.find(r => r.name === 'МАД');
+    if (_filter.org === 'oms') return omsRow ? omsRow.count : 0;
+    if (_filter.org === 'mad') return madRow ? madRow.count : 0;
+    return (omsRow ? omsRow.count : 0) + (madRow ? madRow.count : 0);
   }
-  if (_filter.mo) {
-    const row = _findCompRowByMo(data.week, _filter.mo);
-    return row ? row.count : 0;
-  }
-  const omsRow = data.week.find(r => r.name === 'ОМС');
-  const madRow = data.week.find(r => r.name === 'МАД');
-  if (_filter.org === 'oms') return omsRow ? omsRow.count : 0;
-  if (_filter.org === 'mad') return madRow ? madRow.count : 0;
-  return (omsRow ? omsRow.count : 0) + (madRow ? madRow.count : 0);
-}
 
   // ════════════════════════════════════════════════════════════════════════════
   //  REPORTS PAGE — новая реализация под HTML с тремя кнопками
