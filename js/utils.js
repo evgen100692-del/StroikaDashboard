@@ -37,7 +37,15 @@ function formatNum(n) {
 const Toast = (() => {
   let container;
   function getContainer() {
-    if (!container) container = document.getElementById('toast-container');
+    if (!container || !document.contains(container)) {
+      container = document.getElementById('toast-container');
+      // Если элемент не вставлен в HTML — создаём программно
+      if (!container) {
+        container = document.createElement('div');
+        container.id = 'toast-container';
+        document.body.appendChild(container);
+      }
+    }
     return container;
   }
   function show(message, type = 'info', duration = 3500) {
