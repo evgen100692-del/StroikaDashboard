@@ -155,6 +155,7 @@ const PotholeCharts = (() => {
       options: {
         responsive:          true,
         maintainAspectRatio: false,
+        layout: { padding: { left: 8, right: 8, top: 0, bottom: 0 } },
         cutout: '68%',
         animation: { animateRotate: true, animateScale: true, duration: 700, easing: 'easeOutQuart' },
         plugins: {

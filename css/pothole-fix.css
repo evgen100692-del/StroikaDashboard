@@ -311,3 +311,12 @@
   .ph-donut-grid .card { height: 260px; }
   .ph-kpi-value { font-size: 1.1rem !important; }
 }
+
+/* Недельный график — canvas от левого края карточки */
+.ph-bar-row .card-body {
+  padding-left: 0;
+  padding-right: 0;
+}
+.ph-bar-row .chart-container {
+  padding: 0;
+}
