@@ -556,8 +556,18 @@ const PotholePage = (() => {
       _repTypeBound = true;
     }
 
-    // 3. Обновляем список дат для текущего типа и показываем деталь
+    // 3. Синхронизируем active-класс на кнопках с текущим типом
+    _syncRepTypeButtons();
+
+    // 4. Обновляем список дат для текущего типа и показываем деталь
     _updateRepDateSelect(_repActiveType);
+  }
+
+  /** Синхронизирует active-класс кнопок типа с _repActiveType */
+  function _syncRepTypeButtons() {
+    document.querySelectorAll('.ph-rep-type-btn').forEach(btn => {
+      btn.classList.toggle('active', btn.dataset.type === _repActiveType);
+    });
   }
 
   /** Обновляет числа в бейджах ph-rep-count-* */
@@ -576,7 +586,6 @@ const PotholePage = (() => {
   function _bindRepTypeButtons() {
     document.querySelectorAll('.ph-rep-type-btn').forEach(btn => {
       btn.addEventListener('click', () => {
-        // Снимаем active со всех
         document.querySelectorAll('.ph-rep-type-btn').forEach(b => b.classList.remove('active'));
         btn.classList.add('active');
         _repActiveType = btn.dataset.type;
@@ -871,18 +880,25 @@ const PotholePage = (() => {
     fd.append('report_date', date);
     fd.append('file', file);
 
+    let success = false;
     try {
       const res  = await fetch('/api/pothole/upload', { method: 'POST', body: fd });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || 'Ошибка сервера');
-      Toast.success('Отчёт загружен: ' + data.rows + ' строк');
+      success = true;
+      Toast.success('Отчёт загружен: ' + (data.rows ?? '?') + ' строк');
+      // Переключаем активный тип на только что загруженный
+      _repActiveType = type;
       closeModal('upload-modal');
       await _reload();
     } catch (e) {
       Toast.error('Ошибка: ' + e.message);
     } finally {
-      btn.disabled = false;
-      btn.textContent = 'Загрузить';
+      // Сбрасываем кнопку только если модал ещё открыт (при ошибке)
+      if (!success) {
+        btn.disabled = false;
+        btn.textContent = 'Загрузить';
+      }
     }
   }
 
