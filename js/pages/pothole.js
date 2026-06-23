@@ -68,27 +68,20 @@ const PotholePage = (() => {
   //  HELPERS: работа с датами
   // ════════════════════════════════════════════════════════════════════════════
 
-  /** Сегодняшняя дата в формате YYYY-MM-DD */
   function _todayISO() {
     return _toISO(new Date());
   }
 
-  /** Дата N дней назад от сегодня в формате YYYY-MM-DD */
   function _daysAgoISO(n) {
     const d = new Date();
     d.setDate(d.getDate() - n);
     return _toISO(d);
   }
 
-  /**
-   * Находит последний отчёт в истории с датой <= targetISO.
-   * Если targetISO не передан — берёт самый последний.
-   */
   function _findLatestBefore(history, targetISO) {
     if (!history || !history.length) return null;
     const sorted = [...history].sort((a, b) => a.report_date > b.report_date ? 1 : -1);
     if (!targetISO) return sorted[sorted.length - 1];
-    // ищем последний с датой <= targetISO
     let best = null;
     for (const r of sorted) {
       if (r.report_date <= targetISO) best = r;
@@ -97,10 +90,6 @@ const PotholePage = (() => {
     return best;
   }
 
-  /**
-   * Считает сумму поля field из отчёта (regional/municipal),
-   * применяя фильтр по nameFilter.
-   */
   function _sumReportField(report, field, nameFilter) {
     if (!report) return 0;
     const rows = nameFilter
@@ -109,9 +98,6 @@ const PotholePage = (() => {
     return rows.reduce((s, r) => s + (r[field] || 0), 0);
   }
 
-  /**
-   * Считает жалобы из отчёта complaints с учётом фильтров.
-   */
   function _sumCompReport(report, useReg, useMun) {
     if (!report) return 0;
     const data = report.data_json;
@@ -152,7 +138,6 @@ const PotholePage = (() => {
     return rows.find(r => _normalizeMoName(r.name) === needle) || null;
   }
 
-  // fix: собираем уникальные имена из всей истории + _latest (race-condition guard)
   function _getRuadOptions() {
     const names = new Set();
     (_latest.regional?.data_json || []).forEach(r => { if (r.name) names.add(r.name); });
@@ -268,7 +253,6 @@ const PotholePage = (() => {
     _renderWeekly();
   }
 
-  // ── KPI — скользящее окно 7 дней от сегодня ─────────────────────────────────
   function _renderKPIs() {
     const useReg = _filter.org !== 'oms';
     const useMun = _filter.org !== 'mad';
@@ -276,8 +260,6 @@ const PotholePage = (() => {
     const today   = _todayISO();
     const weekAgo = _daysAgoISO(7);
 
-    // ── Зарегистрировано и Устранено ──
-    // Берём отчёт, ближайший к сегодняшнему дню, и отчёт 7 дней назад
     const curRegReport  = useReg ? _findLatestBefore(_history.regional,  today)   : null;
     const prevRegReport = useReg ? _findLatestBefore(_history.regional,  weekAgo) : null;
     const curMunReport  = useMun ? _findLatestBefore(_history.municipal, today)   : null;
@@ -293,14 +275,12 @@ const PotholePage = (() => {
     const prevFix = _sumReportField(prevRegReport, 'fixed', _filter.ruad)
                   + _sumReportField(prevMunReport, 'fixed', _filter.mo);
 
-    // ── Жалобы ──
     const curCompReport  = _findLatestBefore(_history.complaints, today);
     const prevCompReport = _findLatestBefore(_history.complaints, weekAgo);
 
     const curComp  = _sumCompReport(curCompReport,  useReg, useMun);
     const prevComp = _sumCompReport(prevCompReport, useReg, useMun);
 
-    // Дата последнего отчёта для подписи
     const regDate  = curRegReport?.report_date  || curMunReport?.report_date  || null;
     const compDate = curCompReport?.report_date || null;
 
@@ -309,16 +289,6 @@ const PotholePage = (() => {
     _setKPI('ph-kpi-comp', curComp, prevComp, compDate, 'ph-kpi-comp-date', 'ph-kpi-comp-delta', true);
   }
 
-  /**
-   * Обновляет один KPI-блок.
-   * @param {string}  valId        id элемента значения
-   * @param {number}  curVal       текущее значение
-   * @param {number}  prevVal      значение 7 дней назад
-   * @param {string|null} date     дата отчёта (ISO)
-   * @param {string}  dateId       id элемента даты
-   * @param {string}  deltaId      id элемента дельты
-   * @param {boolean} invertDelta  true → рост красный (жалобы)
-   */
   function _setKPI(valId, curVal, prevVal, date, dateId, deltaId, invertDelta) {
     document.getElementById(valId).textContent = curVal.toLocaleString('ru');
 
@@ -332,7 +302,6 @@ const PotholePage = (() => {
     const el = document.getElementById(deltaId);
     if (!el) return;
 
-    // Если предыдущего отчёта нет — нет базы для сравнения
     if (prevVal === 0 && curVal === 0) {
       el.textContent = 'нет данных';
       el.className   = 'ph-kpi-delta neu';
@@ -356,7 +325,6 @@ const PotholePage = (() => {
     }
   }
 
-  // ── Пончики — используем registeredTotal/fixedTotal (col G/L) ───────────────
   function _renderDonuts() {
     const useReg = _filter.org !== 'oms';
     const useMun = _filter.org !== 'mad';
@@ -405,10 +373,6 @@ const PotholePage = (() => {
   //  WEEKLY CHART
   // ════════════════════════════════════════════════════════════════════════════
 
-  /**
-   * Самая поздняя report_date среди всей загруженной истории.
-   * Fallback на сегодня.
-   */
   function _getAnchorDate() {
     const dates = [];
     ['regional', 'municipal', 'complaints'].forEach(key => {
@@ -423,10 +387,6 @@ const PotholePage = (() => {
     return dt;
   }
 
-  /**
-   * Самая ранняя report_date среди всей загруженной истории.
-   * Fallback на anchor (= единственная точка).
-   */
   function _getEarliestDate() {
     const dates = [];
     ['regional', 'municipal', 'complaints'].forEach(key => {
@@ -434,26 +394,20 @@ const PotholePage = (() => {
       if (h && h.length) dates.push(h[0].report_date);
     });
     if (!dates.length) return _getAnchorDate();
-    const iso = dates.sort()[0]; // самая ранняя
+    const iso = dates.sort()[0];
     const [y, m, d] = iso.split('-').map(Number);
     const dt = new Date(y, m - 1, d);
     dt.setHours(0, 0, 0, 0);
     return dt;
   }
 
-  /**
-   * Строит недели от самого раннего отчёта до anchor.
-   * Максимум n недель; если отчётов меньше — возвращает столько, сколько есть.
-   * Порядок: старые → новые.
-   */
   function _getRecentWeeks(n) {
     const anchor  = _getAnchorDate();
     const earliest = _getEarliestDate();
 
-    // Считаем сколько полных 7-дневных интервалов от earliest до anchor
     const msPerWeek   = 7 * 24 * 60 * 60 * 1000;
     const totalWeeks  = Math.floor((anchor - earliest) / msPerWeek) + 1;
-    const count       = Math.min(totalWeeks, n); // не больше n
+    const count       = Math.min(totalWeeks, n);
 
     const weeks = [];
     for (let i = count - 1; i >= 0; i--) {
@@ -470,7 +424,6 @@ const PotholePage = (() => {
     return weeks;
   }
 
-  /** Форматирует метку «22–28 июн» */
   function _fmtShortWeek(from, to) {
     const months = ['янв','фев','мар','апр','май','июн','июл','авг','сен','окт','ноя','дек'];
     const sameMonth = from.getMonth() === to.getMonth();
@@ -503,10 +456,9 @@ const PotholePage = (() => {
 
   function _sumWeekFiltered(history, field, week, nameFilter) {
     if (!history || !history.length) return 0;
-    // Берём ближайший отчёт с report_date <= конца недели
     const candidates = history.filter(r => r.report_date <= week.to);
     if (!candidates.length) return 0;
-    const report = candidates[candidates.length - 1]; // последний по дате
+    const report = candidates[candidates.length - 1];
     const rows = nameFilter
       ? (report.data_json || []).filter(r => r.name === nameFilter)
       : (report.data_json || []);
@@ -537,18 +489,12 @@ const PotholePage = (() => {
   }
 
   // ════════════════════════════════════════════════════════════════════════════
-  //  REPORTS PAGE — новая реализация под HTML с тремя кнопками
+  //  REPORTS PAGE
   // ════════════════════════════════════════════════════════════════════════════
 
-  /**
-   * Главная функция рендера страницы «Отчёты».
-   * Вызывается после каждого _reload().
-   */
   function _renderReportsPage() {
-    // 1. Обновляем бейджи-счётчики на трёх кнопках
     _updateRepCounts();
 
-    // 2. Навешиваем обработчики кнопок (один раз)
     if (!_repTypeBound) {
       _bindRepTypeButtons();
       _bindRepDeleteButton();
@@ -556,21 +502,16 @@ const PotholePage = (() => {
       _repTypeBound = true;
     }
 
-    // 3. Синхронизируем active-класс на кнопках с текущим типом
     _syncRepTypeButtons();
-
-    // 4. Обновляем список дат для текущего типа и показываем деталь
     _updateRepDateSelect(_repActiveType);
   }
 
-  /** Синхронизирует active-класс кнопок типа с _repActiveType */
   function _syncRepTypeButtons() {
     document.querySelectorAll('.ph-rep-type-btn').forEach(btn => {
       btn.classList.toggle('active', btn.dataset.type === _repActiveType);
     });
   }
 
-  /** Обновляет числа в бейджах ph-rep-count-* */
   function _updateRepCounts() {
     const counts = { complaints: 0, regional: 0, municipal: 0 };
     _reports.forEach(r => {
@@ -582,7 +523,6 @@ const PotholePage = (() => {
     });
   }
 
-  /** Навешивает клики на три кнопки типа (один раз) */
   function _bindRepTypeButtons() {
     document.querySelectorAll('.ph-rep-type-btn').forEach(btn => {
       btn.addEventListener('click', () => {
@@ -594,7 +534,6 @@ const PotholePage = (() => {
     });
   }
 
-  /** Навешивает клик на кнопку «Удалить этот отчёт» (один раз) */
   function _bindRepDeleteButton() {
     const btn = document.getElementById('ph-rep-delete-btn');
     if (!btn) return;
@@ -613,22 +552,16 @@ const PotholePage = (() => {
     });
   }
 
-  /** Навешивает клик на кнопку «Загрузить отчёт» в пустом состоянии (один раз) */
   function _bindRepUploadEmptyButton() {
     const btn = document.getElementById('ph-rep-upload-empty-btn');
     if (btn) btn.addEventListener('click', () => _openUploadModal());
   }
 
-  /**
-   * Заполняет селект дат для выбранного типа отчёта и инициирует показ детали.
-   * @param {string} type — 'complaints' | 'regional' | 'municipal'
-   */
   function _updateRepDateSelect(type) {
     const sel    = document.getElementById('ph-rep-date-select');
     const delBtn = document.getElementById('ph-rep-delete-btn');
     if (!sel) return;
 
-    // Фильтруем отчёты по типу, сортируем по дате убывания (новые сначала)
     const filtered = _reports
       .filter(r => r.report_type === type)
       .sort((a, b) => (a.report_date > b.report_date ? -1 : 1));
@@ -646,19 +579,15 @@ const PotholePage = (() => {
       .map(r => `<option value="${r.id}">${_fmtDate(r.report_date)}</option>`)
       .join('');
 
-    // Показываем кнопку удаления
     if (delBtn) delBtn.style.display = '';
 
-    // Навешиваем обработчик изменения даты (перезаписываем onchange)
     sel.onchange = () => {
       if (sel.value) _showReportDetail(sel.value);
     };
 
-    // Показываем деталь для первого (свежего) отчёта
     _showReportDetail(filtered[0].id);
   }
 
-  /** Показывает пустое состояние в ph-rep-detail */
   function _showRepEmpty() {
     const detail = document.getElementById('ph-rep-detail');
     if (!detail) return;
@@ -679,12 +608,10 @@ const PotholePage = (() => {
           Загрузить отчёт
         </button>
       </div>`;
-    // Перенавешиваем кнопку (DOM пересоздан)
     const btn = document.getElementById('ph-rep-upload-empty-btn');
     if (btn) btn.addEventListener('click', () => _openUploadModal());
   }
 
-  /** Загружает и рендерит содержимое отчёта по id в #ph-rep-detail */
   async function _showReportDetail(id) {
     const detail = document.getElementById('ph-rep-detail');
     if (!detail) return;
@@ -887,14 +814,12 @@ const PotholePage = (() => {
       if (!res.ok) throw new Error(data.error || 'Ошибка сервера');
       success = true;
       Toast.success('Отчёт загружен: ' + (data.rows ?? '?') + ' строк');
-      // Переключаем активный тип на только что загруженный
       _repActiveType = type;
       closeModal('upload-modal');
       await _reload();
     } catch (e) {
       Toast.error('Ошибка: ' + e.message);
     } finally {
-      // Сбрасываем кнопку только если модал ещё открыт (при ошибке)
       if (!success) {
         btn.disabled = false;
         btn.textContent = 'Загрузить';
@@ -906,13 +831,18 @@ const PotholePage = (() => {
   //  RATING PAGE
   // ════════════════════════════════════════════════════════════════════════════
 
-  // ── обновление страницы Рейтинг ────────────────────────────────────────────
   function refreshRating() {
     if (typeof PotholeRating === 'undefined') return;
     const ruadNames = _getRuadOptions();
     const moNames   = _getMoOptions();
-    // Передаём последние отчёты — нужны для расчёта рейтинга
-    PotholeRating.init(ruadNames, moNames, _latest.regional, _latest.complaints);
+    // Передаём все три последних отчёта — региональный, муниципальный и жалобы
+    PotholeRating.init(
+      ruadNames,
+      moNames,
+      _latest.regional   || null,
+      _latest.complaints || null,
+      _latest.municipal  || null   // ← добавлено
+    );
   }
 
   // ════════════════════════════════════════════════════════════════════════════
@@ -934,9 +864,6 @@ const PotholePage = (() => {
   }
   function _typeName(t) {
     return { complaints: 'Жалобы', regional: 'Региональный ремонт', municipal: 'Муниципальный ремонт' }[t] || t;
-  }
-  function _shortType(t) {
-    return { complaints: 'Жалобы', regional: 'Рег.', municipal: 'Мун.' }[t] || t;
   }
 
   function getChart(key) { return _charts[key] || null; }
