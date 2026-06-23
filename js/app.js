@@ -76,6 +76,8 @@
       () => typeof PotholePage !== 'undefined' && PotholePage.refresh());
     Router.register('pothole-reports',
       () => typeof PotholePage !== 'undefined' && PotholePage.refreshReports());
+    Router.register('pothole-rating',
+      () => typeof PotholePage !== 'undefined' && PotholePage.refreshRating());
   }
 
   /* ================================================================

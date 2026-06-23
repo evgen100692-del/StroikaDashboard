@@ -76,12 +76,22 @@ async function initDb() {
       uploaded_at TEXT NOT NULL,
       data_json   TEXT NOT NULL
     );
+
     CREATE TABLE IF NOT EXISTS readiness_history (
       id            INTEGER PRIMARY KEY AUTOINCREMENT,
       contract_id   INTEGER NOT NULL,
       prev_value    REAL NOT NULL,
       new_value     REAL NOT NULL,
       changed_at    TEXT NOT NULL
+    );
+
+    CREATE TABLE IF NOT EXISTS pothole_metadata (
+      id         INTEGER PRIMARY KEY AUTOINCREMENT,
+      org_type   TEXT NOT NULL,
+      name       TEXT NOT NULL,
+      net_length REAL DEFAULT NULL,
+      population REAL DEFAULT NULL,
+      UNIQUE(org_type, name)
     );
   `);
 }
@@ -265,13 +275,6 @@ function parseExcel(buffer, reportType) {
 
 /**
  * Парсит лист регионального / муниципального отчёта.
- * Колонка B (index 1)  — название РУАД / МО
- * Колонка C (index 2)  — registeredDay   (за сутки)   → таблица отчёта
- * Колонка E (index 4)  — registered      (за 7 дней)  → KPI, график
- * Колонка G (index 6)  — registeredTotal (всего)       → пончики
- * Колонка H (index 7)  — fixedDay        (за сутки)   → таблица отчёта
- * Колонка J (index 9)  — fixed           (за 7 дней)  → KPI, график
- * Колонка L (index 11) — fixedTotal      (всего)       → пончики
  */
 function _parseRegMunSheet(sheet) {
   const rows   = XLSX.utils.sheet_to_json(sheet, { header: 1, defval: null });
@@ -283,12 +286,12 @@ function _parseRegMunSheet(sheet) {
     if (!name) continue;
     result.push({
       name,
-      registeredDay:   toNum(row[2]),   // col C — за сутки
-      registered:      toNum(row[4]),   // col E — за 7 дней (KPI, график)
-      registeredTotal: toNum(row[6]),   // col G — всего зарегистрировано (пончики)
-      fixedDay:        toNum(row[7]),   // col H — устранено за сутки
-      fixed:           toNum(row[9]),   // col J — за 7 дней (KPI, график)
-      fixedTotal:      toNum(row[11]),  // col L — всего устранено (пончики)
+      registeredDay:   toNum(row[2]),
+      registered:      toNum(row[4]),
+      registeredTotal: toNum(row[6]),
+      fixedDay:        toNum(row[7]),
+      fixed:           toNum(row[9]),
+      fixedTotal:      toNum(row[11]),
     });
   }
   return result;
@@ -508,8 +511,72 @@ const server = http.createServer(async (req, res) => {
   }
 
   // ════════════════════════════════════════════════════════════════════════════
+  //  API: МЕТАДАННЫЕ (протяжённость сети, население)
+  // ════════════════════════════════════════════════════════════════════════════
+
+  // GET /api/pothole/metadata          — все записи
+  // GET /api/pothole/metadata?org_type=ruad  — только РУАД
+  // GET /api/pothole/metadata?org_type=mo    — только МО
+  if (url === '/api/pothole/metadata' && req.method === 'GET') {
+    const orgType = new URL('http://x' + req.url).searchParams.get('org_type') || '';
+    const rows = orgType
+      ? dbAll('SELECT * FROM pothole_metadata WHERE org_type = ? ORDER BY name', [orgType])
+      : dbAll('SELECT * FROM pothole_metadata ORDER BY org_type, name');
+    json(res, 200, rows);
+    return;
+  }
+
+  // POST /api/pothole/metadata
+  // Body: { org_type, name, net_length?, population? }
+  // Upsert: если запись существует — обновляем только переданные поля
+  if (url === '/api/pothole/metadata' && req.method === 'POST') {
+    try {
+      const body = await readBodyJSON(req);
+      const { org_type, name } = body;
+      if (!org_type || !name) {
+        json(res, 400, { error: 'Обязательные поля: org_type, name' }); return;
+      }
+
+      const existing = dbGet(
+        'SELECT * FROM pothole_metadata WHERE org_type = ? AND name = ?',
+        [org_type, name]
+      );
+
+      if (existing) {
+        // Обновляем только переданные поля
+        const updates = [];
+        const vals    = [];
+        if ('net_length' in body) { updates.push('net_length = ?'); vals.push(body.net_length === '' ? null : parseFloat(body.net_length) || null); }
+        if ('population' in body) { updates.push('population = ?'); vals.push(body.population === '' ? null : parseFloat(body.population) || null); }
+        if (updates.length) {
+          dbRun(
+            `UPDATE pothole_metadata SET ${updates.join(', ')} WHERE org_type = ? AND name = ?`,
+            [...vals, org_type, name]
+          );
+        }
+      } else {
+        dbInsert(
+          'INSERT INTO pothole_metadata (org_type, name, net_length, population) VALUES (?, ?, ?, ?)',
+          [
+            org_type,
+            name,
+            'net_length' in body ? (body.net_length === '' ? null : parseFloat(body.net_length) || null) : null,
+            'population' in body ? (body.population === '' ? null : parseFloat(body.population) || null) : null,
+          ]
+        );
+      }
+
+      const row = dbGet('SELECT * FROM pothole_metadata WHERE org_type = ? AND name = ?', [org_type, name]);
+      json(res, 200, row);
+    } catch (e) {
+      console.error('[metadata] Ошибка:', e);
+      json(res, 500, { error: e.message });
+    }
+    return;
+  }
+
+  // ════════════════════════════════════════════════════════════════════════════
   //  Статические файлы
-  //  Маршрут "/" → index.html (страница выбора дашборда)
   // ════════════════════════════════════════════════════════════════════════════
   let filePath = path.join(__dirname, url === '/' ? 'index.html' : url);
   const ext = path.extname(filePath);
