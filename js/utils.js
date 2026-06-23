@@ -97,8 +97,9 @@ const Router = (() => {
       dashboard:           'Дашборд',
       contracts:           'Контракты',
       contractors:         'Подрядчики',
-      'pothole-dashboard': 'Ямочный ремонт — Дашборд',
-      'pothole-reports':   'Ямочный ремонт — Отчёты',
+      'pothole-dashboard': 'Дашборд',
+      'pothole-reports':   'Отчёты',
+      'pothole-rating':    'Рейтинг',
     };
     const headerTitle = document.getElementById('header-title');
     if (headerTitle) headerTitle.textContent = titleMap[id] || id;
