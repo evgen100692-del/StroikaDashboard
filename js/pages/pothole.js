@@ -909,9 +909,10 @@ const PotholePage = (() => {
   // ── обновление страницы Рейтинг ────────────────────────────────────────────
   function refreshRating() {
     if (typeof PotholeRating === 'undefined') return;
-    const ruadNames = _getRuadOptions();   // уникальные имена из всей истории
-    const moNames   = _getMoOptions();     // уникальные имена из всей истории
-    PotholeRating.init(ruadNames, moNames);
+    const ruadNames = _getRuadOptions();
+    const moNames   = _getMoOptions();
+    // Передаём последние отчёты — нужны для расчёта рейтинга
+    PotholeRating.init(ruadNames, moNames, _latest.regional, _latest.complaints);
   }
 
   // ════════════════════════════════════════════════════════════════════════════
