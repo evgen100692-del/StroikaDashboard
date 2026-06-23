@@ -219,7 +219,7 @@ const PotholeRating = (() => {
       if (typeof Toast !== 'undefined') Toast.success('Данные сохранены');
       if (typeof closeModal === 'function') closeModal(modalId);
       // Перерисовываем таблицу рейтинга с новыми данными
-      _renderRatingContent();
+      _renderRatingTable();
     }
   }
 
@@ -260,6 +260,21 @@ const PotholeRating = (() => {
       });
     });
 
+    // Загружаем метаданные перед первым рендером таблицы
+    _loadMetaThenRender();
+  }
+
+  /**
+   * Загружает актуальные метаданные из API, затем рисует таблицу.
+   * Используется при первом рендере и при переключении вкладки рейтинга.
+   */
+  async function _loadMetaThenRender() {
+    try {
+      const r = await fetch('/api/pothole/metadata');
+      _meta = await r.json();
+    } catch (e) {
+      _meta = [];
+    }
     _renderRatingTable();
   }
 
