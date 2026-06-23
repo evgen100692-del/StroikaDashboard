@@ -391,7 +391,8 @@ const PotholeRating = (() => {
 
       const netLenStr = r.netLength  != null ? _fmtNum(r.netLength,  2) : _missingBadge('Не задано');
       const popStr    = r.population != null ? _fmtNum(r.population, 0) : _missingBadge('Не задано');
-      const compStr   = r.complaints != null ? _fmtNum(r.complaints, 0) : _missingBadge('Нет данных');
+      // complaints: null (нет отчёта) → показываем 0, как и в формуле
+      const compStr   = _fmtNum(r.complaints != null ? r.complaints : 0, 0);
       const ratingStr = hasRating
         ? `<span class="ph-rating-score" style="${_ratingColor(r.rating)}">${r.rating.toFixed(4)}</span>`
         : _missingBadge('Недостаточно данных');
