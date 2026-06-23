@@ -152,15 +152,22 @@ const PotholePage = (() => {
     return rows.find(r => _normalizeMoName(r.name) === needle) || null;
   }
 
+  // fix: собираем уникальные имена из всей истории + _latest (race-condition guard)
   function _getRuadOptions() {
     const names = new Set();
     (_latest.regional?.data_json || []).forEach(r => { if (r.name) names.add(r.name); });
+    (_history.regional || []).forEach(report => {
+      (report.data_json || []).forEach(r => { if (r.name) names.add(r.name); });
+    });
     return Array.from(names).sort();
   }
 
   function _getMoOptions() {
     const names = new Set();
     (_latest.municipal?.data_json || []).forEach(r => { if (r.name) names.add(r.name); });
+    (_history.municipal || []).forEach(report => {
+      (report.data_json || []).forEach(r => { if (r.name) names.add(r.name); });
+    });
     return Array.from(names).sort();
   }
 
@@ -886,8 +893,8 @@ const PotholePage = (() => {
   // ── обновление страницы Рейтинг ────────────────────────────────────────────
   function refreshRating() {
     if (typeof PotholeRating === 'undefined') return;
-    const ruadNames = _getRuadOptions();   // массив строк из _latest.regional
-    const moNames   = _getMoOptions();     // массив строк из _latest.municipal
+    const ruadNames = _getRuadOptions();   // уникальные имена из всей истории
+    const moNames   = _getMoOptions();     // уникальные имена из всей истории
     PotholeRating.init(ruadNames, moNames);
   }
 
