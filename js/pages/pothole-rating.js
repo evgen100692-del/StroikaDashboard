@@ -28,9 +28,9 @@ const PotholeRating = (() => {
   function _filters() { return _filtersMap[_ratingTab]; }
 
   const FILTER_META = {
-    green:  { label: 'Зелёный',  color: '#16a34a', bg: 'rgba(22,163,74,0.08)',  border: 'rgba(22,163,74,0.25)'  },
-    yellow: { label: 'Жёлтый',  color: '#d97706', bg: 'rgba(217,119,6,0.08)',  border: 'rgba(217,119,6,0.25)'  },
-    red:    { label: 'Красный', color: '#dc2626', bg: 'rgba(220,38,38,0.08)',  border: 'rgba(220,38,38,0.25)'  },
+    green:  { label: 'Зелёный',  color: '#16a34a', bg: 'rgba(22,163,74,0.10)',  border: 'rgba(22,163,74,0.25)'  },
+    yellow: { label: 'Жёлтый',  color: '#d97706', bg: 'rgba(217,119,6,0.10)',  border: 'rgba(217,119,6,0.25)'  },
+    red:    { label: 'Красный', color: '#dc2626', bg: 'rgba(220,38,38,0.10)',  border: 'rgba(220,38,38,0.25)'  },
   };
 
   // ── Инициализация
@@ -255,20 +255,49 @@ const PotholeRating = (() => {
     table.querySelectorAll('tbody tr').forEach(row => {
       const scoreEl = row.querySelector('.ph-rating-score');
       if (!scoreEl) return;
-      const val = parseFloat(scoreEl.textContent.replace(',', '.'));
+      const val = parseFloat(scoreEl.dataset.ratingVal);
       if (isNaN(val)) return;
-      if (!anyActive) { scoreEl.setAttribute('style', _ratingColor(val)); return; }
+
+      // Сбрасываем стиль строки
+      row.style.background = '';
+      row.style.transition = '';
+
+      if (!anyActive) {
+        // Нет активных фильтров — цвет строки по умолчанию (авто из CSS)
+        return;
+      }
+
       let matched = null;
       for (const [color, fc] of Object.entries(f)) {
         if (!fc.active) continue;
         if (fc.min !== null && val >= fc.min) { matched = color; break; }
       }
+
       if (matched) {
         const m = FILTER_META[matched];
-        scoreEl.style.cssText = `color:${m.color};font-weight:700;background:${m.bg};padding:1px 7px;border-radius:9999px;border:1px solid ${m.border};display:inline-block;`;
+        row.style.background = m.bg;
+        row.style.transition = 'background 0.2s';
       } else {
-        scoreEl.style.cssText = 'color:var(--color-text-faint);font-weight:400;';
+        // Строки вне диапазона — затемняем
+        row.style.background = 'transparent';
+        row.style.opacity = '0.35';
+        row.style.transition = 'opacity 0.2s';
       }
+    });
+
+    // Восстанавливаем opacity для совпавших строк
+    table.querySelectorAll('tbody tr').forEach(row => {
+      const scoreEl = row.querySelector('.ph-rating-score');
+      if (!scoreEl) return;
+      const val = parseFloat(scoreEl.dataset.ratingVal);
+      if (isNaN(val)) return;
+      if (!anyActive) { row.style.opacity = ''; return; }
+      let matched = null;
+      for (const [color, fc] of Object.entries(f)) {
+        if (!fc.active) continue;
+        if (fc.min !== null && val >= fc.min) { matched = color; break; }
+      }
+      row.style.opacity = matched ? '1' : '0.35';
     });
   }
 
@@ -393,8 +422,9 @@ const PotholeRating = (() => {
             ? `<td class="ph-rating-rank">${rank++}</td>`
             : `<td class="ph-rating-rank" style="color:var(--color-text-faint)">—</td>`;
           const compStr   = _fmtNum(r.complaints != null ? r.complaints : 0, 0);
+          // data-rating-val используется в _applyFilters для чтения значения без парсинга текста
           const ratingStr = hasRating
-            ? `<span class="ph-rating-score" style="${_ratingColor(r.rating)}">${r.rating.toFixed(4)}</span>`
+            ? `<span class="ph-rating-score" data-rating-val="${r.rating}" style="${_ratingColor(r.rating)}">${r.rating.toFixed(4)}</span>`
             : _missingBadge('Недостаточно данных');
           return `<tr>${rankCell}<td>${_esc(r.name)}</td>
             <td style="text-align:right;font-variant-numeric:tabular-nums">${_fmtNum(r.netLength, 2)}</td>
