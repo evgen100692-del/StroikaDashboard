@@ -13,8 +13,8 @@ const PotholePage = (() => {
   let _filterBarBound = false;
 
   // ── состояние страницы Отчёты ───────────────────────────────────────────────
-  let _repActiveType = 'complaints'; // текущий выбранный тип
-  let _repTypeBound  = false;        // обработчики кнопок навешены один раз
+  let _repActiveType = 'complaints';
+  let _repTypeBound  = false;
 
   // ════════════════════════════════════════════════════════════════════════════
   //  PUBLIC: init()
@@ -58,7 +58,7 @@ const PotholePage = (() => {
 
       _renderDashboard();
       _renderReportsPage();
-      refreshRating();   // ← обновляем страницу Рейтинг после загрузки данных
+      refreshRating();
     } catch (e) {
       console.error('[PotholePage] reload error', e);
     }
@@ -68,9 +68,7 @@ const PotholePage = (() => {
   //  HELPERS: работа с датами
   // ════════════════════════════════════════════════════════════════════════════
 
-  function _todayISO() {
-    return _toISO(new Date());
-  }
+  function _todayISO() { return _toISO(new Date()); }
 
   function _daysAgoISO(n) {
     const d = new Date();
@@ -402,12 +400,12 @@ const PotholePage = (() => {
   }
 
   function _getRecentWeeks(n) {
-    const anchor  = _getAnchorDate();
+    const anchor   = _getAnchorDate();
     const earliest = _getEarliestDate();
 
-    const msPerWeek   = 7 * 24 * 60 * 60 * 1000;
-    const totalWeeks  = Math.floor((anchor - earliest) / msPerWeek) + 1;
-    const count       = Math.min(totalWeeks, n);
+    const msPerWeek  = 7 * 24 * 60 * 60 * 1000;
+    const totalWeeks = Math.floor((anchor - earliest) / msPerWeek) + 1;
+    const count      = Math.min(totalWeeks, n);
 
     const weeks = [];
     for (let i = count - 1; i >= 0; i--) {
@@ -427,15 +425,11 @@ const PotholePage = (() => {
   function _fmtShortWeek(from, to) {
     const months = ['янв','фев','мар','апр','май','июн','июл','авг','сен','окт','ноя','дек'];
     const sameMonth = from.getMonth() === to.getMonth();
-    if (sameMonth) {
-      return from.getDate() + '–' + to.getDate() + ' ' + months[from.getMonth()];
-    }
+    if (sameMonth) return from.getDate() + '–' + to.getDate() + ' ' + months[from.getMonth()];
     return from.getDate() + ' ' + months[from.getMonth()] + ' – ' + to.getDate() + ' ' + months[to.getMonth()];
   }
 
-  function _renderWeekly() {
-    _redrawWeeklyChart();
-  }
+  function _renderWeekly() { _redrawWeeklyChart(); }
 
   function _redrawWeeklyChart() {
     const weeks  = _getRecentWeeks(12);
@@ -670,10 +664,10 @@ const PotholePage = (() => {
   function _tableComplaints(d) {
     if (!d) return '<p style="padding:var(--space-4);color:var(--color-text-muted)">Нет данных</p>';
 
-    const omsTotal  = d.total ? d.total.filter(r => r.type === 'oms')  : [];
-    const madTotal  = d.total ? d.total.filter(r => r.type === 'mad')  : [];
-    const omsWeek   = d.week  ? d.week.filter(r => r.type === 'oms')   : [];
-    const madWeek   = d.week  ? d.week.filter(r => r.type === 'mad')   : [];
+    const omsTotal = d.total ? d.total.filter(r => r.type === 'oms') : [];
+    const madTotal = d.total ? d.total.filter(r => r.type === 'mad') : [];
+    const omsWeek  = d.week  ? d.week.filter(r => r.type === 'oms')  : [];
+    const madWeek  = d.week  ? d.week.filter(r => r.type === 'mad')  : [];
 
     const omsTotalSum = (d.total ? d.total.find(r => r.name === 'ОМС') : null)?.count || 0;
     const madTotalSum = (d.total ? d.total.find(r => r.name === 'МАД') : null)?.count || 0;
@@ -735,13 +729,19 @@ const PotholePage = (() => {
     });
   }
 
+  // Полный сброс состояния модалки включая кнопку загрузки
   function _openUploadModal() {
     document.querySelectorAll('.upload-type-btn').forEach(b => b.classList.remove('selected'));
     document.getElementById('upload-date').value = new Date().toISOString().slice(0, 10);
     document.getElementById('upload-file-input').value = '';
     document.getElementById('upload-file-name').textContent = '';
     document.getElementById('upload-file-name').classList.remove('visible');
-    document.getElementById('upload-submit-btn').disabled = true;
+
+    // Сбрасываем кнопку — даже если предыдущая загрузка ещё в процессе
+    const btn = document.getElementById('upload-submit-btn');
+    btn.disabled    = true;
+    btn.textContent = 'Загрузить';
+
     _uploadState = { type: null, file: null };
     openModal('upload-modal');
   }
@@ -806,11 +806,11 @@ const PotholePage = (() => {
 
     // AbortController для таймаута
     const controller = new AbortController();
-    const timerId = setTimeout(() => controller.abort(), UPLOAD_TIMEOUT_MS);
+    const timerId    = setTimeout(() => controller.abort(), UPLOAD_TIMEOUT_MS);
 
     // Анимируем кнопку, пока идёт загрузка
-    const labels = ['Обработка файла', 'Обработка файла.', 'Обработка файла..', 'Обработка файла...'];
-    let labelIdx = 0;
+    const labels    = ['Обработка файла', 'Обработка файла.', 'Обработка файла..', 'Обработка файла...'];
+    let labelIdx    = 0;
     const labelTimer = setInterval(() => {
       labelIdx = (labelIdx + 1) % labels.length;
       if (!btn.disabled) return;
@@ -845,10 +845,9 @@ const PotholePage = (() => {
     } finally {
       clearTimeout(timerId);
       clearInterval(labelTimer);
-      if (!success) {
-        btn.disabled    = false;
-        btn.textContent = 'Загрузить';
-      }
+      // Сбрасываем кнопку всегда — независимо от исхода
+      btn.disabled    = !(_uploadState.type && _uploadState.file && document.getElementById('upload-date').value);
+      btn.textContent = 'Загрузить';
     }
   }
 
@@ -860,13 +859,12 @@ const PotholePage = (() => {
     if (typeof PotholeRating === 'undefined') return;
     const ruadNames = _getRuadOptions();
     const moNames   = _getMoOptions();
-    // Передаём все три последних отчёта — региональный, муниципальный и жалобы
     PotholeRating.init(
       ruadNames,
       moNames,
       _latest.regional   || null,
       _latest.complaints || null,
-      _latest.municipal  || null   // ← добавлено
+      _latest.municipal  || null
     );
   }
 
