@@ -1,10 +1,11 @@
 // server.js — node server.js
 // Перед запуском выполните: npm install
 
-const http = require('http');
-const fs   = require('fs');
-const path = require('path');
-const XLSX = require('xlsx');
+const http          = require('http');
+const fs            = require('fs');
+const path          = require('path');
+const XLSX          = require('xlsx');
+const { Worker, isMainThread, parentPort, workerData } = require('worker_threads');
 
 const PORT    = 3000;
 const DB_PATH = path.join(__dirname, 'data', 'stroika.db');
@@ -13,6 +14,114 @@ const DB_PATH = path.join(__dirname, 'data', 'stroika.db');
 if (!fs.existsSync(path.join(__dirname, 'data'))) {
   fs.mkdirSync(path.join(__dirname, 'data'));
 }
+
+// ══════════════════════════════════════════════════════════════════════════════
+//  WORKER THREAD: парсинг Excel (не блокирует event loop главного потока)
+// ══════════════════════════════════════════════════════════════════════════════
+if (!isMainThread) {
+  // Этот блок выполняется только внутри воркера
+  try {
+    const { fileBuffer, reportType } = workerData;
+    const buf    = Buffer.from(fileBuffer);
+    const result = parseExcelInWorker(buf, reportType);
+    parentPort.postMessage({ ok: true, result });
+  } catch (e) {
+    parentPort.postMessage({ ok: false, error: e.message });
+  }
+
+  function toNum(v) {
+    const n = parseFloat(String(v || 0).replace(/\s/g, '').replace(',', '.'));
+    return isNaN(n) ? 0 : n;
+  }
+
+  function parseExcelInWorker(buffer, reportType) {
+    const workbook = XLSX.read(buffer, { type: 'buffer', cellDates: false });
+
+    if (reportType === 'regional' || reportType === 'municipal') {
+      return _parseRegMunSheet(workbook.Sheets[workbook.SheetNames[0]]);
+    }
+
+    if (reportType === 'complaints') {
+      const result = { total: [], week: [] };
+
+      const totalSheetName = workbook.SheetNames.find(n => /свод.*общ/i.test(n));
+      if (totalSheetName) {
+        const sheet = workbook.Sheets[totalSheetName];
+        const rows  = XLSX.utils.sheet_to_json(sheet, { header: 1, defval: null });
+        let inOms = false, inMad = false;
+        for (let i = 0; i < rows.length; i++) {
+          const row = rows[i];
+          if (!row || !row[0]) continue;
+          const name   = String(row[0]).trim();
+          if (name === 'Названия строк') continue;
+          const numVal = row.slice(1).find(v => v !== null && v !== '' && !isNaN(parseFloat(v)));
+          const count  = toNum(numVal ?? 0);
+          if (name === 'ОМС')        { inOms = true;  inMad = false; result.total.push({ name: 'ОМС', type: 'oms', count }); continue; }
+          if (name === 'МАД')        { inMad = true;  inOms = false; result.total.push({ name: 'МАД', type: 'mad', count }); continue; }
+          if (name === 'Общий итог') break;
+          if (inOms) result.total.push({ name, type: 'oms', count });
+          if (inMad) result.total.push({ name, type: 'mad', count });
+        }
+      }
+
+      const weekSheetName = workbook.SheetNames.find(n => /7.*дн/i.test(n) || /недел/i.test(n) || /свод за 7/i.test(n));
+      if (weekSheetName) {
+        const sheet  = workbook.Sheets[weekSheetName];
+        const rows   = XLSX.utils.sheet_to_json(sheet, { header: 1, defval: null });
+        let colIdx   = -1;
+        for (let i = 0; i < Math.min(rows.length, 6); i++) {
+          const hi = (rows[i] || []).findIndex(v => v && String(v).trim() === 'Общий итог');
+          if (hi !== -1) { colIdx = hi; break; }
+        }
+        let inOms = false, inMad = false;
+        for (let i = 0; i < rows.length; i++) {
+          const row = rows[i];
+          if (!row || !row[0]) continue;
+          const name  = String(row[0]).trim();
+          if (name === 'Названия строк') continue;
+          const count = toNum(colIdx !== -1 ? row[colIdx] : row[row.length - 1]);
+          if (name === 'ОМС')        { inOms = true;  inMad = false; result.week.push({ name: 'ОМС', type: 'oms', count }); continue; }
+          if (name === 'МАД')        { inMad = true;  inOms = false; result.week.push({ name: 'МАД', type: 'mad', count }); continue; }
+          if (name === 'Общий итог') break;
+          if (inOms) result.week.push({ name, type: 'oms', count });
+          if (inMad) result.week.push({ name, type: 'mad', count });
+        }
+      }
+
+      return result;
+    }
+
+    return {};
+  }
+
+  function _parseRegMunSheet(sheet) {
+    const rows   = XLSX.utils.sheet_to_json(sheet, { header: 1, defval: null });
+    const result = [];
+    for (let i = 4; i < rows.length; i++) {
+      const row  = rows[i];
+      if (!row || row.length < 2) continue;
+      const name = String(row[1] || '').trim();
+      if (!name) continue;
+      result.push({
+        name,
+        registeredDay:   toNum(row[2]),
+        registered:      toNum(row[4]),
+        registeredTotal: toNum(row[6]),
+        fixedDay:        toNum(row[7]),
+        fixed:           toNum(row[9]),
+        fixedTotal:      toNum(row[11]),
+      });
+    }
+    return result;
+  }
+
+  // Воркер завершает работу сам после postMessage
+  return;
+}
+
+// ══════════════════════════════════════════════════════════════════════════════
+//  ГЛАВНЫЙ ПОТОК
+// ══════════════════════════════════════════════════════════════════════════════
 
 // ── sql.js: синхронная инициализация БД ──────────────────────────────────────
 const initSqlJs = require('sql.js');
@@ -97,8 +206,6 @@ async function initDb() {
 }
 
 // ── Сохранение БД на диск ─────────────────────────────────────────────────────
-// Синхронная запись — используем только там, где нужна гарантия (shutdown).
-// В HTTP-обработчиках вызываем saveDbDeferred() — откладываем через setImmediate.
 let _saveScheduled = false;
 function saveDb() {
   try {
@@ -131,7 +238,6 @@ function dbGet(sql, params = []) {
   return dbAll(sql, params)[0] || null;
 }
 
-// skipSave=true — не сохраняем сразу, вызывающий сам позаботится о сохранении
 function dbRun(sql, params = [], skipSave = false) {
   db.run(sql, params);
   if (!skipSave) saveDbDeferred();
@@ -179,22 +285,23 @@ async function readBodyJSON(req) {
   });
 }
 
+// БАГ 2 ИСПРАВЛЕН: лимит тела запроса 50 МБ
+const BODY_LIMIT = 50 * 1024 * 1024; // 50 MB
+
 async function readBodyRaw(req) {
   return new Promise((resolve, reject) => {
     const chunks = [];
-    req.on('data', chunk => chunks.push(chunk));
-    req.on('end', () => resolve(Buffer.concat(chunks)));
-    req.on('error', reject);
-  });
-}
-
-// ── Выполнить тяжёлую синхронную работу в следующей итерации event loop ───────
-function runAsync(fn) {
-  return new Promise((resolve, reject) => {
-    setImmediate(() => {
-      try { resolve(fn()); }
-      catch (e) { reject(e); }
+    let total = 0;
+    req.on('data', chunk => {
+      total += chunk.length;
+      if (total > BODY_LIMIT) {
+        req.destroy();
+        return reject(Object.assign(new Error('Файл слишком большой (макс. 50 МБ)'), { statusCode: 413 }));
+      }
+      chunks.push(chunk);
     });
+    req.on('end',   () => resolve(Buffer.concat(chunks)));
+    req.on('error', reject);
   });
 }
 
@@ -241,91 +348,43 @@ function parseMultipart(buffer, boundary) {
   return parts;
 }
 
-// ── Парсер Excel ──────────────────────────────────────────────────────────────
-function parseExcel(buffer, reportType) {
-  const workbook = XLSX.read(buffer, { type: 'buffer', cellDates: false });
-
-  if (reportType === 'regional' || reportType === 'municipal') {
-    return _parseRegMunSheet(workbook.Sheets[workbook.SheetNames[0]]);
-  }
-
-  if (reportType === 'complaints') {
-    const result = { total: [], week: [] };
-
-    const totalSheetName = workbook.SheetNames.find(n => /свод.*общ/i.test(n));
-    if (totalSheetName) {
-      const sheet = workbook.Sheets[totalSheetName];
-      const rows  = XLSX.utils.sheet_to_json(sheet, { header: 1, defval: null });
-      let inOms = false, inMad = false;
-      for (let i = 0; i < rows.length; i++) {
-        const row = rows[i];
-        if (!row || !row[0]) continue;
-        const name = String(row[0]).trim();
-        if (name === 'Названия строк') continue;
-        const numVal = row.slice(1).find(v => v !== null && v !== '' && !isNaN(parseFloat(v)));
-        const count  = toNum(numVal ?? 0);
-        if (name === 'ОМС')        { inOms = true;  inMad = false; result.total.push({ name: 'ОМС', type: 'oms', count }); continue; }
-        if (name === 'МАД')        { inMad = true;  inOms = false; result.total.push({ name: 'МАД', type: 'mad', count }); continue; }
-        if (name === 'Общий итог') break;
-        if (inOms) result.total.push({ name, type: 'oms', count });
-        if (inMad) result.total.push({ name, type: 'mad', count });
-      }
-    }
-
-    const weekSheetName = workbook.SheetNames.find(n => /7.*дн/i.test(n) || /недел/i.test(n) || /свод за 7/i.test(n));
-    if (weekSheetName) {
-      const sheet = workbook.Sheets[weekSheetName];
-      const rows  = XLSX.utils.sheet_to_json(sheet, { header: 1, defval: null });
-      let colIdx = -1;
-      for (let i = 0; i < Math.min(rows.length, 6); i++) {
-        const hi = (rows[i] || []).findIndex(v => v && String(v).trim() === 'Общий итог');
-        if (hi !== -1) { colIdx = hi; break; }
-      }
-      let inOms = false, inMad = false;
-      for (let i = 0; i < rows.length; i++) {
-        const row = rows[i];
-        if (!row || !row[0]) continue;
-        const name = String(row[0]).trim();
-        if (name === 'Названия строк') continue;
-        const count = toNum(colIdx !== -1 ? row[colIdx] : row[row.length - 1]);
-        if (name === 'ОМС')        { inOms = true;  inMad = false; result.week.push({ name: 'ОМС', type: 'oms', count }); continue; }
-        if (name === 'МАД')        { inMad = true;  inOms = false; result.week.push({ name: 'МАД', type: 'mad', count }); continue; }
-        if (name === 'Общий итог') break;
-        if (inOms) result.week.push({ name, type: 'oms', count });
-        if (inMad) result.week.push({ name, type: 'mad', count });
-      }
-    }
-
-    return result;
-  }
-
-  return {};
-}
-
-function _parseRegMunSheet(sheet) {
-  const rows   = XLSX.utils.sheet_to_json(sheet, { header: 1, defval: null });
-  const result = [];
-  for (let i = 4; i < rows.length; i++) {
-    const row  = rows[i];
-    if (!row || row.length < 2) continue;
-    const name = String(row[1] || '').trim();
-    if (!name) continue;
-    result.push({
-      name,
-      registeredDay:   toNum(row[2]),
-      registered:      toNum(row[4]),
-      registeredTotal: toNum(row[6]),
-      fixedDay:        toNum(row[7]),
-      fixed:           toNum(row[9]),
-      fixedTotal:      toNum(row[11]),
+// БАГ 3 ИСПРАВЛЕН: парсим Excel в отдельном worker_threads потоке
+// — XLSX.read() синхронный и блокирует event loop, воркер изолирует это
+function parseExcelInWorker(fileBuffer, reportType) {
+  return new Promise((resolve, reject) => {
+    const worker = new Worker(__filename, {
+      workerData: {
+        // Передаём как ArrayBuffer — избегаем лишнего копирования
+        fileBuffer: fileBuffer.buffer.slice(
+          fileBuffer.byteOffset,
+          fileBuffer.byteOffset + fileBuffer.byteLength
+        ),
+        reportType,
+      },
+      // Передаём буфер по ссылке (transferList) — не копируем 2 раза
+      transferList: [
+        fileBuffer.buffer.slice(
+          fileBuffer.byteOffset,
+          fileBuffer.byteOffset + fileBuffer.byteLength
+        ),
+      ],
     });
-  }
-  return result;
-}
 
-function toNum(v) {
-  const n = parseFloat(String(v || 0).replace(/\s/g, '').replace(',', '.'));
-  return isNaN(n) ? 0 : n;
+    const timeout = setTimeout(() => {
+      worker.terminate();
+      reject(Object.assign(new Error('Превышено время обработки файла (30 с)'), { statusCode: 504 }));
+    }, 30000);
+
+    worker.on('message', msg => {
+      clearTimeout(timeout);
+      if (msg.ok) resolve(msg.result);
+      else reject(new Error(msg.error));
+    });
+    worker.on('error', err => {
+      clearTimeout(timeout);
+      reject(err);
+    });
+  });
 }
 
 // ── HTTP-сервер ───────────────────────────────────────────────────────────────
@@ -507,39 +566,42 @@ const server = http.createServer(async (req, res) => {
     return;
   }
 
-  // ── UPLOAD: тяжёлый эндпоинт — parseMultipart + parseExcel вне event loop ──
+  // ── UPLOAD ──────────────────────────────────────────────────────────────────
   if (url === '/api/pothole/upload' && req.method === 'POST') {
     try {
-      const contentType   = req.headers['content-type'] || '';
-      const boundaryMatch = contentType.match(/boundary=([\S]+)/);
-      if (!boundaryMatch) { json(res, 400, { error: 'Не передан boundary' }); return; }
+      const contentType = req.headers['content-type'] || '';
 
+      // БАГ 1 ИСПРАВЛЕН: граница может быть в кавычках или содержать лишние параметры
+      // Корректно: обрезаем до первого пробела/;/кавычки после значения
+      const boundaryMatch = contentType.match(/boundary=["']?([^"';\s]+)["']?/i);
+      if (!boundaryMatch) {
+        json(res, 400, { error: 'Не передан boundary в Content-Type' });
+        return;
+      }
       const boundary = boundaryMatch[1];
 
-      // 1. Читаем тело запроса
+      // Читаем тело (с лимитом 50 МБ — см. readBodyRaw)
       const rawBody = await readBodyRaw(req);
 
-      // 2. Парсим multipart + Excel асинхронно (через setImmediate),
-      //    чтобы не блокировать event loop во время CPU-интенсивных операций
-      const { parts, reportType, reportDate, parsed } = await runAsync(() => {
-        const parts = parseMultipart(rawBody, boundary);
+      // Парсим multipart синхронно (только буферные операции, быстро)
+      const parts = parseMultipart(rawBody, boundary);
 
-        const reportTypePart = parts.find(p => p.name === 'report_type');
-        const reportDatePart = parts.find(p => p.name === 'report_date');
-        const filePart       = parts.find(p => p.filename);
+      const reportTypePart = parts.find(p => p.name === 'report_type');
+      const reportDatePart = parts.find(p => p.name === 'report_date');
+      const filePart       = parts.find(p => p.filename);
 
-        if (!reportTypePart || !reportDatePart || !filePart) {
-          throw Object.assign(new Error('Отсутствуют обязательные поля'), { statusCode: 400 });
-        }
+      if (!reportTypePart || !reportDatePart || !filePart) {
+        json(res, 400, { error: 'Отсутствуют обязательные поля (report_type, report_date, file)' });
+        return;
+      }
 
-        const reportType = reportTypePart.text.trim();
-        const reportDate = reportDatePart.text.trim();
-        const parsed     = parseExcel(filePart.body, reportType);
+      const reportType = reportTypePart.text.trim();
+      const reportDate = reportDatePart.text.trim();
 
-        return { parts, reportType, reportDate, parsed };
-      });
+      // БАГ 3 ИСПРАВЛЕН: парсим Excel в отдельном worker thread
+      // — не блокирует event loop, соединение не рвётся
+      const parsed = await parseExcelInWorker(filePart.body, reportType);
 
-      // 3. Запись в БД (синхронная, но лёгкая — только INSERT строки JSON)
       const rowCount = Array.isArray(parsed)
         ? parsed.length
         : (parsed.total ? parsed.total.length : 0);
@@ -547,7 +609,6 @@ const server = http.createServer(async (req, res) => {
       dbInsert(
         'INSERT INTO pothole_reports (report_type, report_date, uploaded_at, data_json) VALUES (?, ?, ?, ?)',
         [reportType, reportDate, new Date().toISOString(), JSON.stringify(parsed)]
-        // saveDbDeferred вызывается внутри dbInsert автоматически
       );
 
       json(res, 200, { ok: true, type: reportType, date: reportDate, rows: rowCount });
