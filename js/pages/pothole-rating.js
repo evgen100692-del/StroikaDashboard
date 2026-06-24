@@ -19,9 +19,9 @@ const PotholeRating = (() => {
   // Фильтры независимые для каждого таба
   function _emptyFilters() {
     return {
-      green:  { min: null, max: null, active: false },
-      yellow: { min: null, max: null, active: false },
-      red:    { min: null, max: null, active: false },
+      green:  { min: null, active: false },
+      yellow: { min: null, active: false },
+      red:    { min: null, active: false },
     };
   }
   let _filtersMap = { ruad: _emptyFilters(), mad: _emptyFilters() };
@@ -217,21 +217,11 @@ const PotholeRating = (() => {
     const f = _filters();
     ['green', 'yellow', 'red'].forEach(color => {
       const minInput = wrap.querySelector(`[data-filter-min="${color}"]`);
-      const maxInput = wrap.querySelector(`[data-filter-max="${color}"]`);
       if (minInput) {
         minInput.addEventListener('input', () => {
           const v = minInput.value.trim();
-          f[color].min = v !== '' ? parseFloat(v) : null;
-          f[color].active = f[color].min !== null || f[color].max !== null;
-          _applyFilters(wrap);
-          _updateClearBtn(wrap, color);
-        });
-      }
-      if (maxInput) {
-        maxInput.addEventListener('input', () => {
-          const v = maxInput.value.trim();
-          f[color].max = v !== '' ? parseFloat(v) : null;
-          f[color].active = f[color].min !== null || f[color].max !== null;
+          f[color].min    = v !== '' ? parseFloat(v) : null;
+          f[color].active = f[color].min !== null;
           _applyFilters(wrap);
           _updateClearBtn(wrap, color);
         });
@@ -240,13 +230,9 @@ const PotholeRating = (() => {
     wrap.querySelectorAll('[data-filter-clear]').forEach(btn => {
       btn.addEventListener('click', () => {
         const color = btn.dataset.filterClear;
-        f[color] = { min: null, max: null, active: false };
-        // Обновляем ссылку в объекте (f — прямая ссылка на внутренность объекта)
-        _filtersMap[_ratingTab][color] = f[color];
+        _filtersMap[_ratingTab][color] = { min: null, active: false };
         const minI = wrap.querySelector(`[data-filter-min="${color}"]`);
-        const maxI = wrap.querySelector(`[data-filter-max="${color}"]`);
         if (minI) minI.value = '';
-        if (maxI) maxI.value = '';
         _applyFilters(wrap);
         _updateClearBtn(wrap, color);
       });
@@ -275,11 +261,10 @@ const PotholeRating = (() => {
       if (isNaN(val)) return;
       if (!anyActive) { scoreEl.setAttribute('style', _ratingColor(val)); return; }
       let matched = null;
+      // Приоритет: green > yellow > red (первый совпавший)
       for (const [color, fc] of Object.entries(f)) {
         if (!fc.active) continue;
-        const inMin = fc.min === null || val >= fc.min;
-        const inMax = fc.max === null || val <= fc.max;
-        if (inMin && inMax) { matched = color; break; }
+        if (fc.min !== null && val >= fc.min) { matched = color; break; }
       }
       if (matched) {
         const m = FILTER_META[matched];
@@ -297,14 +282,11 @@ const PotholeRating = (() => {
       const f = tabFilters[color];
       const dotStyle   = `display:inline-block;width:8px;height:8px;border-radius:50%;background:${m.color};flex-shrink:0;`;
       const inputStyle = `width:52px;border:none;background:transparent;font-size:11px;color:var(--color-text);outline:none;font-variant-numeric:tabular-nums;padding:0;`;
-      const sepStyle   = `color:var(--color-text-faint);font-size:10px;line-height:1;user-select:none;`;
       const clearStyle = `display:flex;align-items:center;justify-content:center;width:14px;height:14px;padding:0;background:none;border:none;color:var(--color-text-faint);cursor:pointer;border-radius:50%;flex-shrink:0;transition:opacity 0.15s;opacity:${f.active ? '1' : '0'};pointer-events:${f.active ? 'auto' : 'none'};`;
       return `
         <div class="ph-filter-pill" style="display:inline-flex;align-items:center;gap:4px;height:26px;padding:0 8px;background:var(--color-surface);border:1px solid var(--color-border);border-radius:var(--radius-full);transition:border-color 0.15s;">
           <span style="${dotStyle}" title="${m.label}"></span>
-          <input type="number" step="any" placeholder="от" data-filter-min="${color}" value="${f.min !== null ? f.min : ''}" style="${inputStyle}text-align:right;"/>
-          <span style="${sepStyle}">–</span>
-          <input type="number" step="any" placeholder="до" data-filter-max="${color}" value="${f.max !== null ? f.max : ''}" style="${inputStyle}"/>
+          <input type="number" step="any" placeholder="от" data-filter-min="${color}" value="${f.min !== null ? f.min : ''}" style="${inputStyle}"/>
           <button data-filter-clear="${color}" type="button" title="Сбросить" style="${clearStyle}"
             onmouseenter="this.style.color='${m.color}'"
             onmouseleave="this.style.color='var(--color-text-faint)'">
