@@ -15,12 +15,25 @@ const PotholeRating = (() => {
   let _ratingTab = 'ruad';   // 'ruad' | 'mad'
 
   // Сортировка таблиц: { key, dir } dir: 'asc' | 'desc'
-  // По умолчанию — рейтинг по возрастанию
   let _sortState = { key: 'rating', dir: 'asc' };
 
   // активная вкладка в каждом модале: 'ruad' | 'mo'
   let _netTab = 'ruad';
   let _popTab = 'ruad';
+
+  // ── Фильтры рейтинга ────────────────────────────────────────────────────────
+  // Каждый фильтр: { min: number|null, max: number|null, active: bool }
+  let _filters = {
+    green:  { min: null, max: null, active: false },
+    yellow: { min: null, max: null, active: false },
+    red:    { min: null, max: null, active: false },
+  };
+
+  const FILTER_META = {
+    green:  { label: 'Зелёный',  color: '#22c55e', bg: '#f0fdf4', border: '#86efac' },
+    yellow: { label: 'Жёлтый',   color: '#f59e0b', bg: '#fffbeb', border: '#fcd34d' },
+    red:    { label: 'Красный',  color: '#ef4444', bg: '#fef2f2', border: '#fca5a5' },
+  };
 
   // ── Инициализация ─────────────────────────────────────────────────────────────
   function init(ruadNames, moNames, latestRegional, latestComplaints, latestMunicipal) {
@@ -30,6 +43,11 @@ const PotholeRating = (() => {
     _latestComplaints = latestComplaints || null;
     _latestMunicipal  = latestMunicipal  || null;
     _sortState        = { key: 'rating', dir: 'asc' };
+    _filters          = {
+      green:  { min: null, max: null, active: false },
+      yellow: { min: null, max: null, active: false },
+      red:    { min: null, max: null, active: false },
+    };
     _bindButtons();
     _renderRatingContent();
   }
@@ -166,10 +184,10 @@ const PotholeRating = (() => {
       ${tabHtml}
       <div class="ph-meta-tab-body">${tableHtml}</div>
       <div class="form-actions" style="margin-top:var(--space-4);padding-top:var(--space-4);border-top:1px solid var(--color-border)">
-        <button class="btn btn-ghost" type="button" onclick="closeModal('${modalId}')">\u041e\u0442\u043c\u0435\u043d\u0430</button>
+        <button class="btn btn-ghost" type="button" onclick="closeModal('${modalId}')">Отмена</button>
         <button class="btn btn-primary" type="button" data-ph-meta-save>
           <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg>
-          \u0421\u043e\u0445\u0440\u0430\u043d\u0438\u0442\u044c
+          Сохранить
         </button>
       </div>`;
   }
@@ -185,7 +203,7 @@ const PotholeRating = (() => {
     const inputs  = body.querySelectorAll('.ph-meta-input');
     const saveBtn = body.querySelector('[data-ph-meta-save]');
 
-    if (saveBtn) { saveBtn.disabled = true; saveBtn.textContent = '\u0421\u043e\u0445\u0440\u0430\u043d\u0435\u043d\u0438\u0435...'; }
+    if (saveBtn) { saveBtn.disabled = true; saveBtn.textContent = 'Сохранение...'; }
 
     let errCount = 0;
     await Promise.all(Array.from(inputs).map(async inp => {
@@ -208,12 +226,12 @@ const PotholeRating = (() => {
       _meta = await r.json();
     } catch (e) { /* ignore */ }
 
-    if (saveBtn) { saveBtn.disabled = false; saveBtn.textContent = '\u0421\u043e\u0445\u0440\u0430\u043d\u0438\u0442\u044c'; }
+    if (saveBtn) { saveBtn.disabled = false; saveBtn.textContent = 'Сохранить'; }
 
     if (errCount) {
-      if (typeof Toast !== 'undefined') Toast.error(`\u041e\u0448\u0438\u0431\u043a\u0430 \u043f\u0440\u0438 \u0441\u043e\u0445\u0440\u0430\u043d\u0435\u043d\u0438\u0438 ${errCount} \u0437\u0430\u043f\u0438\u0441\u0435\u0439`);
+      if (typeof Toast !== 'undefined') Toast.error(`Ошибка при сохранении ${errCount} записей`);
     } else {
-      if (typeof Toast !== 'undefined') Toast.success('\u0414\u0430\u043d\u043d\u044b\u0435 \u0441\u043e\u0445\u0440\u0430\u043d\u0435\u043d\u044b');
+      if (typeof Toast !== 'undefined') Toast.success('Данные сохранены');
       if (typeof closeModal === 'function') closeModal(modalId);
       _renderRatingTable();
     }
@@ -229,14 +247,14 @@ const PotholeRating = (() => {
 
     container.innerHTML = `
       <div class="ph-rating-tabs-row">
-        <div class="ph-seg" role="group" aria-label="\u0422\u0430\u0431\u043b\u0438\u0446\u0430 \u0440\u0435\u0439\u0442\u0438\u043d\u0433\u0430">
+        <div class="ph-seg" role="group" aria-label="Таблица рейтинга">
           <button class="ph-seg-btn${_ratingTab === 'ruad' ? ' active' : ''}" data-rating-tab="ruad" type="button">
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/></svg>
-            <span>\u0420\u0435\u0439\u0442\u0438\u043d\u0433 \u0420\u0423\u0410\u0414</span>
+            <span>Рейтинг РУАД</span>
           </button>
           <button class="ph-seg-btn${_ratingTab === 'mad' ? ' active' : ''}" data-rating-tab="mad" type="button">
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="7" width="20" height="14" rx="2"/><path d="M16 7V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v2"/></svg>
-            <span>\u0420\u0435\u0439\u0442\u0438\u043d\u0433 \u041e\u041c\u0421</span>
+            <span>Рейтинг ОМС</span>
           </button>
         </div>
       </div>
@@ -285,6 +303,181 @@ const PotholeRating = (() => {
         _renderRatingTable();
       });
     });
+
+    // Привязываем события фильтров
+    _bindFilterEvents(wrap);
+  }
+
+  // ── Привязка событий фильтров ────────────────────────────────────────────────
+  function _bindFilterEvents(wrap) {
+    ['green', 'yellow', 'red'].forEach(color => {
+      const minInput = wrap.querySelector(`[data-filter-min="${color}"]`);
+      const maxInput = wrap.querySelector(`[data-filter-max="${color}"]`);
+
+      if (minInput) {
+        minInput.addEventListener('input', () => {
+          const v = minInput.value.trim();
+          _filters[color].min = v !== '' ? parseFloat(v) : null;
+          _filters[color].active = _filters[color].min !== null || _filters[color].max !== null;
+          _applyFilters(wrap);
+        });
+      }
+      if (maxInput) {
+        maxInput.addEventListener('input', () => {
+          const v = maxInput.value.trim();
+          _filters[color].max = v !== '' ? parseFloat(v) : null;
+          _filters[color].active = _filters[color].min !== null || _filters[color].max !== null;
+          _applyFilters(wrap);
+        });
+      }
+    });
+
+    // Кнопки сброса фильтра
+    wrap.querySelectorAll('[data-filter-clear]').forEach(btn => {
+      btn.addEventListener('click', () => {
+        const color = btn.dataset.filterClear;
+        _filters[color] = { min: null, max: null, active: false };
+        const minI = wrap.querySelector(`[data-filter-min="${color}"]`);
+        const maxI = wrap.querySelector(`[data-filter-max="${color}"]`);
+        if (minI) minI.value = '';
+        if (maxI) maxI.value = '';
+        _applyFilters(wrap);
+      });
+    });
+
+    // Применяем текущее состояние фильтров (после перерендера таблицы)
+    _applyFilters(wrap);
+  }
+
+  // ── Применить фильтры: перекрасить ячейки рейтинга ────────────────────────
+  function _applyFilters(wrap) {
+    const table = wrap.querySelector('.ph-rating-table');
+    if (!table) return;
+
+    const anyActive = Object.values(_filters).some(f => f.active);
+
+    table.querySelectorAll('tbody tr').forEach(row => {
+      const scoreEl = row.querySelector('.ph-rating-score');
+      if (!scoreEl) return;
+
+      const val = parseFloat(scoreEl.textContent.replace(',', '.'));
+      if (isNaN(val)) return;
+
+      if (!anyActive) {
+        // Сброс: вернуть исходный цвет
+        scoreEl.style.color = '';
+        scoreEl.style.background = '';
+        scoreEl.style.padding = '';
+        scoreEl.style.borderRadius = '';
+        scoreEl.style.fontWeight = '';
+        // Восстановить дефолтный цвет из функции _ratingColor
+        const defStyle = _ratingColor(val);
+        scoreEl.setAttribute('style', defStyle);
+        return;
+      }
+
+      let matched = null;
+      for (const [color, f] of Object.entries(_filters)) {
+        if (!f.active) continue;
+        const inMin = f.min === null || val >= f.min;
+        const inMax = f.max === null || val <= f.max;
+        if (inMin && inMax) {
+          matched = color;
+          break;
+        }
+      }
+
+      if (matched) {
+        const m = FILTER_META[matched];
+        scoreEl.style.cssText = `
+          color: ${m.color};
+          font-weight: 700;
+          background: ${m.bg};
+          padding: 2px 8px;
+          border-radius: 9999px;
+          border: 1px solid ${m.border};
+          display: inline-block;
+        `;
+      } else {
+        // Не попал ни в один активный фильтр — приглушить
+        scoreEl.style.cssText = 'color: var(--color-text-faint); font-weight: 400;';
+      }
+    });
+  }
+
+  // ── Построитель блока фильтров ────────────────────────────────────────────────
+  function _buildFiltersHtml() {
+    return `
+      <div class="ph-rating-filters" style="
+        display: flex;
+        flex-wrap: wrap;
+        gap: var(--space-3);
+        padding: var(--space-3) var(--space-4);
+        background: var(--color-surface-offset);
+        border-bottom: 1px solid var(--color-border);
+        align-items: center;
+      ">
+        <span style="font-size:var(--text-xs);color:var(--color-text-muted);font-weight:600;letter-spacing:0.05em;text-transform:uppercase;white-space:nowrap">
+          Фильтр по рейтингу:
+        </span>
+        ${['green', 'yellow', 'red'].map(color => {
+          const m = FILTER_META[color];
+          const f = _filters[color];
+          return `
+          <div class="ph-filter-group" style="
+            display:flex;align-items:center;gap:var(--space-2);
+            background:var(--color-surface);
+            border:1px solid var(--color-border);
+            border-radius:var(--radius-lg);
+            padding:var(--space-1) var(--space-3);
+          ">
+            <span title="${m.label}" style="
+              display:inline-block;width:12px;height:12px;
+              border-radius:50%;background:${m.color};
+              flex-shrink:0;box-shadow:0 0 0 2px ${m.border};
+            "></span>
+            <input
+              type="number"
+              step="any"
+              placeholder="от"
+              data-filter-min="${color}"
+              value="${f.min !== null ? f.min : ''}"
+              style="
+                width:72px;border:none;background:transparent;
+                font-size:var(--text-xs);color:var(--color-text);
+                outline:none;text-align:right;padding:0;
+                font-variant-numeric:tabular-nums;
+              "
+            />
+            <span style="color:var(--color-text-faint);font-size:var(--text-xs)">—</span>
+            <input
+              type="number"
+              step="any"
+              placeholder="до"
+              data-filter-max="${color}"
+              value="${f.max !== null ? f.max : ''}"
+              style="
+                width:72px;border:none;background:transparent;
+                font-size:var(--text-xs);color:var(--color-text);
+                outline:none;padding:0;
+                font-variant-numeric:tabular-nums;
+              "
+            />
+            <button data-filter-clear="${color}" type="button" title="Сбросить фильтр" style="
+              display:flex;align-items:center;justify-content:center;
+              width:16px;height:16px;padding:0;background:none;border:none;
+              color:var(--color-text-faint);cursor:pointer;border-radius:50%;
+              transition:color 0.15s,background 0.15s;flex-shrink:0;
+              ${(!f.active) ? 'opacity:0.3;pointer-events:none;' : ''}
+            " onmouseenter="this.style.color='var(--color-error)';this.style.background='var(--color-error-highlight)'"
+               onmouseleave="this.style.color='var(--color-text-faint)';this.style.background='none'">
+              <svg width="10" height="10" viewBox="0 0 12 12" fill="none" stroke="currentColor" stroke-width="2">
+                <line x1="2" y1="2" x2="10" y2="10"/><line x1="10" y1="2" x2="2" y2="10"/>
+              </svg>
+            </button>
+          </div>`;
+        }).join('')}
+      </div>`;
   }
 
   // ════════════════════════════════════════════════════════════════════════════
@@ -293,7 +486,7 @@ const PotholeRating = (() => {
 
   function _buildRuadTable() {
     if (!_ruadNames.length) {
-      return _emptyCard('\u0417\u0430\u0433\u0440\u0443\u0437\u0438\u0442\u0435 \u0440\u0435\u0433\u0438\u043e\u043d\u0430\u043b\u044c\u043d\u044b\u0435 \u043e\u0442\u0447\u0451\u0442\u044b \u044f\u043c\u043e\u0447\u043d\u043e\u0433\u043e \u0440\u0435\u043c\u043e\u043d\u0442\u0430 \u2014 \u0441\u043f\u0438\u0441\u043e\u043a \u0420\u0423\u0410\u0414 \u0437\u0430\u043f\u043e\u043b\u043d\u0438\u0442\u0441\u044f \u0430\u0432\u0442\u043e\u043c\u0430\u0442\u0438\u0447\u0435\u0441\u043a\u0438.');
+      return _emptyCard('Загрузите региональные отчёты ямочного ремонта — список РУАД заполнится автоматически.');
     }
 
     const regData  = (_latestRegional   && _latestRegional.data_json)  ? _latestRegional.data_json  : [];
@@ -302,7 +495,7 @@ const PotholeRating = (() => {
     const compByName = {};
     if (compData && compData.total) {
       compData.total
-        .filter(r => r.type === 'mad' && r.name !== '\u041c\u0410\u0414')
+        .filter(r => r.type === 'mad' && r.name !== 'МАД')
         .forEach(r => { compByName[r.name] = r.count; });
     }
 
@@ -324,8 +517,8 @@ const PotholeRating = (() => {
     const compDate = _latestComplaints ? _latestComplaints.report_date : null;
 
     return _buildTable({
-      title:   '\u0420\u0435\u0439\u0442\u0438\u043d\u0433 \u0420\u0423\u0410\u0414',
-      colName: '\u041d\u0430\u0438\u043c\u0435\u043d\u043e\u0432\u0430\u043d\u0438\u0435 \u0420\u0423\u0410\u0414',
+      title:   'Рейтинг РУАД',
+      colName: 'Наименование РУАД',
       rows,
       regDate,
       compDate,
@@ -338,7 +531,7 @@ const PotholeRating = (() => {
 
   function _buildMadTable() {
     if (!_moNames.length) {
-      return _emptyCard('\u0417\u0430\u0433\u0440\u0443\u0437\u0438\u0442\u0435 \u043c\u0443\u043d\u0438\u0446\u0438\u043f\u0430\u043b\u044c\u043d\u044b\u0435 \u043e\u0442\u0447\u0451\u0442\u044b \u044f\u043c\u043e\u0447\u043d\u043e\u0433\u043e \u0440\u0435\u043c\u043e\u043d\u0442\u0430 \u2014 \u0441\u043f\u0438\u0441\u043e\u043a \u041c\u0410\u0414 \u0437\u0430\u043f\u043e\u043b\u043d\u0438\u0442\u0441\u044f \u0430\u0432\u0442\u043e\u043c\u0430\u0442\u0438\u0447\u0435\u0441\u043a\u0438.');
+      return _emptyCard('Загрузите муниципальные отчёты ямочного ремонта — список МАД заполнится автоматически.');
     }
 
     const munData  = (_latestMunicipal  && _latestMunicipal.data_json)  ? _latestMunicipal.data_json  : [];
@@ -347,7 +540,7 @@ const PotholeRating = (() => {
     const compByName = {};
     if (compData && compData.total) {
       compData.total
-        .filter(r => r.type === 'oms' && r.name !== '\u041e\u041c\u0421')
+        .filter(r => r.type === 'oms' && r.name !== 'ОМС')
         .forEach(r => { compByName[r.name] = r.count; });
     }
 
@@ -376,8 +569,8 @@ const PotholeRating = (() => {
     const compDate = _latestComplaints ? _latestComplaints.report_date : null;
 
     return _buildTable({
-      title:   '\u0420\u0435\u0439\u0442\u0438\u043d\u0433 \u041e\u041c\u0421',
-      colName: '\u041d\u0430\u0438\u043c\u0435\u043d\u043e\u0432\u0430\u043d\u0438\u0435 \u041c\u0410\u0414',
+      title:   'Рейтинг ОМС',
+      colName: 'Наименование МАД',
       rows,
       regDate:  munDate,
       compDate,
@@ -388,20 +581,8 @@ const PotholeRating = (() => {
   //  Общий построитель таблицы рейтинга
   // ════════════════════════════════════════════════════════════════════════════
 
-  // Колонки: key — поле в rows, label, align
-  const COLS = [
-    { key: 'name',        label: null,                          align: 'left'   },  // label заменяется динамически
-    { key: 'netLength',   label: '\u041fротяжённость сети, км', align: 'right'  },
-    { key: 'population',  label: '\u041dаселение, чел.',         align: 'right'  },
-    { key: 'registered',  label: '\u0417арег. с нач. года',         align: 'right'  },
-    { key: 'repaired',    label: '\u041eтрем. с нач. года',         align: 'right'  },
-    { key: 'complaints',  label: '\u0416алобы с нач. года',        align: 'right'  },
-    { key: 'rating',      label: '\u0420ейтинг',                       align: 'center' },
-  ];
-
   function _sortIcon(key) {
     if (_sortState.key !== key) {
-      // Нейтральная иконка — две стрелки
       return `<svg class="ph-sort-icon" width="10" height="10" viewBox="0 0 10 14" fill="none" stroke="currentColor" stroke-width="1.5">
         <path d="M5 1L2 5h6L5 1z" fill="currentColor" stroke="none" opacity="0.3"/>
         <path d="M5 13L2 9h6L5 13z" fill="currentColor" stroke="none" opacity="0.3"/>
@@ -427,7 +608,6 @@ const PotholeRating = (() => {
     rows.sort((a, b) => {
       const av = a[key];
       const bv = b[key];
-      // null-значения всегда в конец — независимо от направления
       if (av == null && bv == null) return a.name.localeCompare(b.name, 'ru');
       if (av == null) return 1;
       if (bv == null) return -1;
@@ -435,20 +615,19 @@ const PotholeRating = (() => {
       return dir * (av - bv);
     });
 
-    // Номер строки (порядковый номер по текущему порядку, null-элементы — без номера)
     let rank = 1;
     const rowsHtml = rows.map(r => {
       const hasRating = r.rating !== null;
       const rankCell  = hasRating
         ? `<td class="ph-rating-rank">${rank++}</td>`
-        : `<td class="ph-rating-rank" style="color:var(--color-text-faint)">\u2014</td>`;
+        : `<td class="ph-rating-rank" style="color:var(--color-text-faint)">—</td>`;
 
-      const netLenStr = r.netLength  != null ? _fmtNum(r.netLength,  2) : _missingBadge('\u041dе задано');
-      const popStr    = r.population != null ? _fmtNum(r.population, 0) : _missingBadge('\u041dе задано');
+      const netLenStr = r.netLength  != null ? _fmtNum(r.netLength,  2) : _missingBadge('Не задано');
+      const popStr    = r.population != null ? _fmtNum(r.population, 0) : _missingBadge('Не задано');
       const compStr   = _fmtNum(r.complaints != null ? r.complaints : 0, 0);
       const ratingStr = hasRating
         ? `<span class="ph-rating-score" style="${_ratingColor(r.rating)}">${r.rating.toFixed(4)}</span>`
-        : _missingBadge('\u041dедостаточно данных');
+        : _missingBadge('Недостаточно данных');
 
       return `<tr>
         ${rankCell}
@@ -463,20 +642,19 @@ const PotholeRating = (() => {
     }).join('');
 
     const dateLine = [
-      regDate  && ('\u041e\u0442\u0447\u0451\u0442 \u043f\u043e \u0440\u0435\u043c\u043e\u043d\u0442\u0443: ' + _fmtDate(regDate)),
-      compDate && ('\u0416\u0430\u043b\u043e\u0431\u044b: ' + _fmtDate(compDate)),
-    ].filter(Boolean).join(' \u00b7 ');
+      regDate  && ('Отчёт по ремонту: ' + _fmtDate(regDate)),
+      compDate && ('Жалобы: ' + _fmtDate(compDate)),
+    ].filter(Boolean).join(' · ');
 
-    // Заголовки таблицы
     const thRank = `<th style="width:40px;text-align:center;user-select:none">#</th>`;
     const thName = `<th data-sort-key="name" class="ph-th-sort" style="text-align:left">${colName}${_sortIcon('name')}</th>`;
     const thCols = [
-      { key: 'netLength',  label: '\u041fротяжённость сети, км', align: 'right'  },
-      { key: 'population', label: '\u041dаселение, чел.',         align: 'right'  },
-      { key: 'registered', label: '\u0417арег. с нач. года',         align: 'right'  },
-      { key: 'repaired',   label: '\u041eтрем. с нач. года',         align: 'right'  },
-      { key: 'complaints', label: '\u0416алобы с нач. года',        align: 'right'  },
-      { key: 'rating',     label: '\u0420ейтинг',                       align: 'center' },
+      { key: 'netLength',  label: 'Протяжённость сети, км', align: 'right'  },
+      { key: 'population', label: 'Население, чел.',         align: 'right'  },
+      { key: 'registered', label: 'Зарег. с нач. года',      align: 'right'  },
+      { key: 'repaired',   label: 'Отрем. с нач. года',      align: 'right'  },
+      { key: 'complaints', label: 'Жалобы с нач. года',      align: 'right'  },
+      { key: 'rating',     label: 'Рейтинг',                 align: 'center' },
     ].map(c => `<th data-sort-key="${c.key}" class="ph-th-sort" style="text-align:${c.align}">${c.label}${_sortIcon(c.key)}</th>`).join('');
 
     return `
@@ -487,6 +665,7 @@ const PotholeRating = (() => {
             ${dateLine ? `<div class="card-subtitle">${dateLine}</div>` : ''}
           </div>
         </div>
+        ${_buildFiltersHtml()}
         <div class="card-body" style="padding:0">
           <div class="data-table-wrap">
             <table class="data-table ph-rating-table">
@@ -536,7 +715,7 @@ const PotholeRating = (() => {
       <div class="card-body">
         <div class="ph-rep-empty">
           <svg width="44" height="44" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
-          <h3>\u041d\u0435\u0442 \u0434\u0430\u043d\u043d\u044b\u0445</h3>
+          <h3>Нет данных</h3>
           <p>${msg}</p>
         </div>
       </div>
@@ -544,7 +723,7 @@ const PotholeRating = (() => {
   }
 
   function _fmtNum(val, decimals) {
-    if (val == null) return '\u2014';
+    if (val == null) return '—';
     return Number(val).toLocaleString('ru', { minimumFractionDigits: decimals, maximumFractionDigits: decimals });
   }
 
