@@ -23,7 +23,7 @@ const DashboardPage = (() => {
     { key: 'dptStatus',         label: 'Статус ДПТ',         type: 'str', align: 'center' },
   ];
 
-  const COL_WIDTHS = ['35%','13%','9%','9%','8%','8%','8%','10%'];
+  const COL_WIDTHS = ['24%','15%','11%','11%','9%','9%','9%','12%'];
 
   function init() {
     bindFilters();
