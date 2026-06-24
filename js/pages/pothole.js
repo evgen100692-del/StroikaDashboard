@@ -747,6 +747,8 @@ const PotholePage = (() => {
   }
 
   let _uploadState = { type: null, file: null };
+  // Таймаут загрузки: 55 секунд (сервер — 60 с, даём 5 с запас)
+  const UPLOAD_TIMEOUT_MS = 55_000;
 
   function _bindUploadModal() {
     document.querySelectorAll('.upload-type-btn').forEach(btn => {
@@ -799,8 +801,21 @@ const PotholePage = (() => {
     if (!type || !file || !date) return;
 
     const btn = document.getElementById('upload-submit-btn');
-    btn.disabled = true;
-    btn.textContent = 'Загрузка...';
+    btn.disabled    = true;
+    btn.textContent = 'Обработка файла...';
+
+    // AbortController для таймаута
+    const controller = new AbortController();
+    const timerId = setTimeout(() => controller.abort(), UPLOAD_TIMEOUT_MS);
+
+    // Анимируем кнопку, пока идёт загрузка
+    const labels = ['Обработка файла', 'Обработка файла.', 'Обработка файла..', 'Обработка файла...'];
+    let labelIdx = 0;
+    const labelTimer = setInterval(() => {
+      labelIdx = (labelIdx + 1) % labels.length;
+      if (!btn.disabled) return;
+      btn.textContent = labels[labelIdx];
+    }, 400);
 
     const fd = new FormData();
     fd.append('report_type', type);
@@ -809,7 +824,11 @@ const PotholePage = (() => {
 
     let success = false;
     try {
-      const res  = await fetch('/api/pothole/upload', { method: 'POST', body: fd });
+      const res  = await fetch('/api/pothole/upload', {
+        method: 'POST',
+        body:   fd,
+        signal: controller.signal,
+      });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || 'Ошибка сервера');
       success = true;
@@ -818,10 +837,16 @@ const PotholePage = (() => {
       closeModal('upload-modal');
       await _reload();
     } catch (e) {
-      Toast.error('Ошибка: ' + e.message);
+      if (e.name === 'AbortError') {
+        Toast.error('Превышено время ожидания (55 с). Попробуйте ещё раз.');
+      } else {
+        Toast.error('Ошибка: ' + e.message);
+      }
     } finally {
+      clearTimeout(timerId);
+      clearInterval(labelTimer);
       if (!success) {
-        btn.disabled = false;
+        btn.disabled    = false;
         btn.textContent = 'Загрузить';
       }
     }
