@@ -16,11 +16,18 @@ const PotholeRating = (() => {
   let _netTab = 'ruad';
   let _popTab = 'ruad';
 
-  let _filters = {
-    green:  { min: null, max: null, active: false },
-    yellow: { min: null, max: null, active: false },
-    red:    { min: null, max: null, active: false },
-  };
+  // Фильтры независимые для каждого таба
+  function _emptyFilters() {
+    return {
+      green:  { min: null, max: null, active: false },
+      yellow: { min: null, max: null, active: false },
+      red:    { min: null, max: null, active: false },
+    };
+  }
+  let _filtersMap = { ruad: _emptyFilters(), mad: _emptyFilters() };
+
+  // Текущий набор фильтров (ссылка на активный таб)
+  function _filters() { return _filtersMap[_ratingTab]; }
 
   const FILTER_META = {
     green:  { label: 'Зелёный',  color: '#16a34a', bg: 'rgba(22,163,74,0.08)',  border: 'rgba(22,163,74,0.25)'  },
@@ -36,11 +43,7 @@ const PotholeRating = (() => {
     _latestComplaints = latestComplaints || null;
     _latestMunicipal  = latestMunicipal  || null;
     _sortState        = { key: 'rating', dir: 'asc' };
-    _filters          = {
-      green:  { min: null, max: null, active: false },
-      yellow: { min: null, max: null, active: false },
-      red:    { min: null, max: null, active: false },
-    };
+    _filtersMap       = { ruad: _emptyFilters(), mad: _emptyFilters() };
     _bindButtons();
     _renderRatingContent();
   }
@@ -209,16 +212,17 @@ const PotholeRating = (() => {
     _bindFilterEvents(wrap);
   }
 
-  // ── Фильтры
+  // ── Фильтры (работают с текущим набором)
   function _bindFilterEvents(wrap) {
+    const f = _filters();
     ['green', 'yellow', 'red'].forEach(color => {
       const minInput = wrap.querySelector(`[data-filter-min="${color}"]`);
       const maxInput = wrap.querySelector(`[data-filter-max="${color}"]`);
       if (minInput) {
         minInput.addEventListener('input', () => {
           const v = minInput.value.trim();
-          _filters[color].min = v !== '' ? parseFloat(v) : null;
-          _filters[color].active = _filters[color].min !== null || _filters[color].max !== null;
+          f[color].min = v !== '' ? parseFloat(v) : null;
+          f[color].active = f[color].min !== null || f[color].max !== null;
           _applyFilters(wrap);
           _updateClearBtn(wrap, color);
         });
@@ -226,8 +230,8 @@ const PotholeRating = (() => {
       if (maxInput) {
         maxInput.addEventListener('input', () => {
           const v = maxInput.value.trim();
-          _filters[color].max = v !== '' ? parseFloat(v) : null;
-          _filters[color].active = _filters[color].min !== null || _filters[color].max !== null;
+          f[color].max = v !== '' ? parseFloat(v) : null;
+          f[color].active = f[color].min !== null || f[color].max !== null;
           _applyFilters(wrap);
           _updateClearBtn(wrap, color);
         });
@@ -236,7 +240,9 @@ const PotholeRating = (() => {
     wrap.querySelectorAll('[data-filter-clear]').forEach(btn => {
       btn.addEventListener('click', () => {
         const color = btn.dataset.filterClear;
-        _filters[color] = { min: null, max: null, active: false };
+        f[color] = { min: null, max: null, active: false };
+        // Обновляем ссылку в объекте (f — прямая ссылка на внутренность объекта)
+        _filtersMap[_ratingTab][color] = f[color];
         const minI = wrap.querySelector(`[data-filter-min="${color}"]`);
         const maxI = wrap.querySelector(`[data-filter-max="${color}"]`);
         if (minI) minI.value = '';
@@ -246,14 +252,13 @@ const PotholeRating = (() => {
       });
     });
     _applyFilters(wrap);
-    // Синх состояние кнопок сброса
     ['green', 'yellow', 'red'].forEach(color => _updateClearBtn(wrap, color));
   }
 
   function _updateClearBtn(wrap, color) {
     const btn = wrap.querySelector(`[data-filter-clear="${color}"]`);
     if (!btn) return;
-    const active = _filters[color].active;
+    const active = _filters()[color].active;
     btn.style.opacity = active ? '1' : '0';
     btn.style.pointerEvents = active ? 'auto' : 'none';
   }
@@ -261,21 +266,19 @@ const PotholeRating = (() => {
   function _applyFilters(wrap) {
     const table = wrap.querySelector('.ph-rating-table');
     if (!table) return;
-    const anyActive = Object.values(_filters).some(f => f.active);
+    const f = _filters();
+    const anyActive = Object.values(f).some(v => v.active);
     table.querySelectorAll('tbody tr').forEach(row => {
       const scoreEl = row.querySelector('.ph-rating-score');
       if (!scoreEl) return;
       const val = parseFloat(scoreEl.textContent.replace(',', '.'));
       if (isNaN(val)) return;
-      if (!anyActive) {
-        scoreEl.setAttribute('style', _ratingColor(val));
-        return;
-      }
+      if (!anyActive) { scoreEl.setAttribute('style', _ratingColor(val)); return; }
       let matched = null;
-      for (const [color, f] of Object.entries(_filters)) {
-        if (!f.active) continue;
-        const inMin = f.min === null || val >= f.min;
-        const inMax = f.max === null || val <= f.max;
+      for (const [color, fc] of Object.entries(f)) {
+        if (!fc.active) continue;
+        const inMin = fc.min === null || val >= fc.min;
+        const inMax = fc.max === null || val <= fc.max;
         if (inMin && inMax) { matched = color; break; }
       }
       if (matched) {
@@ -287,60 +290,31 @@ const PotholeRating = (() => {
     });
   }
 
-  // ── Блок фильтров — компактный дизайн
-  function _buildFiltersHtml() {
+  // ── Блок фильтров (принимает набор фильтров для нужного таба)
+  function _buildFiltersHtml(tabFilters) {
     const pills = ['green', 'yellow', 'red'].map(color => {
       const m = FILTER_META[color];
-      const f = _filters[color];
-      const dotStyle = `display:inline-block;width:8px;height:8px;border-radius:50%;background:${m.color};flex-shrink:0;`;
+      const f = tabFilters[color];
+      const dotStyle   = `display:inline-block;width:8px;height:8px;border-radius:50%;background:${m.color};flex-shrink:0;`;
       const inputStyle = `width:52px;border:none;background:transparent;font-size:11px;color:var(--color-text);outline:none;font-variant-numeric:tabular-nums;padding:0;`;
       const sepStyle   = `color:var(--color-text-faint);font-size:10px;line-height:1;user-select:none;`;
-      const clearStyle = `
-        display:flex;align-items:center;justify-content:center;
-        width:14px;height:14px;padding:0;background:none;border:none;
-        color:var(--color-text-faint);cursor:pointer;border-radius:50%;
-        flex-shrink:0;transition:opacity 0.15s;
-        opacity:${f.active ? '1' : '0'};
-        pointer-events:${f.active ? 'auto' : 'none'};
-      `;
+      const clearStyle = `display:flex;align-items:center;justify-content:center;width:14px;height:14px;padding:0;background:none;border:none;color:var(--color-text-faint);cursor:pointer;border-radius:50%;flex-shrink:0;transition:opacity 0.15s;opacity:${f.active ? '1' : '0'};pointer-events:${f.active ? 'auto' : 'none'};`;
       return `
-        <div class="ph-filter-pill" style="
-          display:inline-flex;align-items:center;gap:4px;
-          height:26px;padding:0 8px;
-          background:var(--color-surface);
-          border:1px solid var(--color-border);
-          border-radius:var(--radius-full);
-          transition:border-color 0.15s;
-        ">
+        <div class="ph-filter-pill" style="display:inline-flex;align-items:center;gap:4px;height:26px;padding:0 8px;background:var(--color-surface);border:1px solid var(--color-border);border-radius:var(--radius-full);transition:border-color 0.15s;">
           <span style="${dotStyle}" title="${m.label}"></span>
-          <input type="number" step="any" placeholder="от" data-filter-min="${color}"
-            value="${f.min !== null ? f.min : ''}"
-            style="${inputStyle}text-align:right;"
-          />
+          <input type="number" step="any" placeholder="от" data-filter-min="${color}" value="${f.min !== null ? f.min : ''}" style="${inputStyle}text-align:right;"/>
           <span style="${sepStyle}">–</span>
-          <input type="number" step="any" placeholder="до" data-filter-max="${color}"
-            value="${f.max !== null ? f.max : ''}"
-            style="${inputStyle}"
-          />
+          <input type="number" step="any" placeholder="до" data-filter-max="${color}" value="${f.max !== null ? f.max : ''}" style="${inputStyle}"/>
           <button data-filter-clear="${color}" type="button" title="Сбросить" style="${clearStyle}"
             onmouseenter="this.style.color='${m.color}'"
             onmouseleave="this.style.color='var(--color-text-faint)'">
-            <svg width="8" height="8" viewBox="0 0 8 8" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round">
-              <line x1="1" y1="1" x2="7" y2="7"/><line x1="7" y1="1" x2="1" y2="7"/>
-            </svg>
+            <svg width="8" height="8" viewBox="0 0 8 8" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><line x1="1" y1="1" x2="7" y2="7"/><line x1="7" y1="1" x2="1" y2="7"/></svg>
           </button>
         </div>`;
     }).join('');
-
     return `
-      <div class="ph-rating-filters" style="
-        display:flex;align-items:center;flex-wrap:wrap;
-        gap:6px;padding:8px 16px;
-        border-bottom:1px solid var(--color-border);
-      ">
-        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="var(--color-text-muted)" stroke-width="2" style="flex-shrink:0">
-          <polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3"/>
-        </svg>
+      <div class="ph-rating-filters" style="display:flex;align-items:center;flex-wrap:wrap;gap:6px;padding:8px 16px;border-bottom:1px solid var(--color-border);">
+        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="var(--color-text-muted)" stroke-width="2" style="flex-shrink:0"><polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3"/></svg>
         ${pills}
       </div>`;
   }
@@ -366,6 +340,7 @@ const PotholeRating = (() => {
       return { name, registered, repaired, complaints, netLength, population, rating };
     });
     return _buildTable({ title: 'Рейтинг РУАД', colName: 'Наименование РУАД', rows,
+      tabKey:   'ruad',
       regDate:  _latestRegional   ? _latestRegional.report_date   : null,
       compDate: _latestComplaints ? _latestComplaints.report_date : null });
   }
@@ -396,6 +371,7 @@ const PotholeRating = (() => {
       return { name, registered, repaired, complaints, netLength, population, rating };
     });
     return _buildTable({ title: 'Рейтинг ОМС', colName: 'Наименование МАД', rows,
+      tabKey:   'mad',
       regDate:  _latestMunicipal  ? _latestMunicipal.report_date  : null,
       compDate: _latestComplaints ? _latestComplaints.report_date : null });
   }
@@ -403,24 +379,15 @@ const PotholeRating = (() => {
   // ── Построитель таблицы
   function _sortIcon(key) {
     if (_sortState.key !== key) {
-      return `<svg class="ph-sort-icon" width="10" height="10" viewBox="0 0 10 14" fill="none">
-        <path d="M5 1L2 5h6L5 1z" fill="currentColor" opacity="0.3"/>
-        <path d="M5 13L2 9h6L5 13z" fill="currentColor" opacity="0.3"/>
-      </svg>`;
+      return `<svg class="ph-sort-icon" width="10" height="10" viewBox="0 0 10 14" fill="none"><path d="M5 1L2 5h6L5 1z" fill="currentColor" opacity="0.3"/><path d="M5 13L2 9h6L5 13z" fill="currentColor" opacity="0.3"/></svg>`;
     }
     if (_sortState.dir === 'asc') {
-      return `<svg class="ph-sort-icon active" width="10" height="10" viewBox="0 0 10 14" fill="none">
-        <path d="M5 13L2 9h6L5 13z" fill="var(--color-primary)"/>
-        <path d="M5 1L2 5h6L5 1z" fill="currentColor" opacity="0.2"/>
-      </svg>`;
+      return `<svg class="ph-sort-icon active" width="10" height="10" viewBox="0 0 10 14" fill="none"><path d="M5 13L2 9h6L5 13z" fill="var(--color-primary)"/><path d="M5 1L2 5h6L5 1z" fill="currentColor" opacity="0.2"/></svg>`;
     }
-    return `<svg class="ph-sort-icon active" width="10" height="10" viewBox="0 0 10 14" fill="none">
-      <path d="M5 1L2 5h6L5 1z" fill="var(--color-primary)"/>
-      <path d="M5 13L2 9h6L5 13z" fill="currentColor" opacity="0.2"/>
-    </svg>`;
+    return `<svg class="ph-sort-icon active" width="10" height="10" viewBox="0 0 10 14" fill="none"><path d="M5 1L2 5h6L5 1z" fill="var(--color-primary)"/><path d="M5 13L2 9h6L5 13z" fill="currentColor" opacity="0.2"/></svg>`;
   }
 
-  function _buildTable({ title, colName, rows, regDate, compDate }) {
+  function _buildTable({ title, colName, rows, tabKey, regDate, compDate }) {
     const key = _sortState.key;
     const dir = _sortState.dir === 'asc' ? 1 : -1;
     rows.sort((a, b) => {
@@ -471,7 +438,7 @@ const PotholeRating = (() => {
             ${dateLine ? `<div class="card-subtitle">${dateLine}</div>` : ''}
           </div>
         </div>
-        ${_buildFiltersHtml()}
+        ${_buildFiltersHtml(_filtersMap[tabKey])}
         <div class="card-body" style="padding:0">
           <div class="data-table-wrap">
             <table class="data-table ph-rating-table">
