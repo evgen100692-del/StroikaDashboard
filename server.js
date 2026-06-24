@@ -97,6 +97,9 @@ async function initDb() {
 }
 
 // ── Сохранение БД на диск ─────────────────────────────────────────────────────
+// Синхронная запись — используем только там, где нужна гарантия (shutdown).
+// В HTTP-обработчиках вызываем saveDbDeferred() — откладываем через setImmediate.
+let _saveScheduled = false;
 function saveDb() {
   try {
     const data = db.export();
@@ -104,6 +107,14 @@ function saveDb() {
   } catch (e) {
     console.error('[DB] Ошибка сохранения:', e.message);
   }
+}
+function saveDbDeferred() {
+  if (_saveScheduled) return;
+  _saveScheduled = true;
+  setImmediate(() => {
+    _saveScheduled = false;
+    saveDb();
+  });
 }
 
 // ── Обёртки sql.js ────────────────────────────────────────────────────────────
@@ -120,16 +131,17 @@ function dbGet(sql, params = []) {
   return dbAll(sql, params)[0] || null;
 }
 
-function dbRun(sql, params = []) {
+// skipSave=true — не сохраняем сразу, вызывающий сам позаботится о сохранении
+function dbRun(sql, params = [], skipSave = false) {
   db.run(sql, params);
-  saveDb();
+  if (!skipSave) saveDbDeferred();
   return db;
 }
 
 function dbInsert(sql, params = [], skipSave = false) {
   db.run(sql, params);
   const row = dbGet('SELECT last_insert_rowid() as id');
-  if (!skipSave) saveDb();
+  if (!skipSave) saveDbDeferred();
   return row ? row.id : null;
 }
 
@@ -176,7 +188,17 @@ async function readBodyRaw(req) {
   });
 }
 
-// ── Безопасное преобразование в число (0 сохраняется как 0, не как NULL) ──────
+// ── Выполнить тяжёлую синхронную работу в следующей итерации event loop ───────
+function runAsync(fn) {
+  return new Promise((resolve, reject) => {
+    setImmediate(() => {
+      try { resolve(fn()); }
+      catch (e) { reject(e); }
+    });
+  });
+}
+
+// ── Безопасное преобразование в число ────────────────────────────────────────
 function toFloatOrNull(val) {
   if (val === '' || val === null || val === undefined) return null;
   const n = parseFloat(String(val).replace(/\s/g, '').replace(',', '.'));
@@ -280,9 +302,6 @@ function parseExcel(buffer, reportType) {
   return {};
 }
 
-/**
- * Парсит лист регионального / муниципального отчёта.
- */
 function _parseRegMunSheet(sheet) {
   const rows   = XLSX.utils.sheet_to_json(sheet, { header: 1, defval: null });
   const result = [];
@@ -311,6 +330,13 @@ function toNum(v) {
 
 // ── HTTP-сервер ───────────────────────────────────────────────────────────────
 const server = http.createServer(async (req, res) => {
+  // Таймаут на весь запрос: 60 секунд
+  res.setTimeout(60000, () => {
+    if (!res.writableEnded) {
+      json(res, 503, { error: 'Превышено время ожидания сервера' });
+    }
+  });
+
   const url = req.url.split('?')[0];
 
   if (req.method === 'OPTIONS') { cors(res); res.writeHead(204); res.end(); return; }
@@ -336,7 +362,7 @@ const server = http.createServer(async (req, res) => {
       vals,
       isSeed
     );
-    if (isSeed) saveDb();
+    if (isSeed) saveDbDeferred();
     const row = dbGet('SELECT * FROM contracts WHERE id = ?', [newId]);
     json(res, 201, row);
     return;
@@ -357,7 +383,7 @@ const server = http.createServer(async (req, res) => {
             'INSERT INTO readiness_history (contract_id, prev_value, new_value, changed_at) VALUES (?, ?, ?, ?)',
             [id, prevVal, newVal, new Date().toISOString()]
           );
-          saveDb();
+          saveDbDeferred();
         }
       }
 
@@ -481,6 +507,7 @@ const server = http.createServer(async (req, res) => {
     return;
   }
 
+  // ── UPLOAD: тяжёлый эндпоинт — parseMultipart + parseExcel вне event loop ──
   if (url === '/api/pothole/upload' && req.method === 'POST') {
     try {
       const contentType   = req.headers['content-type'] || '';
@@ -488,31 +515,46 @@ const server = http.createServer(async (req, res) => {
       if (!boundaryMatch) { json(res, 400, { error: 'Не передан boundary' }); return; }
 
       const boundary = boundaryMatch[1];
-      const rawBody  = await readBodyRaw(req);
-      const parts    = parseMultipart(rawBody, boundary);
 
-      const reportTypePart = parts.find(p => p.name === 'report_type');
-      const reportDatePart = parts.find(p => p.name === 'report_date');
-      const filePart       = parts.find(p => p.filename);
+      // 1. Читаем тело запроса
+      const rawBody = await readBodyRaw(req);
 
-      if (!reportTypePart || !reportDatePart || !filePart) {
-        json(res, 400, { error: 'Отсутствуют обязательные поля' }); return;
-      }
+      // 2. Парсим multipart + Excel асинхронно (через setImmediate),
+      //    чтобы не блокировать event loop во время CPU-интенсивных операций
+      const { parts, reportType, reportDate, parsed } = await runAsync(() => {
+        const parts = parseMultipart(rawBody, boundary);
 
-      const reportType = reportTypePart.text.trim();
-      const reportDate = reportDatePart.text.trim();
-      const parsed     = parseExcel(filePart.body, reportType);
-      const rowCount   = Array.isArray(parsed) ? parsed.length : (parsed.total ? parsed.total.length : 0);
+        const reportTypePart = parts.find(p => p.name === 'report_type');
+        const reportDatePart = parts.find(p => p.name === 'report_date');
+        const filePart       = parts.find(p => p.filename);
+
+        if (!reportTypePart || !reportDatePart || !filePart) {
+          throw Object.assign(new Error('Отсутствуют обязательные поля'), { statusCode: 400 });
+        }
+
+        const reportType = reportTypePart.text.trim();
+        const reportDate = reportDatePart.text.trim();
+        const parsed     = parseExcel(filePart.body, reportType);
+
+        return { parts, reportType, reportDate, parsed };
+      });
+
+      // 3. Запись в БД (синхронная, но лёгкая — только INSERT строки JSON)
+      const rowCount = Array.isArray(parsed)
+        ? parsed.length
+        : (parsed.total ? parsed.total.length : 0);
 
       dbInsert(
         'INSERT INTO pothole_reports (report_type, report_date, uploaded_at, data_json) VALUES (?, ?, ?, ?)',
         [reportType, reportDate, new Date().toISOString(), JSON.stringify(parsed)]
+        // saveDbDeferred вызывается внутри dbInsert автоматически
       );
 
       json(res, 200, { ok: true, type: reportType, date: reportDate, rows: rowCount });
     } catch (e) {
       console.error('[upload] Ошибка:', e);
-      json(res, 500, { error: 'Ошибка обработки файла: ' + e.message });
+      const code = e.statusCode || 500;
+      json(res, code, { error: 'Ошибка обработки файла: ' + e.message });
     }
     return;
   }
@@ -521,9 +563,6 @@ const server = http.createServer(async (req, res) => {
   //  API: МЕТАДАННЫЕ (протяжённость сети, население)
   // ════════════════════════════════════════════════════════════════════════════
 
-  // GET /api/pothole/metadata          — все записи
-  // GET /api/pothole/metadata?org_type=ruad  — только РУАД
-  // GET /api/pothole/metadata?org_type=mo    — только МО
   if (url === '/api/pothole/metadata' && req.method === 'GET') {
     const orgType = new URL('http://x' + req.url).searchParams.get('org_type') || '';
     const rows = orgType
@@ -533,9 +572,6 @@ const server = http.createServer(async (req, res) => {
     return;
   }
 
-  // POST /api/pothole/metadata
-  // Body: { org_type, name, net_length?, population? }
-  // Upsert: если запись существует — обновляем только переданные поля
   if (url === '/api/pothole/metadata' && req.method === 'POST') {
     try {
       const body = await readBodyJSON(req);
@@ -550,8 +586,6 @@ const server = http.createServer(async (req, res) => {
       );
 
       if (existing) {
-        // Обновляем только переданные поля
-        // toFloatOrNull: '' → null, число → число (в т.ч. 0 → 0, не null)
         const updates = [];
         const vals    = [];
         if ('net_length' in body) { updates.push('net_length = ?'); vals.push(toFloatOrNull(body.net_length)); }
