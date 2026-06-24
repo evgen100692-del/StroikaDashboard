@@ -421,8 +421,6 @@ const PotholeRating = (() => {
           <line x1="12" y1="8" x2="12" y2="12"/>
           <line x1="12" y1="16" x2="12.01" y2="16"/>
         </svg>
-        <span>Рейтинг = (Зарег / Протяж) × 0,2 + (Отрем / Протяж) × 0,3 + (1 − (Жалобы / Население) × 1000) × 0,5. Незаполненные значения Зарег, Отрем, Жалобы считаются равными 0.</span>
-        ${dateLine ? `<span class="ph-rating-src-date">${dateLine}</span>` : ''}
       </div>`;
 
     return `
@@ -433,7 +431,6 @@ const PotholeRating = (() => {
             <div class="card-subtitle">${subtitle}</div>
           </div>
         </div>
-        ${formulaHint}
         <div class="card-body" style="padding:0">
           <div class="data-table-wrap">
             <table class="data-table ph-rating-table">
