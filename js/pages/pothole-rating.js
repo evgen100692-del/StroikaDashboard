@@ -301,6 +301,32 @@ const PotholeRating = (() => {
       </div>`;
   }
 
+  // ── Баннер о скрытых записях
+  function _buildHiddenBanner(hiddenNames, modalType) {
+    if (!hiddenNames.length) return '';
+    const noun = hiddenNames.length === 1 ? 'запись скрыта' :
+                 hiddenNames.length < 5   ? 'записи скрыты' : 'записей скрыто';
+    const preview = hiddenNames.slice(0, 3).map(n => `<strong>${_esc(n)}</strong>`).join(', ');
+    const more = hiddenNames.length > 3 ? ` и ещё ${hiddenNames.length - 3}` : '';
+    return `
+      <div class="ph-hidden-banner" style="
+        display:flex;align-items:flex-start;gap:var(--space-3);
+        padding:var(--space-3) var(--space-4);
+        background:color-mix(in oklch,var(--color-warning) 8%,var(--color-surface));
+        border-bottom:1px solid color-mix(in oklch,var(--color-warning) 25%,transparent);
+        font-size:var(--text-xs);color:var(--color-text-muted);line-height:1.5;">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--color-warning)" stroke-width="2" style="flex-shrink:0;margin-top:1px"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+        <span>
+          ${hiddenNames.length} ${noun} из-за отсутствия протяжённости сети или населения:
+          ${preview}${more}.
+          <button type="button" data-open-meta="${modalType}" style="
+            background:none;border:none;padding:0;cursor:pointer;
+            color:var(--color-primary);text-decoration:underline;text-underline-offset:2px;
+            font-size:inherit;">Заполнить данные</button>
+        </span>
+      </div>`;
+  }
+
   // ── Таблица РУАД
   function _buildRuadTable() {
     if (!_ruadNames.length) return _emptyCard('Загрузите региональные отчёты ямочного ремонта — список РУАД заполнится автоматически.');
@@ -310,7 +336,7 @@ const PotholeRating = (() => {
     if (compData && compData.total) {
       compData.total.filter(r => r.type === 'mad' && r.name !== 'МАД').forEach(r => { compByName[r.name] = r.count; });
     }
-    const rows = _ruadNames.map(name => {
+    const allRows = _ruadNames.map(name => {
       const regRow = regData.find(r => r.name === name);
       const meta   = _meta.find(m => m.org_type === 'ruad' && m.name === name);
       const registered = regRow ? (regRow.registeredTotal ?? regRow.registered ?? 0) : 0;
@@ -321,10 +347,16 @@ const PotholeRating = (() => {
       const rating     = _calcRating(registered, repaired, complaints, netLength, population);
       return { name, registered, repaired, complaints, netLength, population, rating };
     });
-    return _buildTable({ title: 'Рейтинг РУАД', colName: 'Наименование РУАД', rows,
+    // Скрываем строки без протяжённости или населения
+    const visibleRows = allRows.filter(r => r.netLength != null && r.population != null);
+    const hiddenNames = allRows.filter(r => r.netLength == null || r.population == null).map(r => r.name);
+    return _buildTable({
+      title: 'Рейтинг РУАД', colName: 'Наименование РУАД',
+      rows: visibleRows, hiddenNames, hiddenModalType: 'ruad',
       tabKey:   'ruad',
       regDate:  _latestRegional   ? _latestRegional.report_date   : null,
-      compDate: _latestComplaints ? _latestComplaints.report_date : null });
+      compDate: _latestComplaints ? _latestComplaints.report_date : null,
+    });
   }
 
   // ── Таблица МАД
@@ -336,7 +368,7 @@ const PotholeRating = (() => {
     if (compData && compData.total) {
       compData.total.filter(r => r.type === 'oms' && r.name !== 'ОМС').forEach(r => { compByName[r.name] = r.count; });
     }
-    const rows = _moNames.map(name => {
+    const allRows = _moNames.map(name => {
       const munRow = munData.find(r => r.name === name);
       const meta   = _meta.find(m => m.org_type === 'mo' && m.name === name);
       const registered = munRow ? (munRow.registeredTotal ?? munRow.registered ?? 0) : 0;
@@ -352,10 +384,16 @@ const PotholeRating = (() => {
       const rating     = _calcRating(registered, repaired, complaints, netLength, population);
       return { name, registered, repaired, complaints, netLength, population, rating };
     });
-    return _buildTable({ title: 'Рейтинг ОМС', colName: 'Наименование МАД', rows,
+    // Скрываем строки без протяжённости или населения
+    const visibleRows = allRows.filter(r => r.netLength != null && r.population != null);
+    const hiddenNames = allRows.filter(r => r.netLength == null || r.population == null).map(r => r.name);
+    return _buildTable({
+      title: 'Рейтинг ОМС', colName: 'Наименование МАД',
+      rows: visibleRows, hiddenNames, hiddenModalType: 'mo',
       tabKey:   'mad',
       regDate:  _latestMunicipal  ? _latestMunicipal.report_date  : null,
-      compDate: _latestComplaints ? _latestComplaints.report_date : null });
+      compDate: _latestComplaints ? _latestComplaints.report_date : null,
+    });
   }
 
   // ── Построитель таблицы
@@ -369,7 +407,7 @@ const PotholeRating = (() => {
     return `<svg class="ph-sort-icon active" width="10" height="10" viewBox="0 0 10 14" fill="none"><path d="M5 1L2 5h6L5 1z" fill="var(--color-primary)"/><path d="M5 13L2 9h6L5 13z" fill="currentColor" opacity="0.2"/></svg>`;
   }
 
-  function _buildTable({ title, colName, rows, tabKey, regDate, compDate }) {
+  function _buildTable({ title, colName, rows, hiddenNames = [], hiddenModalType = '', tabKey, regDate, compDate }) {
     const key = _sortState.key;
     const dir = _sortState.dir === 'asc' ? 1 : -1;
     rows.sort((a, b) => {
@@ -381,23 +419,27 @@ const PotholeRating = (() => {
       return dir * (av - bv);
     });
     let rank = 1;
-    const rowsHtml = rows.map(r => {
-      const hasRating = r.rating !== null;
-      const rankCell  = hasRating ? `<td class="ph-rating-rank">${rank++}</td>` : `<td class="ph-rating-rank" style="color:var(--color-text-faint)">—</td>`;
-      const netLenStr = r.netLength  != null ? _fmtNum(r.netLength,  2) : _missingBadge('Не задано');
-      const popStr    = r.population != null ? _fmtNum(r.population, 0) : _missingBadge('Не задано');
-      const compStr   = _fmtNum(r.complaints != null ? r.complaints : 0, 0);
-      const ratingStr = hasRating
-        ? `<span class="ph-rating-score" style="${_ratingColor(r.rating)}">${r.rating.toFixed(4)}</span>`
-        : _missingBadge('Недостаточно данных');
-      return `<tr>${rankCell}<td>${_esc(r.name)}</td>
-        <td style="text-align:right;font-variant-numeric:tabular-nums">${netLenStr}</td>
-        <td style="text-align:right;font-variant-numeric:tabular-nums">${popStr}</td>
-        <td style="text-align:right;font-variant-numeric:tabular-nums">${_fmtNum(r.registered,0)}</td>
-        <td style="text-align:right;font-variant-numeric:tabular-nums">${_fmtNum(r.repaired,0)}</td>
-        <td style="text-align:right;font-variant-numeric:tabular-nums">${compStr}</td>
-        <td style="text-align:center">${ratingStr}</td></tr>`;
-    }).join('');
+    const rowsHtml = rows.length
+      ? rows.map(r => {
+          const hasRating = r.rating !== null;
+          const rankCell  = hasRating ? `<td class="ph-rating-rank">${rank++}</td>` : `<td class="ph-rating-rank" style="color:var(--color-text-faint)">—</td>`;
+          const compStr   = _fmtNum(r.complaints != null ? r.complaints : 0, 0);
+          const ratingStr = hasRating
+            ? `<span class="ph-rating-score" style="${_ratingColor(r.rating)}">${r.rating.toFixed(4)}</span>`
+            : _missingBadge('Недостаточно данных');
+          return `<tr>${rankCell}<td>${_esc(r.name)}</td>
+            <td style="text-align:right;font-variant-numeric:tabular-nums">${_fmtNum(r.netLength, 2)}</td>
+            <td style="text-align:right;font-variant-numeric:tabular-nums">${_fmtNum(r.population, 0)}</td>
+            <td style="text-align:right;font-variant-numeric:tabular-nums">${_fmtNum(r.registered,0)}</td>
+            <td style="text-align:right;font-variant-numeric:tabular-nums">${_fmtNum(r.repaired,0)}</td>
+            <td style="text-align:right;font-variant-numeric:tabular-nums">${compStr}</td>
+            <td style="text-align:center">${ratingStr}</td></tr>`;
+        }).join('')
+      : `<tr><td colspan="8" style="text-align:center;padding:var(--space-8);color:var(--color-text-faint)">
+           <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" style="margin:0 auto var(--space-2)"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+           <div>Нет данных для отображения</div>
+           <div style="font-size:var(--text-xs);margin-top:var(--space-1)">Заполните протяжённость сети и население для организаций</div>
+         </td></tr>`;
     const dateLine = [
       regDate  && ('Отчёт по ремонту: ' + _fmtDate(regDate)),
       compDate && ('Жалобы: ' + _fmtDate(compDate)),
@@ -412,7 +454,8 @@ const PotholeRating = (() => {
       { key: 'complaints', label: 'Жалобы с нач. года',    align: 'right'  },
       { key: 'rating',     label: 'Рейтинг',                align: 'center' },
     ].map(c => `<th data-sort-key="${c.key}" class="ph-th-sort" style="text-align:${c.align}">${c.label}${_sortIcon(c.key)}</th>`).join('');
-    return `
+    const hiddenBanner = _buildHiddenBanner(hiddenNames, hiddenModalType);
+    const html = `
       <article class="card">
         <div class="card-header">
           <div>
@@ -421,6 +464,7 @@ const PotholeRating = (() => {
           </div>
         </div>
         ${_buildFiltersHtml(_filtersMap[tabKey])}
+        ${hiddenBanner}
         <div class="card-body" style="padding:0">
           <div class="data-table-wrap">
             <table class="data-table ph-rating-table">
@@ -430,6 +474,19 @@ const PotholeRating = (() => {
           </div>
         </div>
       </article>`;
+    // Вешаем обработчик на кнопку баннера после вставки в DOM
+    if (hiddenNames.length) {
+      setTimeout(() => {
+        document.querySelectorAll(`[data-open-meta="${hiddenModalType}"]`).forEach(btn => {
+          btn.addEventListener('click', () => {
+            // network открывает протяжённость и население — открываем population (оба поля нужны)
+            const modalType = hiddenModalType === 'ruad' ? 'network' : 'network';
+            _openModal(modalType);
+          });
+        });
+      }, 0);
+    }
+    return html;
   }
 
   // ── Расчёт рейтинга
