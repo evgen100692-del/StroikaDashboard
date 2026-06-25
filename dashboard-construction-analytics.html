@@ -980,6 +980,38 @@
     </div>
   </div>
 
+  <!-- VIEW MODAL -->
+  <div class="modal-overlay" id="view-modal" aria-hidden="true">
+    <div class="modal" role="dialog" aria-modal="true"
+         aria-labelledby="view-modal-title"
+         style="max-width:860px;width:95vw">
+      <div class="modal-header">
+        <div class="modal-title" id="view-modal-title">Просмотр объекта</div>
+        <div style="display:flex;align-items:center;gap:var(--space-2)">
+          <button class="btn btn-secondary btn-sm" type="button" id="view-modal-edit-btn">
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none"
+                 stroke="currentColor" stroke-width="2">
+              <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-7"/>
+              <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/>
+            </svg>
+            Редактировать
+          </button>
+          <button class="btn btn-ghost btn-icon" type="button"
+                  onclick="closeModal('view-modal')" aria-label="Закрыть">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none"
+                 stroke="currentColor" stroke-width="2">
+              <line x1="18" y1="6" x2="6" y2="18"/>
+              <line x1="6" y1="6" x2="18" y2="18"/>
+            </svg>
+          </button>
+        </div>
+      </div>
+      <div class="modal-body" id="view-modal-body"
+           style="max-height:80vh;overflow-y:auto">
+      </div>
+    </div>
+  </div>
+
   <!-- MODAL: ПРОТЯЖЁННОСТЬ СЕТИ -->
   <div class="modal-overlay" id="rating-ruad-modal" aria-hidden="true">
     <div class="modal" role="dialog" aria-modal="true" aria-labelledby="rating-ruad-title" style="max-width:800px">
