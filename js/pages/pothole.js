@@ -3,7 +3,7 @@
 // Зависит от: charts-pothole.js (PotholeCharts) — должен быть подключён ДО этого файла
 
 const PotholePage = (() => {
-  // ── состояние ──────────────────────────────────────────────────────────────
+  // ── состояние ──────────────────────────────────────────────────────────────────
   let _reports     = [];   // список из /api/pothole/reports
   let _latest      = {};   // { complaints, regional, municipal } — последние отчёты
   let _history     = {};   // { complaints:[], regional:[], municipal:[] }
@@ -12,7 +12,7 @@ const PotholePage = (() => {
   let _filter = { ruad: '', mo: '', org: 'all' };
   let _filterBarBound = false;
 
-  // ── состояние страницы Отчёты ───────────────────────────────────────────────
+  // ── состояние страницы Отчёты ──────────────────────────────────────────────────────
   let _repActiveType = 'complaints';
   let _repTypeBound  = false;
 
@@ -39,7 +39,7 @@ const PotholePage = (() => {
     await _reload();
   }
 
-  // ── загрузка всех данных ────────────────────────────────────────────────────
+  // ── загрузка всех данных ────────────────────────────────────────────────────────
   async function _reload() {
     try {
       const [rList, rLatest] = await Promise.all([
@@ -58,7 +58,7 @@ const PotholePage = (() => {
 
       _renderDashboard();
       _renderReportsPage();
-      refreshRating();
+      await refreshRating();
     } catch (e) {
       console.error('[PotholePage] reload error', e);
     }
@@ -729,7 +729,6 @@ const PotholePage = (() => {
     });
   }
 
-  // Полный сброс состояния модалки включая кнопку загрузки
   function _openUploadModal() {
     document.querySelectorAll('.upload-type-btn').forEach(b => b.classList.remove('selected'));
     document.getElementById('upload-date').value = new Date().toISOString().slice(0, 10);
@@ -737,7 +736,6 @@ const PotholePage = (() => {
     document.getElementById('upload-file-name').textContent = '';
     document.getElementById('upload-file-name').classList.remove('visible');
 
-    // Сбрасываем кнопку — даже если предыдущая загрузка ещё в процессе
     const btn = document.getElementById('upload-submit-btn');
     btn.disabled    = true;
     btn.textContent = 'Загрузить';
@@ -747,7 +745,6 @@ const PotholePage = (() => {
   }
 
   let _uploadState = { type: null, file: null };
-  // Таймаут загрузки: 55 секунд (сервер — 60 с, даём 5 с запас)
   const UPLOAD_TIMEOUT_MS = 55_000;
 
   function _bindUploadModal() {
@@ -804,11 +801,9 @@ const PotholePage = (() => {
     btn.disabled    = true;
     btn.textContent = 'Обработка файла...';
 
-    // AbortController для таймаута
     const controller = new AbortController();
     const timerId    = setTimeout(() => controller.abort(), UPLOAD_TIMEOUT_MS);
 
-    // Анимируем кнопку, пока идёт загрузка
     const labels    = ['Обработка файла', 'Обработка файла.', 'Обработка файла..', 'Обработка файла...'];
     let labelIdx    = 0;
     const labelTimer = setInterval(() => {
@@ -822,7 +817,6 @@ const PotholePage = (() => {
     fd.append('report_date', date);
     fd.append('file', file);
 
-    let success = false;
     try {
       const res  = await fetch('/api/pothole/upload', {
         method: 'POST',
@@ -831,7 +825,6 @@ const PotholePage = (() => {
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || 'Ошибка сервера');
-      success = true;
       Toast.success('Отчёт загружен: ' + (data.rows ?? '?') + ' строк');
       _repActiveType = type;
       closeModal('upload-modal');
@@ -845,7 +838,6 @@ const PotholePage = (() => {
     } finally {
       clearTimeout(timerId);
       clearInterval(labelTimer);
-      // Сбрасываем кнопку всегда — независимо от исхода
       btn.disabled    = !(_uploadState.type && _uploadState.file && document.getElementById('upload-date').value);
       btn.textContent = 'Загрузить';
     }
@@ -855,11 +847,12 @@ const PotholePage = (() => {
   //  RATING PAGE
   // ════════════════════════════════════════════════════════════════════════════
 
-  function refreshRating() {
+  // Важно: async чтобы _reload мог await её и дождаться пока PotholeRating.init() не завершит загрузку фильтров и рендер
+  async function refreshRating() {
     if (typeof PotholeRating === 'undefined') return;
     const ruadNames = _getRuadOptions();
     const moNames   = _getMoOptions();
-    PotholeRating.init(
+    await PotholeRating.init(
       ruadNames,
       moNames,
       _latest.regional   || null,
