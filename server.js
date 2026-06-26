@@ -19,7 +19,6 @@ if (!fs.existsSync(path.join(__dirname, 'data'))) {
 //  WORKER THREAD: парсинг Excel (не блокирует event loop главного потока)
 // ══════════════════════════════════════════════════════════════════════════════
 if (!isMainThread) {
-  // Этот блок выполняется только внутри воркера
   try {
     const { fileBuffer, reportType } = workerData;
     const buf    = Buffer.from(fileBuffer);
@@ -115,7 +114,6 @@ if (!isMainThread) {
     return result;
   }
 
-  // Воркер завершает работу сам после postMessage
   return;
 }
 
@@ -123,7 +121,6 @@ if (!isMainThread) {
 //  ГЛАВНЫЙ ПОТОК
 // ══════════════════════════════════════════════════════════════════════════════
 
-// ── sql.js: синхронная инициализация БД ──────────────────────────────────────
 const initSqlJs = require('sql.js');
 
 let db;
@@ -201,6 +198,14 @@ async function initDb() {
       net_length REAL DEFAULT NULL,
       population REAL DEFAULT NULL,
       UNIQUE(org_type, name)
+    );
+
+    CREATE TABLE IF NOT EXISTS rating_filters (
+      id         INTEGER PRIMARY KEY AUTOINCREMENT,
+      tab        TEXT NOT NULL,
+      color      TEXT NOT NULL,
+      min_value  REAL,
+      UNIQUE(tab, color)
     );
   `);
 }
@@ -285,8 +290,7 @@ async function readBodyJSON(req) {
   });
 }
 
-// БАГ 2 ИСПРАВЛЕН: лимит тела запроса 50 МБ
-const BODY_LIMIT = 50 * 1024 * 1024; // 50 MB
+const BODY_LIMIT = 50 * 1024 * 1024;
 
 async function readBodyRaw(req) {
   return new Promise((resolve, reject) => {
@@ -305,14 +309,12 @@ async function readBodyRaw(req) {
   });
 }
 
-// ── Безопасное преобразование в число ────────────────────────────────────────
 function toFloatOrNull(val) {
   if (val === '' || val === null || val === undefined) return null;
   const n = parseFloat(String(val).replace(/\s/g, '').replace(',', '.'));
   return isNaN(n) ? null : n;
 }
 
-// ── Парсер multipart/form-data ────────────────────────────────────────────────
 function parseMultipart(buffer, boundary) {
   const boundaryBuf = Buffer.from('--' + boundary);
   const parts = [];
@@ -348,20 +350,16 @@ function parseMultipart(buffer, boundary) {
   return parts;
 }
 
-// БАГ 3 ИСПРАВЛЕН: парсим Excel в отдельном worker_threads потоке
-// — XLSX.read() синхронный и блокирует event loop, воркер изолирует это
 function parseExcelInWorker(fileBuffer, reportType) {
   return new Promise((resolve, reject) => {
     const worker = new Worker(__filename, {
       workerData: {
-        // Передаём как ArrayBuffer — избегаем лишнего копирования
         fileBuffer: fileBuffer.buffer.slice(
           fileBuffer.byteOffset,
           fileBuffer.byteOffset + fileBuffer.byteLength
         ),
         reportType,
       },
-      // Передаём буфер по ссылке (transferList) — не копируем 2 раза
       transferList: [
         fileBuffer.buffer.slice(
           fileBuffer.byteOffset,
@@ -389,7 +387,6 @@ function parseExcelInWorker(fileBuffer, reportType) {
 
 // ── HTTP-сервер ───────────────────────────────────────────────────────────────
 const server = http.createServer(async (req, res) => {
-  // Таймаут на весь запрос: 60 секунд
   res.setTimeout(60000, () => {
     if (!res.writableEnded) {
       json(res, 503, { error: 'Превышено время ожидания сервера' });
@@ -570,20 +567,13 @@ const server = http.createServer(async (req, res) => {
   if (url === '/api/pothole/upload' && req.method === 'POST') {
     try {
       const contentType = req.headers['content-type'] || '';
-
-      // БАГ 1 ИСПРАВЛЕН: граница может быть в кавычках или содержать лишние параметры
-      // Корректно: обрезаем до первого пробела/;/кавычки после значения
       const boundaryMatch = contentType.match(/boundary=["']?([^"';\s]+)["']?/i);
       if (!boundaryMatch) {
         json(res, 400, { error: 'Не передан boundary в Content-Type' });
         return;
       }
       const boundary = boundaryMatch[1];
-
-      // Читаем тело (с лимитом 50 МБ — см. readBodyRaw)
       const rawBody = await readBodyRaw(req);
-
-      // Парсим multipart синхронно (только буферные операции, быстро)
       const parts = parseMultipart(rawBody, boundary);
 
       const reportTypePart = parts.find(p => p.name === 'report_type');
@@ -598,8 +588,6 @@ const server = http.createServer(async (req, res) => {
       const reportType = reportTypePart.text.trim();
       const reportDate = reportDatePart.text.trim();
 
-      // БАГ 3 ИСПРАВЛЕН: парсим Excel в отдельном worker thread
-      // — не блокирует event loop, соединение не рвётся
       const parsed = await parseExcelInWorker(filePart.body, reportType);
 
       const rowCount = Array.isArray(parsed)
@@ -610,6 +598,17 @@ const server = http.createServer(async (req, res) => {
         'INSERT INTO pothole_reports (report_type, report_date, uploaded_at, data_json) VALUES (?, ?, ?, ?)',
         [reportType, reportDate, new Date().toISOString(), JSON.stringify(parsed)]
       );
+
+      // ── При загрузке нового отчёта — сбрасываем фильтры для затронутых вкладок ──
+      // regional → вкладка ruad, municipal → вкладка mad, complaints → обе
+      const tabsToClear = [];
+      if (reportType === 'regional')   tabsToClear.push('ruad');
+      if (reportType === 'municipal')  tabsToClear.push('mad');
+      if (reportType === 'complaints') tabsToClear.push('ruad', 'mad');
+      for (const tab of tabsToClear) {
+        dbRun('DELETE FROM rating_filters WHERE tab = ?', [tab], true);
+      }
+      saveDbDeferred();
 
       json(res, 200, { ok: true, type: reportType, date: reportDate, rows: rowCount });
     } catch (e) {
@@ -675,6 +674,56 @@ const server = http.createServer(async (req, res) => {
       console.error('[metadata] Ошибка:', e);
       json(res, 500, { error: e.message });
     }
+    return;
+  }
+
+  // ════════════════════════════════════════════════════════════════════════════
+  //  API: ФИЛЬТРЫ РЕЙТИНГА
+  //  GET  /api/pothole/rating-filters          — получить все фильтры
+  //  POST /api/pothole/rating-filters          — сохранить/обновить один фильтр
+  //  DELETE /api/pothole/rating-filters?tab=X  — сбросить все фильтры вкладки
+  // ════════════════════════════════════════════════════════════════════════════
+
+  if (url === '/api/pothole/rating-filters' && req.method === 'GET') {
+    const rows = dbAll('SELECT tab, color, min_value FROM rating_filters ORDER BY tab, color');
+    json(res, 200, rows);
+    return;
+  }
+
+  if (url === '/api/pothole/rating-filters' && req.method === 'POST') {
+    try {
+      const body = await readBodyJSON(req);
+      const { tab, color, min_value } = body;
+      if (!tab || !color) {
+        json(res, 400, { error: 'Обязательные поля: tab, color' }); return;
+      }
+      const VALID_TABS   = new Set(['ruad', 'mad']);
+      const VALID_COLORS = new Set(['green', 'yellow', 'red']);
+      if (!VALID_TABS.has(tab) || !VALID_COLORS.has(color)) {
+        json(res, 400, { error: 'Недопустимые значения tab или color' }); return;
+      }
+      const val = toFloatOrNull(min_value);
+      dbRun(
+        `INSERT INTO rating_filters (tab, color, min_value)
+         VALUES (?, ?, ?)
+         ON CONFLICT(tab, color) DO UPDATE SET min_value = excluded.min_value`,
+        [tab, color, val]
+      );
+      json(res, 200, { ok: true });
+    } catch (e) {
+      json(res, 500, { error: e.message });
+    }
+    return;
+  }
+
+  if (url === '/api/pothole/rating-filters' && req.method === 'DELETE') {
+    const tab = new URL('http://x' + req.url).searchParams.get('tab');
+    if (tab) {
+      dbRun('DELETE FROM rating_filters WHERE tab = ?', [tab]);
+    } else {
+      dbRun('DELETE FROM rating_filters');
+    }
+    json(res, 200, { ok: true });
     return;
   }
 

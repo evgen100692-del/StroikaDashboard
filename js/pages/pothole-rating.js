@@ -16,6 +16,9 @@ const PotholeRating = (() => {
   let _netTab = 'ruad';
   let _popTab = 'ruad';
 
+  // Флаг: предотвращает повторную привязку слушателей модала
+  let _modalsBound = false;
+
   function _emptyFilters() {
     return {
       green:  { min: null, active: false },
@@ -33,7 +36,52 @@ const PotholeRating = (() => {
     red:    { label: 'Красный', color: '#dc2626', bg: 'rgba(220,38,38,0.10)',  border: 'rgba(220,38,38,0.25)'  },
   };
 
-  // ── Инициализация
+  // ── API фильтров ─────────────────────────────────────────────────────────────
+
+  // Загружает фильтры с сервера и применяет к _filtersMap
+  async function _loadFilters() {
+    try {
+      const r = await fetch('/api/pothole/rating-filters');
+      if (!r.ok) return;
+      const rows = await r.json();
+      // Сброс в пустые
+      _filtersMap = { ruad: _emptyFilters(), mad: _emptyFilters() };
+      for (const row of rows) {
+        const { tab, color, min_value } = row;
+        if (!_filtersMap[tab] || !_filtersMap[tab][color]) continue;
+        if (min_value !== null && min_value !== undefined) {
+          _filtersMap[tab][color].min    = min_value;
+          _filtersMap[tab][color].active = true;
+        }
+      }
+    } catch (e) {
+      // Сервер недоступен — оставляем пустые фильтры
+    }
+  }
+
+  // Сохраняет один фильтр на сервер (дебаунс не нужен — пользователь жмёт Enter / blur)
+  async function _saveFilter(tab, color, minVal) {
+    try {
+      await fetch('/api/pothole/rating-filters', {
+        method:  'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body:    JSON.stringify({ tab, color, min_value: minVal }),
+      });
+    } catch (e) { /* тихо игнорируем — UI уже обновлён локально */ }
+  }
+
+  // Удаляет один фильтр (min_value = null) с сервера
+  async function _clearFilterOnServer(tab, color) {
+    try {
+      await fetch('/api/pothole/rating-filters', {
+        method:  'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body:    JSON.stringify({ tab, color, min_value: null }),
+      });
+    } catch (e) {}
+  }
+
+  // ── Инициализация ─────────────────────────────────────────────────────────────
   function init(ruadNames, moNames, latestRegional, latestComplaints, latestMunicipal) {
     _ruadNames        = ruadNames        || [];
     _moNames          = moNames          || [];
@@ -41,22 +89,27 @@ const PotholeRating = (() => {
     _latestComplaints = latestComplaints || null;
     _latestMunicipal  = latestMunicipal  || null;
     _sortState        = { key: 'rating', dir: 'asc' };
-    _filtersMap       = { ruad: _emptyFilters(), mad: _emptyFilters() };
-    _bindButtons();
+
+    // НЕ сбрасываем _filtersMap — он загружается из БД в _loadMetaThenRender
+
+    if (!_modalsBound) {
+      _bindButtons();
+      _modalsBound = true;
+    }
     _renderRatingContent();
   }
 
-  // ── Привязка кнопок
+  // ── Привязка кнопок ───────────────────────────────────────────────────────────
   function _bindButtons() {
     const btnNet = document.getElementById('ph-rating-btn-ruad');
     const btnPop = document.getElementById('ph-rating-btn-mo');
-    if (btnNet) { btnNet.onclick = null; btnNet.addEventListener('click', () => _openModal('network')); }
-    if (btnPop) { btnPop.onclick = null; btnPop.addEventListener('click', () => _openModal('population')); }
+    if (btnNet) btnNet.addEventListener('click', () => _openModal('network'));
+    if (btnPop) btnPop.addEventListener('click', () => _openModal('population'));
     _bindModalEvents('network');
     _bindModalEvents('population');
   }
 
-  // ── Модаль
+  // ── Модаль ────────────────────────────────────────────────────────────────────
   async function _openModal(type) {
     try { const r = await fetch('/api/pothole/metadata'); _meta = await r.json(); } catch (e) { _meta = []; }
     if (type === 'network') {
@@ -137,19 +190,32 @@ const PotholeRating = (() => {
     if (!body) return;
     const field   = type === 'network' ? 'net_length' : 'population';
     const inputs  = body.querySelectorAll('.ph-meta-input');
+
+    // Получаем saveBtn ПОСЛЕ того как body уже отрендерен (не detached)
     const saveBtn = body.querySelector('[data-ph-meta-save]');
     if (saveBtn) { saveBtn.disabled = true; saveBtn.textContent = 'Сохранение...'; }
+
     let errCount = 0;
     await Promise.all(Array.from(inputs).map(async inp => {
       const org_type = inp.dataset.org;
       const name     = inp.dataset.name;
       const rawVal   = inp.value.trim();
+      // Отправляем даже пустое значение — сервер через toFloatOrNull() запишет NULL
       try {
-        await fetch('/api/pothole/metadata', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ org_type, name, [field]: rawVal }) });
+        await fetch('/api/pothole/metadata', {
+          method:  'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body:    JSON.stringify({ org_type, name, [field]: rawVal !== '' ? rawVal : null }),
+        });
       } catch (e) { errCount++; }
     }));
+
     try { const r = await fetch('/api/pothole/metadata'); _meta = await r.json(); } catch (e) {}
-    if (saveBtn) { saveBtn.disabled = false; saveBtn.textContent = 'Сохранить'; }
+
+    // saveBtn может быть уничтожен если body перерендерился — ищем заново
+    const saveBtnFresh = body.querySelector('[data-ph-meta-save]');
+    if (saveBtnFresh) { saveBtnFresh.disabled = false; saveBtnFresh.textContent = 'Сохранить'; }
+
     if (errCount) {
       if (typeof Toast !== 'undefined') Toast.error(`Ошибка при сохранении ${errCount} записей`);
     } else {
@@ -159,7 +225,7 @@ const PotholeRating = (() => {
     }
   }
 
-  // ── Рейтинг — контейнер
+  // ── Рейтинг — контейнер ───────────────────────────────────────────────────────
   function _renderRatingContent() {
     const container = document.getElementById('ph-rating-content');
     if (!container) return;
@@ -191,6 +257,8 @@ const PotholeRating = (() => {
 
   async function _loadMetaThenRender() {
     try { const r = await fetch('/api/pothole/metadata'); _meta = await r.json(); } catch (e) { _meta = []; }
+    // Загружаем сохранённые фильтры из БД перед первым рендером
+    await _loadFilters();
     _renderRatingTable();
   }
 
@@ -210,9 +278,10 @@ const PotholeRating = (() => {
     _bindFilterEvents(wrap);
   }
 
-  // ── Фильтры
+  // ── Фильтры ───────────────────────────────────────────────────────────────────
   function _bindFilterEvents(wrap) {
-    const f = _filters();
+    const f   = _filters();
+    const tab = _ratingTab;
     ['green', 'yellow', 'red'].forEach(color => {
       const minInput = wrap.querySelector(`[data-filter-min="${color}"]`);
       if (minInput) {
@@ -222,17 +291,21 @@ const PotholeRating = (() => {
           f[color].active = f[color].min !== null;
           _applyFilters(wrap);
           _updateClearBtn(wrap, color);
+          // Сохраняем изменение в БД
+          _saveFilter(tab, color, f[color].active ? f[color].min : null);
         });
       }
     });
     wrap.querySelectorAll('[data-filter-clear]').forEach(btn => {
       btn.addEventListener('click', () => {
         const color = btn.dataset.filterClear;
-        _filtersMap[_ratingTab][color] = { min: null, active: false };
+        _filtersMap[tab][color] = { min: null, active: false };
         const minI = wrap.querySelector(`[data-filter-min="${color}"]`);
         if (minI) minI.value = '';
         _applyFilters(wrap);
         _updateClearBtn(wrap, color);
+        // Очищаем фильтр в БД
+        _clearFilterOnServer(tab, color);
       });
     });
     _applyFilters(wrap);
@@ -258,12 +331,11 @@ const PotholeRating = (() => {
       const val = parseFloat(scoreEl.dataset.ratingVal);
       if (isNaN(val)) return;
 
-      // Сбрасываем стиль строки
       row.style.background = '';
       row.style.transition = '';
 
       if (!anyActive) {
-        // Нет активных фильтров — цвет строки по умолчанию (авто из CSS)
+        row.style.opacity = '';
         return;
       }
 
@@ -277,31 +349,16 @@ const PotholeRating = (() => {
         const m = FILTER_META[matched];
         row.style.background = m.bg;
         row.style.transition = 'background 0.2s';
+        row.style.opacity = '1';
       } else {
-        // Строки вне диапазона — затемняем
         row.style.background = 'transparent';
         row.style.opacity = '0.35';
         row.style.transition = 'opacity 0.2s';
       }
     });
-
-    // Восстанавливаем opacity для совпавших строк
-    table.querySelectorAll('tbody tr').forEach(row => {
-      const scoreEl = row.querySelector('.ph-rating-score');
-      if (!scoreEl) return;
-      const val = parseFloat(scoreEl.dataset.ratingVal);
-      if (isNaN(val)) return;
-      if (!anyActive) { row.style.opacity = ''; return; }
-      let matched = null;
-      for (const [color, fc] of Object.entries(f)) {
-        if (!fc.active) continue;
-        if (fc.min !== null && val >= fc.min) { matched = color; break; }
-      }
-      row.style.opacity = matched ? '1' : '0.35';
-    });
   }
 
-  // ── Блок фильтров
+  // ── Блок фильтров ─────────────────────────────────────────────────────────────
   function _buildFiltersHtml(tabFilters) {
     const pills = ['green', 'yellow', 'red'].map(color => {
       const m = FILTER_META[color];
@@ -327,7 +384,7 @@ const PotholeRating = (() => {
       </div>`;
   }
 
-  // ── Таблица РУАД
+  // ── Таблица РУАД ──────────────────────────────────────────────────────────────
   function _buildRuadTable() {
     if (!_ruadNames.length) return _emptyCard('Загрузите региональные отчёты ямочного ремонта — список РУАД заполнится автоматически.');
     const regData  = (_latestRegional   && _latestRegional.data_json)  ? _latestRegional.data_json  : [];
@@ -357,7 +414,7 @@ const PotholeRating = (() => {
     });
   }
 
-  // ── Таблица МАД
+  // ── Таблица МАД ───────────────────────────────────────────────────────────────
   function _buildMadTable() {
     if (!_moNames.length) return _emptyCard('Загрузите муниципальные отчёты ямочного ремонта — список МАД заполнится автоматически.');
     const munData  = (_latestMunicipal  && _latestMunicipal.data_json)  ? _latestMunicipal.data_json  : [];
@@ -392,7 +449,7 @@ const PotholeRating = (() => {
     });
   }
 
-  // ── Построитель таблицы
+  // ── Построитель таблицы ───────────────────────────────────────────────────────
   function _sortIcon(key) {
     if (_sortState.key !== key) {
       return `<svg class="ph-sort-icon" width="10" height="10" viewBox="0 0 10 14" fill="none"><path d="M5 1L2 5h6L5 1z" fill="currentColor" opacity="0.3"/><path d="M5 13L2 9h6L5 13z" fill="currentColor" opacity="0.3"/></svg>`;
@@ -422,7 +479,6 @@ const PotholeRating = (() => {
             ? `<td class="ph-rating-rank">${rank++}</td>`
             : `<td class="ph-rating-rank" style="color:var(--color-text-faint)">—</td>`;
           const compStr   = _fmtNum(r.complaints != null ? r.complaints : 0, 0);
-          // data-rating-val используется в _applyFilters для чтения значения без парсинга текста
           const ratingStr = hasRating
             ? `<span class="ph-rating-score" data-rating-val="${r.rating}" style="${_ratingColor(r.rating)}">${r.rating.toFixed(4)}</span>`
             : _missingBadge('Недостаточно данных');
@@ -473,7 +529,7 @@ const PotholeRating = (() => {
       </article>`;
   }
 
-  // ── Расчёт рейтинга
+  // ── Расчёт рейтинга ───────────────────────────────────────────────────────────
   function _calcRating(registered, repaired, complaints, netLength, population) {
     if (netLength == null || netLength === 0) return null;
     if (population == null || population === 0) return null;
@@ -482,7 +538,7 @@ const PotholeRating = (() => {
     const comp = complaints  != null ? complaints  : 0;
     const part1 = (reg  / netLength) * 0.2;
     const part2 = (rep  / netLength) * 0.3;
-    const part3 = (1 - (comp / population) * 1000) * 0.5;
+    const part3 = Math.max(0, (1 - (comp / population) * 1000)) * 0.5;
     return part1 + part2 + part3;
   }
 
@@ -492,7 +548,7 @@ const PotholeRating = (() => {
     return 'color:var(--color-error);font-weight:700';
   }
 
-  // ── Утилиты
+  // ── Утилиты ───────────────────────────────────────────────────────────────────
   function _normalizeName(name) {
     if (!name) return '';
     return name.trim().toLowerCase().replace(/\s*г\.?о\.?$/i,'').replace(/\s*г\/о$/i,'').replace(/\s+/g,' ').trim();
