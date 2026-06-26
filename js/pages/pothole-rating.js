@@ -16,8 +16,10 @@ const PotholeRating = (() => {
   let _netTab = 'ruad';
   let _popTab = 'ruad';
 
-  // Флаг: предотвращает повторную привязку слушателей модала
   let _modalsBound = false;
+
+  // Фильтры хранятся в ОЗУ и не сбрасываются в течение сессии
+  let _filtersMap = { ruad: _emptyFilters(), mad: _emptyFilters() };
 
   function _emptyFilters() {
     return {
@@ -26,7 +28,6 @@ const PotholeRating = (() => {
       red:    { min: null, active: false },
     };
   }
-  let _filtersMap = { ruad: _emptyFilters(), mad: _emptyFilters() };
 
   function _filters() { return _filtersMap[_ratingTab]; }
 
@@ -36,30 +37,35 @@ const PotholeRating = (() => {
     red:    { label: 'Красный', color: '#dc2626', bg: 'rgba(220,38,38,0.10)',  border: 'rgba(220,38,38,0.25)'  },
   };
 
-  // ── API фильтров ─────────────────────────────────────────────────────────────
+  // ────────────────────────────────────────────────────────────────────────────
+  //  API фильтров
+  // ────────────────────────────────────────────────────────────────────────────
 
-  // Загружает фильтры с сервера и применяет к _filtersMap
+  // Загружает фильтры с сервера и применяет к _filtersMap.
+  // Возвращает true если хотя бы один фильтр активен.
   async function _loadFilters() {
     try {
       const r = await fetch('/api/pothole/rating-filters');
-      if (!r.ok) return;
+      if (!r.ok) return false;
       const rows = await r.json();
-      // Сброс в пустые
-      _filtersMap = { ruad: _emptyFilters(), mad: _emptyFilters() };
+      // Не сбрасываем весь _filtersMap — обновляем только значения из БД
+      let hasAny = false;
       for (const row of rows) {
         const { tab, color, min_value } = row;
         if (!_filtersMap[tab] || !_filtersMap[tab][color]) continue;
         if (min_value !== null && min_value !== undefined) {
           _filtersMap[tab][color].min    = min_value;
           _filtersMap[tab][color].active = true;
+          hasAny = true;
         }
       }
+      return hasAny;
     } catch (e) {
-      // Сервер недоступен — оставляем пустые фильтры
+      return false;
     }
   }
 
-  // Сохраняет один фильтр на сервер (дебаунс не нужен — пользователь жмёт Enter / blur)
+  // Сохраняет один фильтр на сервер
   async function _saveFilter(tab, color, minVal) {
     try {
       await fetch('/api/pothole/rating-filters', {
@@ -67,10 +73,10 @@ const PotholeRating = (() => {
         headers: { 'Content-Type': 'application/json' },
         body:    JSON.stringify({ tab, color, min_value: minVal }),
       });
-    } catch (e) { /* тихо игнорируем — UI уже обновлён локально */ }
+    } catch (e) {}
   }
 
-  // Удаляет один фильтр (min_value = null) с сервера
+  // Удаляет один фильтр с сервера (min_value = null)
   async function _clearFilterOnServer(tab, color) {
     try {
       await fetch('/api/pothole/rating-filters', {
@@ -81,22 +87,26 @@ const PotholeRating = (() => {
     } catch (e) {}
   }
 
-  // ── Инициализация ─────────────────────────────────────────────────────────────
-  function init(ruadNames, moNames, latestRegional, latestComplaints, latestMunicipal) {
+  // ────────────────────────────────────────────────────────────────────────────
+  //  PUBLIC init()
+  //  Вызывается из pothole.js при каждом reload.
+  //  Фильтры НЕ сбрасываются до загрузки из БД.
+  // ────────────────────────────────────────────────────────────────────────────
+  async function init(ruadNames, moNames, latestRegional, latestComplaints, latestMunicipal) {
     _ruadNames        = ruadNames        || [];
     _moNames          = moNames          || [];
     _latestRegional   = latestRegional   || null;
     _latestComplaints = latestComplaints || null;
     _latestMunicipal  = latestMunicipal  || null;
     _sortState        = { key: 'rating', dir: 'asc' };
-
-    // НЕ сбрасываем _filtersMap — он загружается из БД в _loadMetaThenRender
+    // Не сбрасываем _filtersMap — он уже хранит значения из БД или пуст (если сервер не ответил)
 
     if (!_modalsBound) {
       _bindButtons();
       _modalsBound = true;
     }
-    _renderRatingContent();
+
+    await _loadMetaThenRender();
   }
 
   // ── Привязка кнопок ───────────────────────────────────────────────────────────
@@ -191,7 +201,6 @@ const PotholeRating = (() => {
     const field   = type === 'network' ? 'net_length' : 'population';
     const inputs  = body.querySelectorAll('.ph-meta-input');
 
-    // Получаем saveBtn ПОСЛЕ того как body уже отрендерен (не detached)
     const saveBtn = body.querySelector('[data-ph-meta-save]');
     if (saveBtn) { saveBtn.disabled = true; saveBtn.textContent = 'Сохранение...'; }
 
@@ -200,7 +209,6 @@ const PotholeRating = (() => {
       const org_type = inp.dataset.org;
       const name     = inp.dataset.name;
       const rawVal   = inp.value.trim();
-      // Отправляем даже пустое значение — сервер через toFloatOrNull() запишет NULL
       try {
         await fetch('/api/pothole/metadata', {
           method:  'POST',
@@ -212,7 +220,6 @@ const PotholeRating = (() => {
 
     try { const r = await fetch('/api/pothole/metadata'); _meta = await r.json(); } catch (e) {}
 
-    // saveBtn может быть уничтожен если body перерендерился — ищем заново
     const saveBtnFresh = body.querySelector('[data-ph-meta-save]');
     if (saveBtnFresh) { saveBtnFresh.disabled = false; saveBtnFresh.textContent = 'Сохранить'; }
 
@@ -252,13 +259,15 @@ const PotholeRating = (() => {
         _renderRatingTable();
       });
     });
-    _loadMetaThenRender();
   }
 
+  // Главный метод подготовки: загрузить метаданные + фильтры, затем рендерить уже с известными фильтрами
   async function _loadMetaThenRender() {
     try { const r = await fetch('/api/pothole/metadata'); _meta = await r.json(); } catch (e) { _meta = []; }
-    // Загружаем сохранённые фильтры из БД перед первым рендером
+    // Загружаем фильтры И ЖДЁМ ответа перед первым рендером.
+    // Так фильтры гарантированно будут заполнены до рендера таблицы.
     await _loadFilters();
+    _renderRatingContent();
     _renderRatingTable();
   }
 
@@ -285,13 +294,16 @@ const PotholeRating = (() => {
     ['green', 'yellow', 'red'].forEach(color => {
       const minInput = wrap.querySelector(`[data-filter-min="${color}"]`);
       if (minInput) {
+        // Выставляем текущее значение в инпут (если фильтр активен)
+        if (f[color].active && f[color].min !== null) {
+          minInput.value = f[color].min;
+        }
         minInput.addEventListener('input', () => {
           const v = minInput.value.trim();
           f[color].min    = v !== '' ? parseFloat(v) : null;
           f[color].active = f[color].min !== null;
           _applyFilters(wrap);
           _updateClearBtn(wrap, color);
-          // Сохраняем изменение в БД
           _saveFilter(tab, color, f[color].active ? f[color].min : null);
         });
       }
@@ -304,10 +316,10 @@ const PotholeRating = (() => {
         if (minI) minI.value = '';
         _applyFilters(wrap);
         _updateClearBtn(wrap, color);
-        // Очищаем фильтр в БД
         _clearFilterOnServer(tab, color);
       });
     });
+    // Применяем фильтры сразу после рендера (покраска строк)
     _applyFilters(wrap);
     ['green', 'yellow', 'red'].forEach(color => _updateClearBtn(wrap, color));
   }
@@ -366,10 +378,12 @@ const PotholeRating = (() => {
       const dotStyle   = `display:inline-block;width:8px;height:8px;border-radius:50%;background:${m.color};flex-shrink:0;`;
       const inputStyle = `width:52px;border:none;background:transparent;font-size:11px;color:var(--color-text);outline:none;font-variant-numeric:tabular-nums;padding:0;`;
       const clearStyle = `display:flex;align-items:center;justify-content:center;width:14px;height:14px;padding:0;background:none;border:none;color:var(--color-text-faint);cursor:pointer;border-radius:50%;flex-shrink:0;transition:opacity 0.15s;opacity:${f.active ? '1' : '0'};pointer-events:${f.active ? 'auto' : 'none'};`;
+      // Значение инпута сразу выставляем в value=«...» — так пользователь видит его сразу без ждите
+      const inputVal = (f.active && f.min !== null) ? f.min : '';
       return `
         <div class="ph-filter-pill" style="display:inline-flex;align-items:center;gap:4px;height:26px;padding:0 8px;background:var(--color-surface);border:1px solid var(--color-border);border-radius:var(--radius-full);transition:border-color 0.15s;">
           <span style="${dotStyle}" title="${m.label}"></span>
-          <input type="number" step="any" placeholder="от" data-filter-min="${color}" value="${f.min !== null ? f.min : ''}" style="${inputStyle}"/>
+          <input type="number" step="any" placeholder="от" data-filter-min="${color}" value="${inputVal}" style="${inputStyle}"/>
           <button data-filter-clear="${color}" type="button" title="Сбросить" style="${clearStyle}"
             onmouseenter="this.style.color='${m.color}'"
             onmouseleave="this.style.color='var(--color-text-faint)'">
