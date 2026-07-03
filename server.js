@@ -34,7 +34,10 @@ if (!isMainThread) {
   }
 
   function parseExcelInWorker(buffer, reportType) {
-    const workbook = XLSX.read(buffer, { type: 'buffer', cellDates: false });
+    // Для complaints читаем только первые 3 листа — 4-й лист не используется
+    // и содержит слишком много данных, что критически замедляет загрузку
+    const sheetsToLoad = (reportType === 'complaints') ? [0, 1, 2] : undefined;
+    const workbook = XLSX.read(buffer, { type: 'buffer', cellDates: false, sheets: sheetsToLoad });
 
     if (reportType === 'regional' || reportType === 'municipal') {
       return _parseRegMunSheet(workbook.Sheets[workbook.SheetNames[0]]);
