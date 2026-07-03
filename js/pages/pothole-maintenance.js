@@ -24,6 +24,8 @@ const PotholeMaintenance = (() => {
   let data = {};
   WORK_TYPES.forEach(w => { data[w.id] = { plan: 0, fact: 0 }; });
 
+  let _initialized = false;
+
   /* ── Цвет полосы в зависимости от процента ── */
   function barColor(pct) {
     if (pct >= 100) return 'var(--color-success)';
@@ -109,9 +111,11 @@ const PotholeMaintenance = (() => {
     if (overlay) { overlay.classList.add('active'); overlay.removeAttribute('aria-hidden'); }
   }
 
-  /* ── Инициализация ── */
+  /* ── init: однократная привязка слушателей (вызывается из initModules) ── */
   function init() {
-    renderChart();
+    if (_initialized) return;
+    _initialized = true;
+
     const btn = document.getElementById('maint-actualize-btn');
     if (btn) btn.addEventListener('click', openModal);
 
@@ -119,5 +123,11 @@ const PotholeMaintenance = (() => {
     if (saveBtn) saveBtn.addEventListener('click', saveFromModal);
   }
 
-  return { init, openModal, saveFromModal };
+  /* ── refresh: вызывается Router при переходе на страницу ── */
+  function refresh() {
+    init();       // на случай если страница ещё не была инициализирована
+    renderChart();
+  }
+
+  return { init, refresh, openModal, saveFromModal };
 })();
