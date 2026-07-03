@@ -227,9 +227,9 @@
   white-space: nowrap;
 }
 
-.maint-progress-table thead th.col-label { text-align: left; width: 32%; }
-.maint-progress-table thead th.col-bar   { text-align: left; width: 58%; }
-.maint-progress-table thead th.col-pct   { text-align: right; width: 10%; }
+.maint-progress-table thead th.col-label { text-align: left; width: auto; white-space: nowrap; }
+.maint-progress-table thead th.col-bar   { text-align: left; width: 100%; }
+.maint-progress-table thead th.col-pct   { text-align: center; width: 52px; }
 
 .maint-progress-table tbody .maint-row {
   border-bottom: 1px solid var(--color-border, #f0f0f0);
@@ -298,7 +298,7 @@
 }
 
 .maint-progress-table tbody td.col-pct {
-  text-align: right;
+  text-align: center;
   white-space: nowrap;
 }
 
