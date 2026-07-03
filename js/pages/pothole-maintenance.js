@@ -104,11 +104,10 @@ const PotholeMaintenance = (() => {
     closeModal('maint-modal');
   }
 
-  /* ── Открыть модаль ── */
-  function openModal() {
+  /* ── Открыть модаль — используем глобальный openModal из utils.js (класс 'open') ── */
+  function openMaintModal() {
     renderModalTable();
-    const overlay = document.getElementById('maint-modal');
-    if (overlay) { overlay.classList.add('active'); overlay.removeAttribute('aria-hidden'); }
+    openModal('maint-modal');
   }
 
   /* ── init: однократная привязка слушателей (вызывается из initModules) ── */
@@ -117,7 +116,7 @@ const PotholeMaintenance = (() => {
     _initialized = true;
 
     const btn = document.getElementById('maint-actualize-btn');
-    if (btn) btn.addEventListener('click', openModal);
+    if (btn) btn.addEventListener('click', openMaintModal);
 
     const saveBtn = document.getElementById('maint-modal-save');
     if (saveBtn) saveBtn.addEventListener('click', saveFromModal);
@@ -125,9 +124,9 @@ const PotholeMaintenance = (() => {
 
   /* ── refresh: вызывается Router при переходе на страницу ── */
   function refresh() {
-    init();       // на случай если страница ещё не была инициализирована
+    init();
     renderChart();
   }
 
-  return { init, refresh, openModal, saveFromModal };
+  return { init, refresh, openMaintModal, saveFromModal };
 })();
