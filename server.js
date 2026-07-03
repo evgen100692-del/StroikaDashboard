@@ -211,6 +211,15 @@ async function initDb() {
       UNIQUE(tab, color)
     );
   `);
+    db.run(`
+    CREATE TABLE IF NOT EXISTS maintenance_data (
+      id        INTEGER PRIMARY KEY AUTOINCREMENT,
+      work_id   TEXT NOT NULL UNIQUE,
+      plan      REAL NOT NULL DEFAULT 0,
+      fact      REAL NOT NULL DEFAULT 0,
+      updated_at TEXT DEFAULT (datetime('now','localtime'))
+    );
+  `);
 }
 
 // ── Сохранение БД на диск ─────────────────────────────────────────────────────
@@ -734,6 +743,43 @@ const server = http.createServer(async (req, res) => {
   //  Статические файлы
   // ════════════════════════════════════════════════════════════════════════════
   let filePath = path.join(__dirname, url === '/' ? 'index.html' : url);
+  
+    // GET /api/maintenance — получить все записи
+    if (url === '/api/maintenance' && req.method === 'GET') {
+      const rows = dbAll('SELECT * FROM maintenance_data ORDER BY id');
+      json(res, 200, rows);
+      return;
+    }
+
+    // POST /api/maintenance — сохранить данные (массив {work_id, plan, fact}[])
+    if (url === '/api/maintenance' && req.method === 'POST') {
+      try {
+        const body = await readBodyJSON(req);
+        if (!Array.isArray(body)) { json(res, 400, { error: 'Ожидается массив' }); return; }
+        for (const item of body) {
+          const { work_id, plan, fact } = item;
+          if (!work_id) continue;
+          const existing = dbAll('SELECT id FROM maintenance_data WHERE work_id = ?', [work_id]);
+          if (existing.length > 0) {
+            dbRun(
+              'UPDATE maintenance_data SET plan = ?, fact = ?, updated_at = datetime(\'now\',\'localtime\') WHERE work_id = ?',
+              [plan || 0, fact || 0, work_id]
+            );
+          } else {
+            dbRun(
+              'INSERT INTO maintenance_data (work_id, plan, fact) VALUES (?, ?, ?)',
+              [work_id, plan || 0, fact || 0]
+            );
+          }
+        }
+        saveDbDeferred();
+        json(res, 200, { ok: true });
+      } catch (e) {
+        json(res, 500, { error: e.message });
+      }
+      return;
+    }
+
   const ext = path.extname(filePath);
   if (!ext) filePath += '.html';
 
