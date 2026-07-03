@@ -83,7 +83,7 @@ const PotholeMaintenance = (() => {
     Рендер графика в стиле «Динамика стройготовности»
   ================================================ */
   function renderChart() {
-    const container = document.querySelector('.maint-chart-container');
+    const container = document.querySelector('#maint-chart-wrap');
     if (!container) return;
 
     const rows = WORK_TYPES.map(w => {
