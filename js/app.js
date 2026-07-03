@@ -78,8 +78,9 @@
       () => typeof PotholePage !== 'undefined' && PotholePage.refreshReports());
     Router.register('pothole-rating',
       () => typeof PotholePage !== 'undefined' && PotholePage.refreshRating());
-    // Содержание (заглушка — наполнение позже)
-    Router.register('pothole-maintenance', () => {});
+    // Содержание
+    Router.register('pothole-maintenance',
+      () => typeof PotholeMaintenance !== 'undefined' && PotholeMaintenance.init());
   }
 
   /* ================================================================
