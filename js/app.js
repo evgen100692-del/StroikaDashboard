@@ -78,9 +78,9 @@
       () => typeof PotholePage !== 'undefined' && PotholePage.refreshReports());
     Router.register('pothole-rating',
       () => typeof PotholePage !== 'undefined' && PotholePage.refreshRating());
-    // Содержание
+    // Содержание — refresh() обновляет график, init() уже привязал слушатели в initModules
     Router.register('pothole-maintenance',
-      () => typeof PotholeMaintenance !== 'undefined' && PotholeMaintenance.init());
+      () => typeof PotholeMaintenance !== 'undefined' && PotholeMaintenance.refresh());
   }
 
   /* ================================================================
@@ -88,10 +88,11 @@
      init() каждого модуля — только привязка слушателей, НЕ регистрация Router.
   ================================================================ */
   function initModules() {
-    if (typeof DashboardPage   !== 'undefined') DashboardPage.init();
-    if (typeof ContractsPage   !== 'undefined') ContractsPage.init();
-    if (typeof ContractorsPage !== 'undefined') ContractorsPage.init();
-    if (typeof PotholePage     !== 'undefined') PotholePage.init();
+    if (typeof DashboardPage        !== 'undefined') DashboardPage.init();
+    if (typeof ContractsPage        !== 'undefined') ContractsPage.init();
+    if (typeof ContractorsPage      !== 'undefined') ContractorsPage.init();
+    if (typeof PotholePage          !== 'undefined') PotholePage.init();
+    if (typeof PotholeMaintenance   !== 'undefined') PotholeMaintenance.init();
   }
 
   /* ================================================================
