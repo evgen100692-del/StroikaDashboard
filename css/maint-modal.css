@@ -204,3 +204,106 @@
     grid-template-columns: 1fr 72px 72px 44px;
   }
 }
+
+
+/* ================================================
+   Таблица выполнения — стиль «Динамика стройготовности»
+================================================ */
+
+.maint-progress-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: var(--text-sm, 13px);
+}
+
+.maint-progress-table thead th {
+  padding: 6px 10px;
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--color-text-faint, #9ca3af);
+  border-bottom: 1px solid var(--color-border, #e5e7eb);
+  white-space: nowrap;
+}
+
+.maint-progress-table thead th.col-label { text-align: left; width: 32%; }
+.maint-progress-table thead th.col-bar   { text-align: left; width: 58%; }
+.maint-progress-table thead th.col-pct   { text-align: right; width: 10%; }
+
+.maint-progress-table tbody .maint-row {
+  border-bottom: 1px solid var(--color-border, #f0f0f0);
+  transition: background 0.15s;
+}
+
+.maint-progress-table tbody .maint-row:last-child {
+  border-bottom: none;
+}
+
+.maint-progress-table tbody .maint-row:hover {
+  background: var(--color-surface-2, #f8f6f2);
+}
+
+.maint-progress-table tbody td {
+  padding: 9px 10px;
+  vertical-align: middle;
+}
+
+.maint-progress-table tbody td.col-label {
+  white-space: normal;
+  word-break: break-word;
+  line-height: 1.35;
+}
+
+.work-label {
+  display: inline;
+  font-weight: 500;
+  color: var(--color-text-main, #1f2937);
+  font-size: var(--text-sm, 13px);
+}
+
+.work-unit {
+  display: inline;
+  font-size: 11px;
+  color: var(--color-text-faint, #9ca3af);
+  margin-left: 4px;
+  font-weight: 400;
+}
+
+.maint-progress-table tbody td.col-bar {
+  padding-right: 12px;
+}
+
+.maint-bar-track {
+  height: 16px;
+  background: var(--color-border, #e8e5df);
+  border-radius: 4px;
+  overflow: hidden;
+  width: 100%;
+}
+
+.maint-bar-fill {
+  height: 100%;
+  border-radius: 4px;
+  transition: width 0.4s ease;
+  min-width: 2px;
+}
+
+.maint-bar-values {
+  display: block;
+  font-size: 11px;
+  color: var(--color-text-faint, #9ca3af);
+  margin-top: 3px;
+  white-space: nowrap;
+}
+
+.maint-progress-table tbody td.col-pct {
+  text-align: right;
+  white-space: nowrap;
+}
+
+.maint-pct {
+  font-size: var(--text-sm, 13px);
+  font-weight: 700;
+  letter-spacing: -0.01em;
+}
