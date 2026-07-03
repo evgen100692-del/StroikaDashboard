@@ -208,6 +208,6 @@ const PotholeMaintenance = (() => {
     }
   }
 
-  return { init };
+  return { init, refresh: renderChart };
 
 })();
