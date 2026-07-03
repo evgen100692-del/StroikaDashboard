@@ -128,7 +128,7 @@ const PotholeMaintenance = (() => {
     Модальное окно актуализации
   ================================================ */
   function renderModal() {
-    const tbody = document.querySelector('#maint-modal-body');
+    const tbody = document.querySelector('#maint-modal-tbody');
     if (!tbody) return;
     tbody.innerHTML = WORK_TYPES.map(w => {
       const d = data[w.id];
