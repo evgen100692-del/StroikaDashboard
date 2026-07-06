@@ -107,7 +107,7 @@ const PotholeMaintenance = (() => {
                 <span class="maint-pct" style="color:${pctColor(r.pct)}">${r.pct}%</span>
               </div>
             </div>
-          `).join('')}
+          `).join('');
         
   }
 
