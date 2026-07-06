@@ -83,8 +83,8 @@ const PotholeMaintenance = (() => {
     Рендер графика в стиле «Динамика стройготовности»
   ================================================ */
   function renderChart() {
-    const container = document.querySelector('#maint-chart-wrap');
-    if (!container) return;
+    const body = document.querySelector('#maint-wp-body');
+    if (!body) return;
 
     const rows = WORK_TYPES.map(w => {
       const d = data[w.id];
@@ -92,17 +92,7 @@ const PotholeMaintenance = (() => {
       return { ...w, plan: d.plan, fact: d.fact, pct };
     });
 
-    container.innerHTML = `
-      <div class="wp-table">
-        <div class="wp-head">
-          <div class="wp-row">
-            <div class="wp-col wp-col-label">Вид работ</div>
-            <div class="wp-col wp-col-bar">Прогресс</div>
-            <div class="wp-col wp-col-pct">%</div>
-          </div>
-        </div>
-        <div class="wp-body">
-          ${rows.map(r => `
+    body.innerHTML = rows.map(r => `
             <div class="wp-row">
               <div class="wp-col wp-col-label">
                 <span class="work-label">${r.label}</span>
@@ -118,9 +108,7 @@ const PotholeMaintenance = (() => {
               </div>
             </div>
           `).join('')}
-        </div>
-      </div>
-    `;
+        
   }
 
   /* ================================================
@@ -172,41 +160,45 @@ const PotholeMaintenance = (() => {
     if (btn) {
       btn.addEventListener('click', () => {
         renderModal();
-        const modal = document.getElementById('maint-modal');
-        if (modal) modal.classList.add('open');
+                  openMaintDrawer();
       });
     }
 
-    // Закрытие модалки
-    const closeBtn = document.querySelector('#maint-modal .modal-close');
-    if (closeBtn) {
-      closeBtn.addEventListener('click', () => {
-        const modal = document.getElementById('maint-modal');
-        if (modal) modal.classList.remove('open');
-      });
-    }
-
-    // Кнопка «Отмена»
-    const cancelBtn = document.getElementById('maint-modal-cancel');
-    if (cancelBtn) {
-      cancelBtn.addEventListener('click', () => {
-        const modal = document.getElementById('maint-modal');
-        if (modal) modal.classList.remove('open');
-      });
-    }
 
     // Кнопка «Сохранить»
     const saveBtn = document.getElementById('maint-modal-save');
     if (saveBtn) {
       saveBtn.addEventListener('click', async () => {
         await persistData();
-        const modal = document.getElementById('maint-modal');
-        if (modal) modal.classList.remove('open');
+                  closeMaintDrawer();
         renderChart();
       });
     }
   }
+  // ============================================
+  //  Drawer: открыть / закрыть
+  // ============================================
+  function openMaintDrawer() {
+    const overlay = document.getElementById('maint-drawer-overlay');
+    const drawer  = document.getElementById('maint-drawer');
+    if (overlay) overlay.classList.add('open');
+    if (drawer)  { drawer.classList.add('open'); drawer.removeAttribute('aria-hidden'); }
+    document.body.classList.add('drawer-open');
+  }
 
-  return { init, refresh: renderChart };
+  function closeMaintDrawer() {
+    const overlay = document.getElementById('maint-drawer-overlay');
+    const drawer  = document.getElementById('maint-drawer');
+    if (overlay) overlay.classList.remove('open');
+    if (drawer)  { drawer.classList.remove('open'); drawer.setAttribute('aria-hidden', 'true'); }
+    document.body.classList.remove('drawer-open');
+  }
+
+
+  return { init, refresh: renderChart, openMaintDrawer, closeMaintDrawer };
 
 })();
+
+// Глобальные обёртки для HTML onclick
+function openMaintDrawer()  { PotholeMaintenance.openMaintDrawer();  }
+function closeMaintDrawer() { PotholeMaintenance.closeMaintDrawer(); }
