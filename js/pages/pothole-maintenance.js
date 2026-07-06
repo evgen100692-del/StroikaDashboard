@@ -6,17 +6,17 @@
 const PotholeMaintenance = (() => {
 
   const WORK_TYPES = [
-    { id: 'wash_stops',    label: 'Мойка остановок',                      unit: 'шт' },
-    { id: 'paint_stops',   label: 'Покраска остановок',                    unit: 'шт' },
-    { id: 'sweep_curb',    label: 'Уборка смёта из прибордюрной части',    unit: 'км' },
-    { id: 'trash_row',     label: 'Уборка мусора в полосе отвода',         unit: 'км' },
-    { id: 'wash_barriers', label: 'Мойка ограждений',                      unit: 'км' },
-    { id: 'wash_road',     label: 'Мойка проезжей части',                  unit: 'км' },
-    { id: 'wash_sidewalk', label: 'Мойка тротуаров',                       unit: 'км' },
-    { id: 'mow_grass',     label: 'Окос травы',                            unit: 'км' },
-    { id: 'markup_linear', label: 'Линейная разметка',                     unit: 'км' },
-    { id: 'markup_cross',  label: 'Разметка пешеходных переходов',         unit: 'шт' },
-    { id: 'borsh',         label: 'Ликвидация борщевика',                  unit: 'га' },
+    { id: 'wash_stops',    label: 'Мойка остановок, шт'                       },
+    { id: 'paint_stops',   label: 'Покраска остановок, шт'                     },
+    { id: 'sweep_curb',    label: 'Уборка смёта из прибордюрной части, км'     },
+    { id: 'trash_row',     label: 'Уборка мусора в полосе отвода, км'          },
+    { id: 'wash_barriers', label: 'Мойка ограждений, км'                       },
+    { id: 'wash_road',     label: 'Мойка проезжей части, км'                   },
+    { id: 'wash_sidewalk', label: 'Мойка тротуаров, км'                        },
+    { id: 'mow_grass',     label: 'Окос травы, км'                             },
+    { id: 'markup_linear', label: 'Линейная разметка, км'                      },
+    { id: 'markup_cross',  label: 'Разметка пешеходных переходов, шт'          },
+    { id: 'borsh',         label: 'Ликвидация борщевика, га'                   },
   ];
 
   let data = {};
@@ -106,7 +106,6 @@ const PotholeMaintenance = (() => {
             <tr class="maint-row">
               <td class="col-label">
                 <span class="work-label">${r.label}</span>
-                <span class="work-unit">${r.unit}</span>
               </td>
               <td class="col-bar">
                 <div class="maint-bar-track">
@@ -135,7 +134,7 @@ const PotholeMaintenance = (() => {
       const pct = d.plan > 0 ? Math.min(100, Math.round(d.fact / d.plan * 100)) : 0;
       return `
         <tr>
-          <td>${w.label} <small>(${w.unit})</small></td>
+          <td>${w.label}</td>
           <td><input type="number" class="maint-input" data-id="${w.id}" data-field="plan"
             value="${d.plan}" min="0" step="1" aria-current="true" /></td>
           <td><input type="number" class="maint-input" data-id="${w.id}" data-field="fact"
