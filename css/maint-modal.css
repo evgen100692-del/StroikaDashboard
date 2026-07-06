@@ -210,7 +210,7 @@
    Таблица выполнения — стиль «Динамика стройготовности»
 ================================================ */
 
-.maint-progress-table {
+.maint-progress-table {   table-layout: fixed;
   width: 100%;
   border-collapse: collapse;
   font-size: var(--text-sm, 13px);
@@ -227,7 +227,7 @@
   white-space: nowrap;
 }
 
-.maint-progress-table thead th.col-label { text-align: left; width: 170px; white-space: nowrap; }
+.maint-progress-table thead th.col-label { text-align: left; width: 85px; white-space: nowrap; }
 .maint-progress-table thead th.col-bar   { text-align: left; width: 100%; }
 .maint-progress-table thead th.col-pct   { text-align: center; width: 52px; }
 
