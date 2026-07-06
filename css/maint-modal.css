@@ -227,7 +227,7 @@
   white-space: nowrap;
 }
 
-.maint-progress-table thead th.col-label { text-align: left; width: 200px; min-width: 200px; max-width: 200px; white-space: nowrap; }
+.maint-progress-table thead th.col-label { text-align: left; width: 200px; min-width: 200px; max-width: 200px; white-space: normal; overflow: hidden; }
 .maint-progress-table thead th.col-bar   { text-align: left; width: 100%; }
 .maint-progress-table thead th.col-pct   { text-align: center; width: 52px; }
 
