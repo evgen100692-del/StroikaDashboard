@@ -249,7 +249,7 @@
   vertical-align: middle;
 }
 
-.maint-progress-table tbody td.col-label {
+.maint-progress-table tbody td.col-label, .maint-progress-table thead th.col-label {
   white-space: normal;
   word-break: break-word;
   line-height: 1.35;
