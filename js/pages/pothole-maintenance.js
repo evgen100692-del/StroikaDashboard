@@ -93,33 +93,33 @@ const PotholeMaintenance = (() => {
     });
 
     container.innerHTML = `
-      <table class="maint-progress-table">
-        <thead>
-          <tr>
-            <th class="col-label">Вид работ</th>
-            <th class="col-bar">Прогресс</th>
-            <th class="col-pct">%</th>
-          </tr>
-        </thead>
-        <tbody>
+      <div class="wp-table">
+        <div class="wp-head">
+          <div class="wp-row">
+            <div class="wp-col wp-col-label">Вид работ</div>
+            <div class="wp-col wp-col-bar">Прогресс</div>
+            <div class="wp-col wp-col-pct">%</div>
+          </div>
+        </div>
+        <div class="wp-body">
           ${rows.map(r => `
-            <tr class="maint-row">
-              <td class="col-label">
+            <div class="wp-row">
+              <div class="wp-col wp-col-label">
                 <span class="work-label">${r.label}</span>
-              </td>
-              <td class="col-bar">
+              </div>
+              <div class="wp-col wp-col-bar">
                 <div class="maint-bar-track">
                   <div class="maint-bar-fill" style="width:${r.pct}%;background:${barColor(r.pct)}"></div>
                 </div>
                 <span class="maint-bar-values">${r.fact.toLocaleString('ru')} / ${r.plan.toLocaleString('ru')}</span>
-              </td>
-              <td class="col-pct">
+              </div>
+              <div class="wp-col wp-col-pct">
                 <span class="maint-pct" style="color:${pctColor(r.pct)}">${r.pct}%</span>
-              </td>
-            </tr>
+              </div>
+            </div>
           `).join('')}
-        </tbody>
-      </table>
+        </div>
+      </div>
     `;
   }
 
@@ -133,14 +133,14 @@ const PotholeMaintenance = (() => {
       const d = data[w.id];
       const pct = d.plan > 0 ? Math.min(100, Math.round(d.fact / d.plan * 100)) : 0;
       return `
-        <tr>
-          <td>${w.label}</td>
+        <div class="wp-row">
+          <td>${w.label}</div>
           <td><input type="number" class="maint-input" data-id="${w.id}" data-field="plan"
-            value="${d.plan}" min="0" step="1" aria-current="true" /></td>
+            value="${d.plan}" min="0" step="1" aria-current="true" /></div>
           <td><input type="number" class="maint-input" data-id="${w.id}" data-field="fact"
-            value="${d.fact}" min="0" step="1" /></td>
-          <td>${pct}%</td>
-        </tr>
+            value="${d.fact}" min="0" step="1" /></div>
+          <td>${pct}%</div>
+        </div>
       `;
     }).join('');
 
