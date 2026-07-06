@@ -83,8 +83,8 @@
 
 /* Строка вида работ */
 .maint-row {
-  display: grid;
-  grid-template-columns: 200px 1fr 52px;
+  /* display removed */
+  /* grid-template-columns removed */
   align-items: center;
   gap: var(--space-2);
   padding: var(--space-2) var(--space-3);
@@ -201,7 +201,7 @@
     to   { transform: translateY(0); }
   }
   .maint-row {
-    grid-template-columns: 200px 1fr 52px;
+    /* grid-template-columns removed */
   }
 }
 
@@ -227,7 +227,7 @@
   white-space: nowrap;
 }
 
-.maint-progress-table thead th.col-label { text-align: left; width: 85px; white-space: nowrap; }
+.maint-progress-table thead th.col-label { text-align: left; width: 200px; min-width: 200px; max-width: 200px; white-space: nowrap; }
 .maint-progress-table thead th.col-bar   { text-align: left; width: 100%; }
 .maint-progress-table thead th.col-pct   { text-align: center; width: 52px; }
 
