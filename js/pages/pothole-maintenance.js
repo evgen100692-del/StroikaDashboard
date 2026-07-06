@@ -82,9 +82,23 @@ const PotholeMaintenance = (() => {
   /* ================================================
     Рендер графика в стиле «Динамика стройготовности»
   ================================================ */
-  function renderChart() {
-    const body = document.querySelector('#maint-wp-body');
-    if (!body) return;
+function renderChart() {
+    // Работает с обоими версиями HTML: со статичным #maint-wp-body или со старым #maint-chart-wrap
+    let body = document.querySelector('#maint-wp-body');
+    if (!body) {
+      const wrap = document.querySelector('#maint-chart-wrap');
+      if (!wrap) return;
+      // Строим всю структуру сами
+      wrap.innerHTML = `
+        <div class="wp-head">
+          <span class="wp-col-label">Вид работ</span>
+          <span class="wp-col-bar">Выполнение</span>
+          <span class="wp-col-pct">%</span>
+        </div>
+        <div id="maint-wp-body"></div>
+      `;
+      body = document.getElementById('maint-wp-body');
+    }
 
     const rows = WORK_TYPES.map(w => {
       const d = data[w.id];
@@ -93,22 +107,21 @@ const PotholeMaintenance = (() => {
     });
 
     body.innerHTML = rows.map(r => `
-            <div class="wp-row">
-              <div class="wp-col wp-col-label">
-                <span class="work-label">${r.label}</span>
-              </div>
-              <div class="wp-col wp-col-bar">
-                <div class="maint-bar-track">
-                  <div class="maint-bar-fill" style="width:${r.pct}%;background:${barColor(r.pct)}"></div>
-                </div>
-                <span class="maint-bar-values">${r.fact.toLocaleString('ru')} / ${r.plan.toLocaleString('ru')}</span>
-              </div>
-              <div class="wp-col wp-col-pct">
-                <span class="maint-pct" style="color:${pctColor(r.pct)}">${r.pct}%</span>
-              </div>
-            </div>
-          `).join('');
-        
+      <div class="wp-row">
+        <div class="wp-col wp-col-label">
+          <span class="work-label">${r.label}</span>
+        </div>
+        <div class="wp-col wp-col-bar">
+          <div class="maint-bar-track">
+            <div class="maint-bar-fill" style="width:${r.pct}%;background:${barColor(r.pct)}"></div>
+          </div>
+          <span class="maint-bar-values">${r.fact.toLocaleString('ru')} / ${r.plan.toLocaleString('ru')}</span>
+        </div>
+        <div class="wp-col wp-col-pct">
+          <span class="maint-pct" style="color:${pctColor(r.pct)}">${r.pct}%</span>
+        </div>
+      </div>
+    `).join('');
   }
 
   /* ================================================
