@@ -323,3 +323,56 @@
 body.drawer-open {
   overflow: hidden;
 }
+
+
+/* ============================================
+   Форма загрузки Excel в дравере
+============================================ */
+.maint-form-group {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  margin-bottom: var(--space-4);
+}
+.maint-form-label {
+  font-size: var(--text-sm);
+  font-weight: 600;
+  color: var(--color-text);
+}
+.maint-form-hint {
+  font-size: 11px;
+  color: var(--color-text-faint);
+  margin: var(--space-1) 0 0;
+}
+.maint-input[type="date"],
+.maint-input[type="file"] {
+  width: 100%;
+  padding: var(--space-2) var(--space-3);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  background: var(--color-surface-2);
+  color: var(--color-text);
+  font-size: var(--text-sm);
+  height: 38px;
+}
+.maint-input[type="file"] { height: auto; padding: var(--space-2); cursor: pointer; }
+.maint-input[type="file"]:focus,
+.maint-input[type="date"]:focus {
+  outline: none;
+  border-color: var(--color-primary);
+  box-shadow: 0 0 0 3px oklch(from var(--color-primary) l c h / 0.15);
+}
+.maint-upload-status {
+  font-size: var(--text-sm);
+  min-height: 20px;
+  margin-top: var(--space-2);
+  color: var(--color-text-faint);
+}
+.maint-upload-status.ok    { color: var(--color-success, #2d6a4f); font-weight: 600; }
+.maint-upload-status.error { color: var(--color-danger,  #dc2626); font-weight: 600; }
+.wp-empty {
+  padding: var(--space-4) var(--space-3);
+  color: var(--color-text-faint);
+  font-size: var(--text-sm);
+  text-align: center;
+}
