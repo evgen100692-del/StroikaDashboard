@@ -83,12 +83,11 @@
 
 /* Строка вида работ */
 .maint-row {
-  /* display removed */
-  /* grid-template-columns removed */
+  display: grid;
   align-items: center;
   gap: var(--space-2);
   padding: var(--space-2) var(--space-3);
-  border-radius: var(--radius-md);
+      grid-template-columns: 1fr 80px 80px 44px;
   transition: background var(--transition-interactive);
 }
 .maint-row:hover {
@@ -201,7 +200,7 @@
     to   { transform: translateY(0); }
   }
   .maint-row {
-    /* grid-template-columns removed */
+    /* grid-template-columns: 1fr 80px 80px 44px; */
   }
 }
 
