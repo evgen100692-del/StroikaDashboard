@@ -194,6 +194,9 @@ function _setDropFile(file, input, nameEl) {
     
     // Инициализация drag-zone
     _bindDropZone();
+        // Остановить всплытие кликов с карточки к оверлею
+        const drawerEl = document.getElementById('maint-drawer');
+        if (drawerEl) drawerEl.addEventListener('click', e => e.stopPropagation());
   }
 
   return { init, refresh: renderChart, openMaintDrawer, closeMaintDrawer };
