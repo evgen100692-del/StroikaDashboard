@@ -1,77 +1,22 @@
 /* ================================================
-  POTHOLE MAINTENANCE — Содержание
-  Данные сохраняются в БД сервера через API /api/maintenance
+  POTHOLE MAINTENANCE — Содержание дорог
+  Данные загружаются из Excel (лист "МАД Итог") через
+  POST /api/maintenance/upload, в БД хранятся записи
+  по датам. Отображается последняя загрузка.
 ================================================ */
-
 const PotholeMaintenance = (() => {
-
-  const WORK_TYPES = [
-    { id: 'wash_stops',    label: 'Мойка остановок, шт'                       },
-    { id: 'paint_stops',   label: 'Покраска остановок, шт'                     },
-    { id: 'sweep_curb',    label: 'Уборка смёта из прибордюрной части, км'     },
-    { id: 'trash_row',     label: 'Уборка мусора в полосе отвода, км'          },
-    { id: 'wash_barriers', label: 'Мойка ограждений, км'                       },
-    { id: 'wash_road',     label: 'Мойка проезжей части, км'                   },
-    { id: 'wash_sidewalk', label: 'Мойка тротуаров, км'                        },
-    { id: 'mow_grass',     label: 'Окос травы, км'                             },
-    { id: 'markup_linear', label: 'Линейная разметка, км'                      },
-    { id: 'markup_cross',  label: 'Разметка пешеходных переходов, шт'          },
-    { id: 'borsh',         label: 'Ликвидация борщевика, га'                   },
-  ];
-
-  let data = {};
-  WORK_TYPES.forEach(w => { data[w.id] = { plan: 0, fact: 0 }; });
-
+  let _data     = [];  // [{ label, plan, fact, pct }, ...]
   let _initialized = false;
 
   /* ================================================
-    API helpers
-  ================================================ */
-  async function loadData() {
-    try {
-      const res = await fetch('/api/maintenance');
-      if (!res.ok) throw new Error('HTTP ' + res.status);
-      const rows = await res.json();
-      if (Array.isArray(rows)) {
-        rows.forEach(row => {
-          if (data[row.work_id] !== undefined) {
-            data[row.work_id] = { plan: row.plan || 0, fact: row.fact || 0 };
-          }
-        });
-      }
-    } catch (e) {
-      console.warn('PotholeMaintenance: не удалось загрузить данные', e);
-    }
-  }
-
-  async function persistData() {
-    try {
-      const payload = WORK_TYPES.map(w => ({
-        work_id: w.id,
-        plan:    data[w.id].plan,
-        fact:    data[w.id].fact,
-      }));
-      const res = await fetch('/api/maintenance', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body:    JSON.stringify(payload),
-      });
-      if (!res.ok) throw new Error('HTTP ' + res.status);
-    } catch (e) {
-      console.warn('PotholeMaintenance: не удалось сохранить данные', e);
-    }
-  }
-
-  /* ================================================
-    Цвет полосы — стиль Динамика стройготовности
+     Цветовая логика
   ================================================ */
   function barColor(pct) {
-    if (pct >= 90) return '#5a8a6a'; // тёмно-зелёный
-    if (pct >= 60) return '#6a9e7f'; // зелёный
-    if (pct >= 30) return '#8ab89a'; // светло-зелёный
-    return '#a8c9b4';                // бледно-зелёный
+    if (pct >= 90) return '#5a8a6a';
+    if (pct >= 60) return '#6a9e7f';
+    if (pct >= 30) return '#8ab89a';
+    return '#a8c9b4';
   }
-
   function pctColor(pct) {
     if (pct >= 90) return '#2d6a4f';
     if (pct >= 60) return '#40916c';
@@ -80,124 +25,54 @@ const PotholeMaintenance = (() => {
   }
 
   /* ================================================
-    Рендер графика в стиле «Динамика стройготовности»
+     Загрузка последних данных
   ================================================ */
-function renderChart() {
-    // Работает с обоими версиями HTML: со статичным #maint-wp-body или со старым #maint-chart-wrap
-    let body = document.querySelector('#maint-wp-body');
-    if (!body) {
-      const wrap = document.querySelector('#maint-chart-wrap');
-      if (!wrap) return;
-      // Строим всю структуру сами
-      wrap.innerHTML = `
-        <div class="wp-head">
-          <span class="wp-col-label">Вид работ</span>
-          <span class="wp-col-bar">Выполнение</span>
-          <span class="wp-col-pct">%</span>
-        </div>
-        <div id="maint-wp-body"></div>
-      `;
-      body = document.getElementById('maint-wp-body');
+  async function loadData() {
+    try {
+      const res = await fetch('/api/maintenance/latest');
+      if (!res.ok) throw new Error('HTTP ' + res.status);
+      _data = await res.json();
+      if (!Array.isArray(_data)) _data = [];
+    } catch (e) {
+      console.warn('PotholeMaintenance: не удалось загрузить данные', e);
+      _data = [];
     }
-
-    const rows = WORK_TYPES.map(w => {
-      const d = data[w.id];
-      const pct = d.plan > 0 ? Math.min(100, Math.round(d.fact / d.plan * 100)) : 0;
-      return { ...w, plan: d.plan, fact: d.fact, pct };
-    });
-
-    body.innerHTML = rows.map(r => `
-      <div class="wp-row">
-        <div class="wp-col wp-col-label">
-          <span class="work-label">${r.label}</span>
-        </div>
-        <div class="wp-col wp-col-bar">
-          <div class="maint-bar-track">
-            <div class="maint-bar-fill" style="width:${r.pct}%;background:${barColor(r.pct)}"></div>
-          </div>
-          <span class="maint-bar-values">${r.fact.toLocaleString('ru')} / ${r.plan.toLocaleString('ru')}</span>
-        </div>
-        <div class="wp-col wp-col-pct">
-          <span class="maint-pct" style="color:${pctColor(r.pct)}">${r.pct}%</span>
-        </div>
-      </div>
-    `).join('');
   }
 
   /* ================================================
-     Дравер актуализации — рендер строк видов работ
+     Рендер таблицы видов работ
   ================================================ */
-  function renderModal() {
-    const container = document.querySelector('#maint-modal-tbody');
-    if (!container) return;
-    container.innerHTML = WORK_TYPES.map(w => {
-      const d   = data[w.id];
-      const pct = d.plan > 0 ? Math.min(100, Math.round(d.fact / d.plan * 100)) : 0;
+  function renderChart() {
+    const body = document.querySelector('#maint-wp-body');
+    if (!body) return;
+    if (!_data.length) {
+      body.innerHTML = '<div class="wp-empty">Загрузите Excel-файл через кнопку «Актуализация»</div>';
+      return;
+    }
+    body.innerHTML = _data.map(r => {
+      const pct = r.pct !== undefined ? r.pct
+                 : (r.plan > 0 ? Math.min(100, Math.round(r.fact / r.plan * 100)) : 0);
       return `
-        <div class="maint-row" data-id="${w.id}">
-          <div class="maint-row-label">
-            <span>${w.label}</span>
+        <div class="wp-row">
+          <div class="wp-col wp-col-label">
+            <span class="work-label">${r.label}</span>
           </div>
-          <div class="maint-field-wrap">
-            <span class="maint-field-lbl">План</span>
-            <input type="number" class="maint-input" data-id="${w.id}" data-field="plan"
-              value="${d.plan}" min="0" step="0.1" />
+          <div class="wp-col wp-col-bar">
+            <div class="maint-bar-track">
+              <div class="maint-bar-fill" style="width:${pct}%;background:${barColor(pct)}"></div>
+            </div>
+            <span class="maint-bar-values">${(+r.fact).toLocaleString('ru')} / ${(+r.plan).toLocaleString('ru')}</span>
           </div>
-          <div class="maint-field-wrap">
-            <span class="maint-field-lbl">Факт</span>
-            <input type="number" class="maint-input fact-input" data-id="${w.id}" data-field="fact"
-              value="${d.fact}" min="0" step="0.1" />
+          <div class="wp-col wp-col-pct">
+            <span class="maint-pct" style="color:${pctColor(pct)}">${pct}%</span>
           </div>
-          <div class="maint-row-pct" data-pct-for="${w.id}" style="color:${pctColor(pct)}">${pct}%</div>
-        </div>
-      `;
+        </div>`;
     }).join('');
-    container.querySelectorAll('.maint-input').forEach(inp => {
-      inp.addEventListener('input', () => {
-        const id    = inp.dataset.id;
-        const field = inp.dataset.field;
-        data[id][field] = parseFloat(inp.value) || 0;
-        const d2   = data[id];
-        const pct2 = d2.plan > 0 ? Math.min(100, Math.round(d2.fact / d2.plan * 100)) : 0;
-        const pctEl = container.querySelector(`[data-pct-for="${id}"]`);
-        if (pctEl) { pctEl.textContent = pct2 + '%'; pctEl.style.color = pctColor(pct2); }
-      });
-    });
-  }  }
+  }
 
   /* ================================================
-    Инициализация
+     Дравер загрузки Excel
   ================================================ */
-  async function init(container) {
-    if (_initialized) { renderChart(); return; }
-    _initialized = true;
-
-    await loadData();
-    renderChart();
-
-    // Кнопка «Актуализация»
-    const btn = document.getElementById('maint-actualize-btn');
-    if (btn) {
-      btn.addEventListener('click', () => {
-        renderModal();
-                  openMaintDrawer();
-      });
-    }
-
-
-    // Кнопка «Сохранить»
-    const saveBtn = document.getElementById('maint-modal-save');
-    if (saveBtn) {
-      saveBtn.addEventListener('click', async () => {
-        await persistData();
-                  closeMaintDrawer();
-        renderChart();
-      });
-    }
-  }
-  // ============================================
-  //  Drawer: открыть / закрыть
-  // ============================================
   function openMaintDrawer() {
     const overlay = document.getElementById('maint-drawer-overlay');
     const drawer  = document.getElementById('maint-drawer');
@@ -212,13 +87,69 @@ function renderChart() {
     if (overlay) overlay.classList.remove('open');
     if (drawer)  { drawer.classList.remove('open'); drawer.setAttribute('aria-hidden', 'true'); }
     document.body.classList.remove('drawer-open');
+    // Сброс формы
+    const form = document.getElementById('maint-upload-form');
+    if (form) form.reset();
+    _setStatus('');
   }
 
+  function _setStatus(msg, isErr) {
+    const el = document.getElementById('maint-upload-status');
+    if (!el) return;
+    el.textContent = msg;
+    el.className = 'maint-upload-status' + (isErr ? ' error' : msg ? ' ok' : '');
+  }
+
+  async function _handleUpload() {
+    const form     = document.getElementById('maint-upload-form');
+    const dateEl   = document.getElementById('maint-report-date');
+    const fileEl   = document.getElementById('maint-file-input');
+    const saveBtn  = document.getElementById('maint-upload-save');
+
+    if (!dateEl.value) { _setStatus('Укажите дату', true); return; }
+    if (!fileEl.files.length) { _setStatus('Выберите Excel-файл', true); return; }
+
+    const fd = new FormData();
+    fd.append('report_date', dateEl.value);
+    fd.append('file', fileEl.files[0]);
+
+    saveBtn.disabled = true;
+    _setStatus('Загрузка...');
+
+    try {
+      const res = await fetch('/api/maintenance/upload', { method: 'POST', body: fd });
+      const json = await res.json();
+      if (!res.ok) throw new Error(json.error || res.status);
+      _setStatus(`Загружено ${json.rows} видов работ`);
+      await loadData();
+      renderChart();
+      setTimeout(closeMaintDrawer, 1200);
+    } catch (e) {
+      _setStatus('Ошибка: ' + e.message, true);
+    } finally {
+      saveBtn.disabled = false;
+    }
+  }
+
+  /* ================================================
+     Инициализация
+  ================================================ */
+  async function init() {
+    if (_initialized) { renderChart(); return; }
+    _initialized = true;
+    await loadData();
+    renderChart();
+
+    const btn = document.getElementById('maint-actualize-btn');
+    if (btn) btn.addEventListener('click', openMaintDrawer);
+
+    const saveBtn = document.getElementById('maint-upload-save');
+    if (saveBtn) saveBtn.addEventListener('click', _handleUpload);
+  }
 
   return { init, refresh: renderChart, openMaintDrawer, closeMaintDrawer };
-
 })();
 
 // Глобальные обёртки для HTML onclick
-function openMaintDrawer()  { PotholeMaintenance.openMaintDrawer();  }
+function openMaintDrawer()  { PotholeMaintenance.openMaintDrawer(); }
 function closeMaintDrawer() { PotholeMaintenance.closeMaintDrawer(); }
