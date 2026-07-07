@@ -121,9 +121,14 @@ const PotholeMaintenance = (() => {
 
     try {
       const res = await fetch('/api/maintenance/upload', { method: 'POST', body: fd });
+            if (!res.ok) {
+        const errText = await res.text().catch(() => String(res.status));
+        let errMsg = String(res.status);
+        try { errMsg = JSON.parse(errText).error || errMsg; } catch (_) { errMsg = errText || errMsg; }
+        throw new Error(errMsg);
+      }
       const json = await res.json();
-      if (!res.ok) throw new Error(json.error || res.status);
-      _setStatus(`Загружено ${json.rows} видов работ`);
+_setStatus(`Загружено ${json.rows} видов работ`);
       await loadData();
       renderChart();
       setTimeout(closeMaintDrawer, 1200);
