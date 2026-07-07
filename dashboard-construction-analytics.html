@@ -810,7 +810,7 @@
               </div>
             </div>
             <div class="card-body">
-              <div id="maint-chart-wrap" class="maint-chart-wrap"></div>
+              <div id="maint-chart-wrap" class="maint-chart-wrap"><div class="wp-head"><span class="wp-col-label">Вид работ</span><span class="wp-col-bar">Выполнение</span><span class="wp-col-pct">%</span></div><div id="maint-wp-body"></div></div>
             </div>
           </article>
         </section>
@@ -918,35 +918,29 @@
     </div>
   </div>
 
-  <!-- MAINTENANCE MODAL -->
-  <div class="modal-overlay" id="maint-modal" aria-hidden="true">
-    <div class="modal" role="dialog" aria-modal="true" style="max-width:760px;width:100%">
-      <div class="modal-header">
-        <div class="modal-title">Актуализация данных</div>
-        <button class="btn btn-ghost btn-icon" type="button" onclick="closeModal('maint-modal')" aria-label="Закрыть">
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+<!-- MAINTENANCE DRAWER -->
+    <div class="maint-drawer-overlay" id="maint-drawer-overlay" onclick="closeMaintDrawer()"></div>
+    <aside class="maint-drawer" id="maint-drawer" aria-hidden="true" role="dialog" aria-modal="true" aria-labelledby="maint-drawer-title">
+      <div class="maint-drawer__header">
+        <div class="maint-drawer__title" id="maint-drawer-title">Актуализация данных</div>
+        <button class="btn btn-ghost btn-icon" type="button" onclick="closeMaintDrawer()" aria-label="Закрыть">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
+          </svg>
         </button>
       </div>
-      <div class="modal-body" style="padding:0">
-        <div class="data-table-wrap">
-          <table class="data-table">
-            <thead><tr>
-              <th style="text-align:left;min-width:260px">Вид работ</th>
-              <th style="text-align:center;width:140px">Общий объём (план)</th>
-              <th style="text-align:center;width:140px">Факт</th>
-              <th style="text-align:center;width:100px">Выполнено</th>
-            </tr></thead>
-            <tbody id="maint-modal-tbody"></tbody>
-          </table>
+      <div class="maint-drawer__body">
+        <p class="maint-section-label">Виды работ / план / факт</p>
+        <div id="maint-modal-tbody"></div>
+      </div>
+      <div class="maint-drawer__footer">
+        <span class="maint-footer-hint">Изменения сохраняются на сервере</span>
+        <div class="maint-footer-actions">
+          <button class="btn btn-secondary" type="button" onclick="closeMaintDrawer()">Отмена</button>
+          <button class="btn btn-primary" type="button" id="maint-modal-save">Сохранить</button>
         </div>
       </div>
-      <div class="modal-footer" style="display:flex;justify-content:flex-end;gap:var(--space-3);padding:var(--space-4) var(--space-6);border-top:1px solid var(--color-border)">
-        <button class="btn btn-secondary" type="button" onclick="closeModal('maint-modal')">Отмена</button>
-        <button class="btn btn-primary" type="button" id="maint-modal-save">Сохранить</button>
-      </div>
-    </div>
-  </div>
-
+    </aside>
   <!-- CONTRACT MODAL -->
   <div class="modal-overlay" id="contract-modal" aria-hidden="true">
     <div class="modal" role="dialog" aria-modal="true" aria-labelledby="contract-modal-title">
