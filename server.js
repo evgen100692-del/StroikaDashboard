@@ -93,6 +93,10 @@ if (!isMainThread) {
       return result;
     }
 
+    if (reportType === 'maintenance') {
+      return _parseMaintSheet(workbook);
+    }
+
     return {};
   }
 
@@ -116,6 +120,26 @@ if (!isMainThread) {
     }
     return result;
   }
+
+function _parseMaintSheet(workbook) {
+  // Лист № 4 — "МАД Итог" (индекс 3)
+  const sheetName = workbook.SheetNames[3];
+  if (!sheetName) return [];
+  const sheet = workbook.Sheets[sheetName];
+  const rows  = XLSX.utils.sheet_to_json(sheet, { header: 1, defval: null });
+  const result = [];
+  for (let i = 2; i < rows.length; i++) {  // с 3-й строки (0-based = 2)
+    const row  = rows[i];
+    if (!row || row.length < 3) continue;
+    const label = row[1] != null ? String(row[1]).trim() : '';
+    if (!label) continue;
+    const plan  = toNum(row[2]);
+    const fact  = toNum(row[3] ?? 0);
+    const pct   = plan > 0 ? Math.round(fact / plan * 100) : 0;
+    result.push({ label, plan, fact, pct });
+  }
+  return result;
+}
 
   return;
 }
@@ -221,6 +245,14 @@ async function initDb() {
     );
   `);
 }
+  db.run(`
+    CREATE TABLE IF NOT EXISTS maintenance_uploads (
+      id          INTEGER PRIMARY KEY AUTOINCREMENT,
+      report_date TEXT    NOT NULL,
+      uploaded_at TEXT    NOT NULL DEFAULT (datetime('now','localtime')),
+      data_json   TEXT    NOT NULL
+    );
+  `);
 
 // ── Сохранение БД на диск ─────────────────────────────────────────────────────
 let _saveScheduled = false;
@@ -741,6 +773,65 @@ const server = http.createServer(async (req, res) => {
 
   // ════════════════════════════════════════════════════════════════════════════
   //  Статические файлы
+
+  // ============================================================
+  // GET /api/maintenance/reports — список загрузок содержания
+  // ============================================================
+  if (url === '/api/maintenance/reports' && req.method === 'GET') {
+    const rows = dbAll('SELECT id, report_date, uploaded_at FROM maintenance_uploads ORDER BY report_date DESC');
+    json(res, 200, rows);
+    return;
+  }
+
+  // ============================================================
+  // GET /api/maintenance/reports/:id — данные конкретной загрузки
+  // ============================================================
+  if (url.startsWith('/api/maintenance/reports/') && req.method === 'GET') {
+    const id = parseInt(url.split('/').pop(), 10);
+    if (isNaN(id)) { json(res, 400, { error: 'bad id' }); return; }
+    const row = dbAll('SELECT * FROM maintenance_uploads WHERE id = ?', [id])[0];
+    if (!row) { json(res, 404, { error: 'not found' }); return; }
+    json(res, 200, { ...row, data: JSON.parse(row.data_json) });
+    return;
+  }
+
+  // ============================================================
+  // POST /api/maintenance/upload — загрузка Excel
+  // ============================================================
+  if (url === '/api/maintenance/upload' && req.method === 'POST') {
+    try {
+      const ct = req.headers['content-type'] || '';
+      const boundaryMatch = ct.match(/boundary=(.+)$/);
+      if (!boundaryMatch) { json(res, 400, { error: 'no boundary' }); return; }
+      const boundary  = boundaryMatch[1];
+      const rawBody   = await readBodyRaw(req);
+      const parts     = parseMultipart(rawBody, boundary);
+      const datePart  = parts.find(p => p.name === 'report_date');
+      const filePart  = parts.find(p => p.filename);
+      if (!datePart || !filePart) {
+        json(res, 400, { error: 'Обязательные поля: report_date, file' });
+        return;
+      }
+      const reportDate = datePart.text.trim();
+      const parsed     = await parseExcelInWorker(filePart.body, 'maintenance');
+      const newId = dbInsert(
+        'INSERT INTO maintenance_uploads (report_date, data_json) VALUES (?, ?)',
+        [reportDate, JSON.stringify(parsed)]
+      );
+      json(res, 200, { ok: true, id: newId, rows: parsed.length });
+    } catch (e) {
+      json(res, 500, { error: e.message });
+    }
+    return;
+  }
+
+  // GET /api/maintenance/latest — последние данные из maintenance_uploads
+  if (url === '/api/maintenance/latest' && req.method === 'GET') {
+    const row = dbAll('SELECT * FROM maintenance_uploads ORDER BY report_date DESC LIMIT 1')[0];
+    if (!row) { json(res, 200, []); return; }
+    json(res, 200, JSON.parse(row.data_json));
+    return;
+  }
   // ════════════════════════════════════════════════════════════════════════════
   let filePath = path.join(__dirname, url === '/' ? 'index.html' : url);
   
