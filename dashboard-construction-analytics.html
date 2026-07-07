@@ -929,15 +929,25 @@
           </svg>
         </button>
       </div>
-      <div class="maint-drawer__body">
-        <p class="maint-section-label">Виды работ / план / факт</p>
-        <div id="maint-modal-tbody"></div>
-      </div>
+            <div class="maint-drawer__body">
+        <form id="maint-upload-form" autocomplete="off">
+          <div class="maint-form-group">
+            <label class="maint-form-label" for="maint-report-date">Дата отчёта</label>
+            <input type="date" id="maint-report-date" class="maint-input" required />
+          </div>
+          <div class="maint-form-group">
+            <label class="maint-form-label" for="maint-file-input">Excel-файл (лист «МАД Итог»)</label>
+            <input type="file" id="maint-file-input" class="maint-input" accept=".xlsx,.xls" required />
+            <p class="maint-form-hint">Кол. B — вид работ, C — план, D — факт (с 3-й строки)</p>
+          </div>
+          <div id="maint-upload-status" class="maint-upload-status"></div>
+        </form>
+            </div>
       <div class="maint-drawer__footer">
         <span class="maint-footer-hint">Изменения сохраняются на сервере</span>
         <div class="maint-footer-actions">
           <button class="btn btn-secondary" type="button" onclick="closeMaintDrawer()">Отмена</button>
-          <button class="btn btn-primary" type="button" id="maint-modal-save">Сохранить</button>
+          <button class="btn btn-primary" type="button" id="maint-upload-save">Сохранить</button>
         </div>
       </div>
     </aside>
