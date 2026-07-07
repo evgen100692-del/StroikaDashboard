@@ -91,11 +91,14 @@ const PotholeMaintenance = (() => {
     const form = document.getElementById('maint-upload-form');
     if (form) form.reset();
     _setStatus('');
+        // Сброс drag-zone
+    const nameEl2 = document.getElementById('maint-file-name');
+    if (nameEl2) { nameEl2.textContent = ''; nameEl2.classList.remove('visible'); }
   }
 
   function _setStatus(msg, isErr) {
     const el = document.getElementById('maint-upload-status');
-    if (!el) return;
+            if (!el) return;
     el.textContent = msg;
     el.className = 'maint-upload-status' + (isErr ? ' error' : msg ? ' ok' : '');
   }
@@ -132,6 +135,49 @@ const PotholeMaintenance = (() => {
   }
 
   /* ================================================
+     Drag-zone для загрузки файла
+================================================ */
+function _bindDropZone() {
+  const zone    = document.getElementById('maint-drop-zone');
+  const input   = document.getElementById('maint-file-input');
+  const nameEl  = document.getElementById('maint-file-name');
+  if (!zone || !input) return;
+
+  // Клик по zone — открываем file picker
+  zone.addEventListener('click', () => input.click());
+
+  // Drag over / leave / drop
+  zone.addEventListener('dragover', e => {
+    e.preventDefault();
+    zone.classList.add('drag-over');
+  });
+  zone.addEventListener('dragleave', () => zone.classList.remove('drag-over'));
+  zone.addEventListener('drop', e => {
+    e.preventDefault();
+    zone.classList.remove('drag-over');
+    const file = e.dataTransfer.files[0];
+    if (file) _setDropFile(file, input, nameEl);
+  });
+
+  // Смена файла через input
+  input.addEventListener('change', () => {
+    if (input.files[0]) _setDropFile(input.files[0], input, nameEl);
+  });
+}
+
+function _setDropFile(file, input, nameEl) {
+  // DataTransfer trick: присваиваем файл в input (drag-drop случай)
+  const dt = new DataTransfer();
+  dt.items.add(file);
+  input.files = dt.files;
+
+  if (nameEl) {
+    nameEl.textContent = '📄 ' + file.name;
+    nameEl.classList.add('visible');
+  }
+}
+
+  /* ================================================
      Инициализация
   ================================================ */
   async function init() {
@@ -145,6 +191,9 @@ const PotholeMaintenance = (() => {
 
     const saveBtn = document.getElementById('maint-upload-save');
     if (saveBtn) saveBtn.addEventListener('click', _handleUpload);
+    
+    // Инициализация drag-zone
+    _bindDropZone();
   }
 
   return { init, refresh: renderChart, openMaintDrawer, closeMaintDrawer };
