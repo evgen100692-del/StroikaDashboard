@@ -918,39 +918,66 @@
     </div>
   </div>
 
-<!-- MAINTENANCE DRAWER -->
-    <div class="maint-drawer-overlay" id="maint-drawer-overlay" onclick="closeMaintDrawer()"></div>
-    <aside class="maint-drawer" id="maint-drawer" aria-hidden="true" role="dialog" aria-modal="true" aria-labelledby="maint-drawer-title">
+<!-- MAINTENANCE MODAL -->
+    <div class="maint-drawer-overlay" id="maint-drawer-overlay" onclick="closeMaintDrawer()" role="presentation"></div>
+    <div class="maint-drawer" id="maint-drawer" aria-hidden="true" role="dialog" aria-modal="true" aria-labelledby="maint-drawer-title">
+      <!-- Шапка -->
       <div class="maint-drawer__header">
-        <div class="maint-drawer__title" id="maint-drawer-title">Актуализация данных</div>
-        <button class="btn btn-ghost btn-icon" type="button" onclick="closeMaintDrawer()" aria-label="Закрыть">
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+        <div class="maint-drawer__title">
+          <span class="maint-drawer__title-icon">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+              <polyline points="17 8 12 3 7 8"/>
+              <line x1="12" y1="3" x2="12" y2="15"/>
+            </svg>
+          </span>
+          <span id="maint-drawer-title">Актуализация данных</span>
+        </div>
+        <button class="maint-drawer__close" type="button" onclick="closeMaintDrawer()" aria-label="Закрыть">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
             <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
           </svg>
         </button>
       </div>
-            <div class="maint-drawer__body">
+      <!-- Тело -->
+      <div class="maint-drawer__body">
         <form id="maint-upload-form" autocomplete="off">
+          <!-- Дата -->
           <div class="maint-form-group">
             <label class="maint-form-label" for="maint-report-date">Дата отчёта</label>
             <input type="date" id="maint-report-date" class="maint-input" required />
           </div>
+          <!-- Файл -->
           <div class="maint-form-group">
-            <label class="maint-form-label" for="maint-file-input">Excel-файл (лист «МАД Итог»)</label>
-            <input type="file" id="maint-file-input" class="maint-input" accept=".xlsx,.xls" required />
-            <p class="maint-form-hint">Кол. B — вид работ, C — план, D — факт (с 3-й строки)</p>
+            <label class="maint-form-label">Файл МАД Итог (Excel)</label>
+            <div class="maint-drop-zone" id="maint-drop-zone">
+              <input type="file" id="maint-file-input" accept=".xlsx,.xls" required style="display:none" />
+              <span class="maint-drop-zone__icon">
+                <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="color:var(--color-text-faint)">
+                  <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+                  <polyline points="17 8 12 3 7 8"/>
+                  <line x1="12" y1="3" x2="12" y2="15"/>
+                </svg>
+              </span>
+              <div class="maint-drop-zone__text">
+                <strong>Нажмите</strong> для выбора файла<br>или перетащите сюда .xlsx
+              </div>
+              <div class="maint-drop-zone__file" id="maint-file-name"></div>
+            </div>
+            <p class="maint-form-hint">Лист «МАД Итог» — кол. B: вид работ, C: план, D: факт (c 3-й строки)</p>
           </div>
           <div id="maint-upload-status" class="maint-upload-status"></div>
         </form>
-            </div>
+      </div>
+      <!-- Подвал -->
       <div class="maint-drawer__footer">
         <span class="maint-footer-hint">Изменения сохраняются на сервере</span>
         <div class="maint-footer-actions">
           <button class="btn btn-secondary" type="button" onclick="closeMaintDrawer()">Отмена</button>
-          <button class="btn btn-primary" type="button" id="maint-upload-save">Сохранить</button>
+          <button class="btn btn-primary" type="button" id="maint-upload-save">Загрузить</button>
         </div>
       </div>
-    </aside>
+    </div>
   <!-- CONTRACT MODAL -->
   <div class="modal-overlay" id="contract-modal" aria-hidden="true">
     <div class="modal" role="dialog" aria-modal="true" aria-labelledby="contract-modal-title">
