@@ -125,38 +125,45 @@ function renderChart() {
   }
 
   /* ================================================
-    Модальное окно актуализации
+     Дравер актуализации — рендер строк видов работ
   ================================================ */
   function renderModal() {
-    const tbody = document.querySelector('#maint-modal-tbody');
-    if (!tbody) return;
-    tbody.innerHTML = WORK_TYPES.map(w => {
-      const d = data[w.id];
+    const container = document.querySelector('#maint-modal-tbody');
+    if (!container) return;
+    container.innerHTML = WORK_TYPES.map(w => {
+      const d   = data[w.id];
       const pct = d.plan > 0 ? Math.min(100, Math.round(d.fact / d.plan * 100)) : 0;
       return `
-        <div class="wp-row">
-          <td>${w.label}</div>
-          <td><input type="number" class="maint-input" data-id="${w.id}" data-field="plan"
-            value="${d.plan}" min="0" step="1" aria-current="true" /></div>
-          <td><input type="number" class="maint-input" data-id="${w.id}" data-field="fact"
-            value="${d.fact}" min="0" step="1" /></div>
-          <td>${pct}%</div>
+        <div class="maint-row" data-id="${w.id}">
+          <div class="maint-row-label">
+            <span>${w.label}</span>
+          </div>
+          <div class="maint-field-wrap">
+            <span class="maint-field-lbl">План</span>
+            <input type="number" class="maint-input" data-id="${w.id}" data-field="plan"
+              value="${d.plan}" min="0" step="0.1" />
+          </div>
+          <div class="maint-field-wrap">
+            <span class="maint-field-lbl">Факт</span>
+            <input type="number" class="maint-input fact-input" data-id="${w.id}" data-field="fact"
+              value="${d.fact}" min="0" step="0.1" />
+          </div>
+          <div class="maint-row-pct" data-pct-for="${w.id}" style="color:${pctColor(pct)}">${pct}%</div>
         </div>
       `;
     }).join('');
-
-    tbody.querySelectorAll('.maint-input').forEach(inp => {
+    container.querySelectorAll('.maint-input').forEach(inp => {
       inp.addEventListener('input', () => {
         const id    = inp.dataset.id;
         const field = inp.dataset.field;
         data[id][field] = parseFloat(inp.value) || 0;
-        const row  = inp.closest('tr');
         const d2   = data[id];
         const pct2 = d2.plan > 0 ? Math.min(100, Math.round(d2.fact / d2.plan * 100)) : 0;
-        row.querySelector('td:last-child').textContent = pct2 + '%';
+        const pctEl = container.querySelector(`[data-pct-for="${id}"]`);
+        if (pctEl) { pctEl.textContent = pct2 + '%'; pctEl.style.color = pctColor(pct2); }
       });
     });
-  }
+  }  }
 
   /* ================================================
     Инициализация
