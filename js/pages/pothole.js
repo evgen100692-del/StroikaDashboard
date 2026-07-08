@@ -799,11 +799,16 @@ const PotholePage = (() => {
   //  UPLOAD MODAL
   // ════════════════════════════════════════════════════════════════════════════
   function _bindUploadButtons() {
-    ['ph-upload-btn', 'ph-upload-btn-2', 'ph-no-data-upload-btn', 'ph-upload-btn-maint'].forEach(id => {
+    ['ph-upload-btn', 'ph-upload-btn-2', 'ph-no-data-upload-btn'].forEach(id => {
       const el = document.getElementById(id);
       if (el) el.addEventListener('click', () => _openUploadModal());
     });
-  }
+    const maintBtn = document.getElementById('ph-upload-btn-maint');
+  if (maintBtn) maintBtn.addEventListener('click', () => {
+    _openUploadModal();
+    setTimeout(() => { const tb = document.querySelector('.upload-type-btn[data-type="maintenance"]'); if (tb) tb.click(); }, 50);
+  });
+}
 
   function _openUploadModal() {
     document.querySelectorAll('.upload-type-btn').forEach(b => b.classList.remove('selected'));
