@@ -131,7 +131,7 @@ const PotholeMaintenance = (() => {
 _setStatus(`Загружено ${json.rows} видов работ`);
       await loadData();
       renderChart();
-      closeMaintDrawer(); if (typeof PotholePage !== 'undefined' && PotholePage.reload) PotholePage.refresh();, 1200);
+      closeMaintDrawer(); if (typeof PotholePage !== 'undefined' && PotholePage.refresh) PotholePage.refresh();, 1200);
     } catch (e) {
       _setStatus('Ошибка: ' + e.message, true);
     } finally {
