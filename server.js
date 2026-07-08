@@ -639,15 +639,25 @@ const server = http.createServer(async (req, res) => {
         ? parsed.length
         : (parsed.total ? parsed.total.length : 0);
 
-      dbInsert(
-        'INSERT INTO pothole_reports (report_type, report_date, uploaded_at, data_json) VALUES (?, ?, ?, ?)',
-        [reportType, reportDate, new Date().toISOString(), JSON.stringify(parsed)]
-      );
+      if (reportType === 'maintenance') {
+    dbInsert(
+      'INSERT INTO maintenance_uploads (report_date, data_json) VALUES (?, ?)',
+      [reportDate, JSON.stringify(Array.isArray(parsed) ? parsed : parsed.total || [])]
+    );
+            saveDbDeferred();
+  } else {
+    dbInsert(
+      'INSERT INTO pothole_reports (report_type, report_date, uploaded_at, data_json) VALUES (?, ?, ?, ?)',
+      [reportType, reportDate, new Date().toISOString(), JSON.stringify(parsed)]
+    );
+  }
 
       // ── При загрузке нового отчёта — сбрасываем фильтры для затронутых вкладок ──
       // regional → вкладка ruad, municipal → вкладка mad, complaints → обе
-      const tabsToClear = [];
+      if (reportType !== 'maintenance') {
+    const tabsToClear = [];
       if (reportType === 'regional')   tabsToClear.push('ruad');
+          }
       if (reportType === 'municipal')  tabsToClear.push('mad');
       if (reportType === 'complaints') tabsToClear.push('ruad', 'mad');
       for (const tab of tabsToClear) {
