@@ -657,7 +657,6 @@ const server = http.createServer(async (req, res) => {
       if (reportType !== 'maintenance') {
     const tabsToClear = [];
       if (reportType === 'regional')   tabsToClear.push('ruad');
-          }
       if (reportType === 'municipal')  tabsToClear.push('mad');
       if (reportType === 'complaints') tabsToClear.push('ruad', 'mad');
       for (const tab of tabsToClear) {
