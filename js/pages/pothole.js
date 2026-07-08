@@ -913,6 +913,15 @@ const PotholePage = (() => {
       _repActiveType = type;
       closeModal('upload-modal');
       await _reload();
+              // При загрузке содержания — обновляем дашборд и отчёты
+        if (type === 'maintenance') {
+          if (typeof PotholeMaintenance !== 'undefined' && PotholeMaintenance.reloadFromUpload) {
+            PotholeMaintenance.reloadFromUpload();
+          }
+          if (_repActiveType === 'maintenance_upload') {
+            _updateRepDateSelectMaintenance();
+          }
+        }
     } catch (e) {
       if (e.name === 'AbortError') {
         Toast.error('Превышено время ожидания (55 с). Попробуйте ещё раз.');
