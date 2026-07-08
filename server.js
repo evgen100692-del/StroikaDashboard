@@ -664,7 +664,8 @@ const server = http.createServer(async (req, res) => {
       }
       saveDbDeferred();
 
-      json(res, 200, { ok: true, type: reportType, date: reportDate, rows: rowCount });
+          }
+        json(res, 200, { ok: true, type: reportType, date: reportDate, rows: rowCount });
     } catch (e) {
       console.error('[upload] Ошибка:', e);
       const code = e.statusCode || 500;
