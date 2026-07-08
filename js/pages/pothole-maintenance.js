@@ -131,7 +131,7 @@ const PotholeMaintenance = (() => {
 _setStatus(`Загружено ${json.rows} видов работ`);
       await loadData();
       renderChart();
-      closeMaintDrawer(); if (typeof PotholePage !== 'undefined' && PotholePage.refresh) PotholePage.refresh();, 1200);
+      closeMaintDrawer(); if (typeof PotholePage !== 'undefined' && PotholePage.refresh) PotholePage.refresh();
     } catch (e) {
       _setStatus('Ошибка: ' + e.message, true);
     } finally {
@@ -204,7 +204,7 @@ function _setDropFile(file, input, nameEl) {
         if (drawerEl) drawerEl.addEventListener('click', e => e.stopPropagation());
   }
 
-  return { init, refresh: renderChart, openMaintDrawer, closeMaintDrawer er, reloadFromUpload: async function(){await loadData();renderChart();}};
+  return { init, refresh: renderChart, openMaintDrawer, closeMaintDrawer, reloadFromUpload: async function(){await loadData();renderChart();}};
 })();
 
 // Глобальные обёртки для HTML onclick
