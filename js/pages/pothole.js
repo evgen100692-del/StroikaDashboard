@@ -799,7 +799,7 @@ const PotholePage = (() => {
   //  UPLOAD MODAL
   // ════════════════════════════════════════════════════════════════════════════
   function _bindUploadButtons() {
-    ['ph-upload-btn', 'ph-upload-btn-2', 'ph-no-data-upload-btn'].forEach(id => {
+    ['ph-upload-btn', 'ph-upload-btn-2', 'ph-no-data-upload-btn', 'ph-upload-btn-maint'].forEach(id => {
       const el = document.getElementById(id);
       if (el) el.addEventListener('click', () => _openUploadModal());
     });
