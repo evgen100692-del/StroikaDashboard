@@ -833,6 +833,22 @@ const server = http.createServer(async (req, res) => {
     json(res, 200, JSON.parse(row.data_json));
     return;
   }
+    // GET /api/maintenance/upload/dates — список дат загрузок содержания
+  if (url === '/api/maintenance/upload/dates' && req.method === 'GET') {
+    const rows = dbAll('SELECT id, report_date, uploaded_at FROM maintenance_uploads ORDER BY report_date DESC');
+    json(res, 200, rows);
+    return;
+  }
+  // GET /api/maintenance/upload/by-date?date=YYYY-MM-DD — данные содержания по дате
+  if (url.startsWith('/api/maintenance/upload/by-date') && req.method === 'GET') {
+    const params = new URL('http://x' + url).searchParams;
+    const date = params.get('date');
+    if (!date) { json(res, 400, { error: 'Не указана дата' }); return; }
+    const row = dbAll('SELECT * FROM maintenance_uploads WHERE report_date = ? ORDER BY uploaded_at DESC LIMIT 1', [date])[0];
+    if (!row) { json(res, 404, { error: 'Данные не найдены' }); return; }
+    json(res, 200, { id: row.id, report_date: row.report_date, uploaded_at: row.uploaded_at, data_json: JSON.parse(row.data_json) });
+    return;
+  }
   // ════════════════════════════════════════════════════════════════════════════
   let filePath = path.join(__dirname, url === '/' ? 'index.html' : url);
   
