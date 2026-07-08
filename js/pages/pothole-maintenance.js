@@ -204,7 +204,7 @@ function _setDropFile(file, input, nameEl) {
         if (drawerEl) drawerEl.addEventListener('click', e => e.stopPropagation());
   }
 
-  return { init, refresh: renderChart, openMaintDrawer, closeMaintDrawer };
+  return { init, refresh: renderChart, openMaintDrawer, closeMaintDrawer er, reloadFromUpload: async function(){await loadData();renderChart();}};
 })();
 
 // Глобальные обёртки для HTML onclick
