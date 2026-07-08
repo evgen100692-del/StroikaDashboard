@@ -551,7 +551,82 @@ const PotholePage = (() => {
     if (btn) btn.addEventListener('click', () => _openUploadModal());
   }
 
+    // ============================================================
+  //  СОДЕРЖАНИЕ — загрузка дат и отображение данных
+  // ============================================================
+
+  async function _updateRepDateSelectMaintenance() {
+    const sel    = document.getElementById('ph-rep-date-select');
+    const delBtn = document.getElementById('ph-rep-delete-btn');
+    if (!sel) return;
+    sel.innerHTML = '<option value="">Загрузка...</option>';
+    sel.disabled  = true;
+    let dates = [];
+    try {
+      const res = await fetch('/api/maintenance/upload/dates');
+      if (res.ok) dates = await res.json();
+    } catch(e) {}
+    if (!dates.length) {
+      sel.innerHTML = '<option value="">Нет загрузок</option>';
+      if (delBtn) delBtn.style.display = 'none';
+      _showRepEmpty();
+      return;
+    }
+    sel.disabled  = false;
+    sel.innerHTML = dates
+      .map(r => `<option value="${r.report_date}">${_fmtDate(r.report_date)}</option>`)
+      .join('');
+    if (delBtn) delBtn.style.display = 'none';
+    sel.onchange = () => { if (sel.value) _showMaintenanceUploadDetail(sel.value); };
+    _showMaintenanceUploadDetail(dates[0].report_date);
+  }
+
+  async function _showMaintenanceUploadDetail(date) {
+    const detail = document.getElementById('ph-rep-detail');
+    if (!detail) return;
+    detail.innerHTML = '<div style="padding:var(--space-6);color:var(--color-text-muted)">Загрузка...</div>';
+    let data;
+    try {
+      const res = await fetch('/api/maintenance/upload/by-date?date=' + encodeURIComponent(date));
+      if (!res.ok) throw new Error('HTTP ' + res.status);
+      data = await res.json();
+    } catch(e) {
+      detail.innerHTML = `<div style="padding:var(--space-6);color:var(--color-error)">Ошибка загрузки: ${e.message}</div>`;
+      return;
+    }
+    const html = `<article class="card"><div class="card-header"><div>
+      <div class="card-title">Содержание дорог — ${_fmtDate(data.report_date)}</div>
+      <div class="card-subtitle">Загружено: ${_fmtDatetime(data.uploaded_at)}</div>
+    </div></div><div class="card-body" style="padding:0">${_tableMaintenance(data.data_json)}</div></article>`;
+    detail.innerHTML = html;
+  }
+
+  function _tableMaintenance(rows) {
+    if (!rows || !rows.length) return '<p style="padding:var(--space-4);color:var(--color-text-muted)">Нет данных</p>';
+    const bar = (pct) => {
+      const color = pct >= 90 ? '#2d6a4f' : pct >= 60 ? '#40916c' : pct >= 30 ? '#52b788' : '#74c69d';
+      return `<div style="width:100%;background:#e9ecef;border-radius:4px;height:8px;margin-top:4px">
+        <div style="width:${Math.min(pct,100)}%;background:${color};height:8px;border-radius:4px"></div></div>`;
+    };
+    return `<div class="data-table-wrap"><table class="data-table">
+      <thead><tr>
+        <th>Наименование</th>
+        <th>План</th>
+        <th>Факт</th>
+        <th>% выполнения</th>
+      </tr></thead>
+      <tbody>
+        ${rows.map(r => `<tr>
+          <td>${r.label || ''}</td>
+          <td>${(r.plan || 0).toLocaleString('ru')}</td>
+          <td>${(r.fact || 0).toLocaleString('ru')}</td>
+          <td><span style="font-weight:600;color:${r.pct >= 60 ? '#2d6a4f' : '#d62828'}">${r.pct || 0}%</span>${bar(r.pct || 0)}</td>
+        </tr>`).join('')}
+      </tbody></table></div>`;
+  }
+
   function _updateRepDateSelect(type) {
+        if (type === 'maintenance_upload') { _updateRepDateSelectMaintenance(); return; }
     const sel    = document.getElementById('ph-rep-date-select');
     const delBtn = document.getElementById('ph-rep-delete-btn');
     if (!sel) return;
