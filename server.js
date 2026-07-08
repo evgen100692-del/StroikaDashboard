@@ -244,7 +244,7 @@ async function initDb() {
       updated_at TEXT DEFAULT (datetime('now','localtime'))
     );
   `);
-}
+
   db.run(`
     CREATE TABLE IF NOT EXISTS maintenance_uploads (
       id          INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -253,6 +253,7 @@ async function initDb() {
       data_json   TEXT    NOT NULL
     );
   `);
+  }
 
 // ── Сохранение БД на диск ─────────────────────────────────────────────────────
 let _saveScheduled = false;
