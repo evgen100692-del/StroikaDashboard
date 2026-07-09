@@ -86,7 +86,6 @@ const PotholeMaintenance = (() => {
       return;
     }
 
-    // Карта предыдущих значений: label → pct
     const prevMap = {};
     _prevData.forEach(r => { prevMap[r.label] = calcPct(r); });
 
@@ -95,10 +94,10 @@ const PotholeMaintenance = (() => {
       const prev = prevMap[label];
       if (prev === undefined) return '';
       const diff = Math.round((curPct - prev) * 10) / 10;
-      if (Math.abs(diff) < 0.05) return '<span class="maint-delta neu">±0</span>';
+      if (Math.abs(diff) < 0.05) return '<span class="maint-delta neu">(0%)</span>';
       const sign = diff > 0 ? '+' : '';
       const cls  = diff > 0 ? 'up' : 'down';
-      return `<span class="maint-delta ${cls}">${sign}${diff} п.п.</span>`;
+      return `<span class="maint-delta ${cls}">(${sign}${diff}%)</span>`;
     };
 
     const makeRow = r => {
@@ -163,7 +162,6 @@ const PotholeMaintenance = (() => {
   }
 
   async function _handleUpload() {
-    const form     = document.getElementById('maint-upload-form');
     const dateEl   = document.getElementById('maint-report-date');
     const fileEl   = document.getElementById('maint-file-input');
     const saveBtn  = document.getElementById('maint-upload-save');
