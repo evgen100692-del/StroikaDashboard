@@ -11,7 +11,7 @@ const PotholePage = (() => {
   let _initialized = false;
   let _filter = { ruad: '', mo: '', org: 'all' };
   let _filterBarBound = false;
-      let _maintDates     = [];  // список дат загрузок техобслуживания
+  let _maintDates = [];  // список дат загрузок техобслуживания
 
   // ── состояние страницы Отчёты ──────────────────────────────────────────────────────
   let _repActiveType = 'complaints';
@@ -488,7 +488,11 @@ const PotholePage = (() => {
   // ════════════════════════════════════════════════════════════════════════════
 
   function _renderReportsPage() {
-    _updateRepCounts();     fetch('/api/maintenance/upload/dates').then(r=>r.json()).then(dates=>{ const el=document.getElementById('ph-rep-count-maintenance_upload'); if(el) el.textContent=Array.isArray(dates)?dates.length:0; }).catch(()=>{});
+    _updateRepCounts();
+    fetch('/api/maintenance/upload/dates').then(r=>r.json()).then(dates=>{
+      const el = document.getElementById('ph-rep-count-maintenance_upload');
+      if (el) el.textContent = Array.isArray(dates) ? dates.length : 0;
+    }).catch(()=>{});
 
     if (!_repTypeBound) {
       _bindRepTypeButtons();
@@ -569,7 +573,7 @@ const PotholePage = (() => {
     if (btn) btn.addEventListener('click', () => _openUploadModal());
   }
 
-    // ============================================================
+  // ============================================================
   //  СОДЕРЖАНИЕ — загрузка дат и отображение данных
   // ============================================================
 
@@ -595,8 +599,8 @@ const PotholePage = (() => {
       .map(r => `<option value="${r.report_date}" data-id="${r.id}">${_fmtDate(r.report_date)}</option>`)
       .join('');
     if (delBtn) delBtn.style.display = '';
+    _maintDates = dates;
     sel.onchange = () => { if (sel.value) _showMaintenanceUploadDetail(sel.value); };
-        _maintDates = dates;
     _showMaintenanceUploadDetail(dates[0].report_date);
   }
 
@@ -604,25 +608,33 @@ const PotholePage = (() => {
     const detail = document.getElementById('ph-rep-detail');
     if (!detail) return;
     detail.innerHTML = '<div style="padding:var(--space-6);color:var(--color-text-muted)">Загрузка...</div>';
+
+    // ВАЖНО: prevRows объявляется здесь — вне try — чтобы быть доступной при сборке html
     let data;
+    let prevRows = null;
+
     try {
       const res = await fetch('/api/maintenance/upload/by-date?date=' + encodeURIComponent(date));
       if (!res.ok) throw new Error('HTTP ' + res.status);
       data = await res.json();
-          // Загрузить предыдущий отчёт для вычисления дельты
-          const curIdx = _maintDates.findIndex(r => r.report_date === date);
-          const prevDate = curIdx < _maintDates.length - 1 ? _maintDates[curIdx + 1].report_date : null;
-          let prevRows = null;
-          if (prevDate) {
-                  try {
-                            const prevRes = await fetch('/api/maintenance/upload/by-date?date=' + encodeURIComponent(prevDate));
-                            if (prevRes.ok) { const prevData = await prevRes.json(); prevRows = prevData.data_json; }
-                          } catch(e) {}
-                }
+
+      // Загружаем предыдущий отчёт для вычисления дельты
+      const curIdx  = _maintDates.findIndex(r => r.report_date === date);
+      const prevDate = curIdx < _maintDates.length - 1 ? _maintDates[curIdx + 1].report_date : null;
+      if (prevDate) {
+        try {
+          const prevRes = await fetch('/api/maintenance/upload/by-date?date=' + encodeURIComponent(prevDate));
+          if (prevRes.ok) {
+            const prevData = await prevRes.json();
+            prevRows = prevData.data_json;
+          }
+        } catch(e) {}
+      }
     } catch(e) {
       detail.innerHTML = `<div style="padding:var(--space-6);color:var(--color-error)">Ошибка загрузки: ${e.message}</div>`;
       return;
     }
+
     const html = `<article class="card"><div class="card-header"><div>
       <div class="card-title">Содержание дорог — ${_fmtDate(data.report_date)}</div>
       <div class="card-subtitle">Загружено: ${_fmtDatetime(data.uploaded_at)}</div>
@@ -630,39 +642,73 @@ const PotholePage = (() => {
     detail.innerHTML = html;
   }
 
-function _tableMaintenance(rows, prevRows) {
-  const CYCLIC = ['Мойка остановок, шт','Покраска остановок, шт','Уборка смета из прибордюрной части, км','Уборка мусора в полосе отвода, км','Мойка ограждений, км','Мойка проезжей части, км','Мойка тротуаров, км','Окос травы, км'];
-  const ANNUAL = ['Линейная разметка, км','Разметка пешеходных переходов, шт','Ликвидация борщевика, га'];
-  if (!rows || !rows.length) return '<p style="padding:var(--space-4);color:var(--color-text-muted)">Нет данных</p>';
-  const bar = (pct) => {
-    const color = pct>=90?'#2d6a4f':pct>=60?'#40916c':pct>=30?'#52b788':'#74c69d';
-    return `<div style="width:100%;background:#e9ecef;border-radius:4px;height:8px;margin-top:4px"><div style="width:${Math.min(pct,100)}%;background:${color};height:8px;border-radius:4px"></div></div>`;
-  };
-  const prevMap = {};
-  if (prevRows && prevRows.length) {
-    prevRows.forEach(r => { prevMap[r.label] = r.pct || 0; });
+  function _tableMaintenance(rows, prevRows) {
+    const CYCLIC = ['Мойка остановок, шт','Покраска остановок, шт','Уборка смета из прибордюрной части, км','Уборка мусора в полосе отвода, км','Мойка ограждений, км','Мойка проезжей части, км','Мойка тротуаров, км','Окос травы, км'];
+    const ANNUAL = ['Линейная разметка, км','Разметка пешеходных переходов, шт','Ликвидация борщевика, га'];
+    if (!rows || !rows.length) return '<p style="padding:var(--space-4);color:var(--color-text-muted)">Нет данных</p>';
+
+    const bar = (pct) => {
+      const color = pct >= 90 ? '#2d6a4f' : pct >= 60 ? '#40916c' : pct >= 30 ? '#52b788' : '#74c69d';
+      return `<div style="width:100%;background:#e9ecef;border-radius:4px;height:8px;margin-top:4px"><div style="width:${Math.min(pct, 100)}%;background:${color};height:8px;border-radius:4px"></div></div>`;
+    };
+
+    // Строим карту предыдущих значений: label → процент выполнения (вычисляем из plan/fact)
+    const prevMap = {};
+    if (prevRows && prevRows.length) {
+      prevRows.forEach(r => {
+        const plan = r.plan || 0;
+        const fact = r.fact || 0;
+        prevMap[r.label] = plan > 0 ? Math.round((fact / plan) * 1000) / 10 : 0;
+      });
+    }
+
+    // Вычисляем pct для текущей строки и дельту с предыдущим отчётом
+    const getPct = (r) => {
+      const plan = r.plan || 0;
+      const fact = r.fact || 0;
+      return plan > 0 ? Math.round((fact / plan) * 1000) / 10 : (r.pct || 0);
+    };
+
+    const delta = (r) => {
+      if (!prevRows) return '';
+      const prevPct = prevMap[r.label];
+      if (prevPct === undefined) return '';
+      const diff = getPct(r) - prevPct;
+      if (Math.abs(diff) < 0.05) return ' <span style="color:#6c757d;font-size:.85em">(0)</span>';
+      const sign = diff > 0 ? '+' : '';
+      const col  = diff > 0 ? '#2d6a4f' : '#d62828';
+      return ` <span style="color:${col};font-size:.85em">(${sign}${diff.toFixed(1)} п.п.)</span>`;
+    };
+
+    const makeRow = r => {
+      const pct = getPct(r);
+      return `<tr>
+        <td>${r.label || ''}</td>
+        <td>${(r.plan || 0).toLocaleString('ru')}</td>
+        <td>${(r.fact || 0).toLocaleString('ru')}</td>
+        <td><span style="font-weight:600;color:${pct >= 60 ? '#2d6a4f' : '#d62828'}">${pct}%${delta(r)}</span>${bar(pct)}</td>
+      </tr>`;
+    };
+
+    const makeGroup = (title, keys) => {
+      const gr = rows.filter(r => keys.includes(r.label));
+      if (!gr.length) return '';
+      return `<tr class="maint-group-header-row"><td colspan="4" style="background:var(--color-surface-2);font-weight:700;font-size:var(--text-sm);color:var(--color-text-muted);padding:6px 12px;letter-spacing:.05em">${title}</td></tr>${gr.map(makeRow).join('')}`;
+    };
+
+    const other = rows.filter(r => !CYCLIC.includes(r.label) && !ANNUAL.includes(r.label));
+    return `<div class="data-table-wrap"><table class="data-table">
+      <thead><tr><th>Наименование</th><th>План</th><th>Факт</th><th>% выполнения</th></tr></thead>
+      <tbody>
+        ${makeGroup('Цикличные', CYCLIC)}
+        ${makeGroup('План на год', ANNUAL)}
+        ${other.length ? other.map(makeRow).join('') : ''}
+      </tbody>
+    </table></div>`;
   }
-  const delta = (r) => {
-    if (!prevRows) return '';
-    const prev = prevMap[r.label];
-    if (prev === undefined) return '';
-    const diff = (r.pct || 0) - prev;
-    if (diff === 0) return ' <span style="color:#6c757d;font-size:.85em">(0)</span>';
-    const sign = diff > 0 ? '+' : '';
-    const col = diff > 0 ? '#2d6a4f' : '#d62828';
-    return ` <span style="color:${col};font-size:.85em">(${sign}${diff.toFixed(1)}%)</span>`;
-  };
-  const makeRow = r => `<tr><td>${r.label||''}</td><td>${(r.plan||0).toLocaleString('ru')}</td><td>${(r.fact||0).toLocaleString('ru')}</td><td><span style="font-weight:600;color:${r.pct>=60?'#2d6a4f':'#d62828'}">${r.pct||0}%${delta(r)}</span>${bar(r.pct||0)}</td></tr>`;
-  const makeGroup = (title, keys) => {
-    const gr = rows.filter(r=>keys.includes(r.label));
-    if(!gr.length) return '';
-    return `<tr class="maint-group-header-row"><td colspan="4" style="background:var(--color-surface-2);font-weight:700;font-size:var(--text-sm);color:var(--color-text-muted);padding:6px 12px;letter-spacing:.05em">${title}</td></tr>${gr.map(makeRow).join('')}`;
-  };
-  const other = rows.filter(r=>!CYCLIC.includes(r.label)&&!ANNUAL.includes(r.label));
-  return `<div class="data-table-wrap"><table class="data-table"><thead><tr><th>Наименование</th><th>План</th><th>Факт</th><th>% выполнения</th></tr></thead><tbody>${makeGroup('Цикличные',CYCLIC)}${makeGroup('План на год',ANNUAL)}${other.length?other.map(makeRow).join(''):''}</tbody></table></div>`;
-}
+
   function _updateRepDateSelect(type) {
-        if (type === 'maintenance_upload') { _updateRepDateSelectMaintenance(); return; }
+    if (type === 'maintenance_upload') { _updateRepDateSelectMaintenance(); return; }
     const sel    = document.getElementById('ph-rep-date-select');
     const delBtn = document.getElementById('ph-rep-delete-btn');
     if (!sel) return;
@@ -713,7 +759,6 @@ function _tableMaintenance(rows, prevRows) {
           Загрузить отчёт
         </button>
       </div>`;
-    // Кнопка создаётся динамически — привязываем обработчик заново
     const btn = document.getElementById('ph-rep-upload-empty-btn');
     if (btn) btn.addEventListener('click', () => _openUploadModal());
   }
@@ -840,11 +885,11 @@ function _tableMaintenance(rows, prevRows) {
       if (el) el.addEventListener('click', () => _openUploadModal());
     });
     const maintBtn = document.getElementById('ph-upload-btn-maint');
-  if (maintBtn) maintBtn.addEventListener('click', () => {
-    _openUploadModal();
-    setTimeout(() => { const tb = document.querySelector('.upload-type-btn[data-type="maintenance"]'); if (tb) tb.click(); }, 50);
-  });
-}
+    if (maintBtn) maintBtn.addEventListener('click', () => {
+      _openUploadModal();
+      setTimeout(() => { const tb = document.querySelector('.upload-type-btn[data-type="maintenance"]'); if (tb) tb.click(); }, 50);
+    });
+  }
 
   function _openUploadModal() {
     document.querySelectorAll('.upload-type-btn').forEach(b => b.classList.remove('selected'));
@@ -943,7 +988,6 @@ function _tableMaintenance(rows, prevRows) {
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || 'Ошибка сервера');
 
-      // Сбрасываем _filtersMap на клиенте — сервер уже удалил фильтры из БД при загрузке отчёта
       if (typeof PotholeRating !== 'undefined') {
         if (type === 'regional')   PotholeRating.resetFilters(['ruad']);
         if (type === 'municipal')  PotholeRating.resetFilters(['mad']);
@@ -954,15 +998,15 @@ function _tableMaintenance(rows, prevRows) {
       _repActiveType = type;
       closeModal('upload-modal');
       await _reload();
-              // При загрузке содержания — обновляем дашборд и отчёты
-        if (type === 'maintenance') {
-          if (typeof PotholeMaintenance !== 'undefined' && PotholeMaintenance.reloadFromUpload) {
-            PotholeMaintenance.reloadFromUpload();
-          }
-          if (_repActiveType === 'maintenance_upload') {
-            _updateRepDateSelectMaintenance();
-          }
+
+      if (type === 'maintenance') {
+        if (typeof PotholeMaintenance !== 'undefined' && PotholeMaintenance.reloadFromUpload) {
+          PotholeMaintenance.reloadFromUpload();
         }
+        if (_repActiveType === 'maintenance_upload') {
+          _updateRepDateSelectMaintenance();
+        }
+      }
     } catch (e) {
       if (e.name === 'AbortError') {
         Toast.error('Превышено время ожидания (55 с). Попробуйте ещё раз.');
