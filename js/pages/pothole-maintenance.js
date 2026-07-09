@@ -26,11 +26,11 @@ const PotholeMaintenance = (() => {
   }
 
   /* ================================================
-     Вычисление pct из plan/fact
+     Вычисление pct из plan/fact — округляем до целого
   ================================================ */
   function calcPct(r) {
-    if (r.plan > 0) return Math.round((r.fact / r.plan) * 1000) / 10;
-    return r.pct !== undefined ? r.pct : 0;
+    if (r.plan > 0) return Math.round((r.fact / r.plan) * 100);
+    return r.pct !== undefined ? Math.round(r.pct) : 0;
   }
 
   /* ================================================
@@ -93,22 +93,24 @@ const PotholeMaintenance = (() => {
       if (!_prevData.length) return '';
       const prev = prevMap[label];
       if (prev === undefined) return '';
-      const diff = Math.round((curPct - prev) * 10) / 10;
-      if (Math.abs(diff) < 0.05) return '<span class="maint-delta neu">(0%)</span>';
+      const diff = Math.round(curPct - prev);
+      if (diff === 0) return '<span class="maint-delta neu">(0%)</span>';
       const sign = diff > 0 ? '+' : '';
       const cls  = diff > 0 ? 'up' : 'down';
       return `<span class="maint-delta ${cls}">(${sign}${diff}%)</span>`;
     };
 
     const makeRow = r => {
-      const pct = calcPct(r);
+      const pct  = calcPct(r);
+      const fact = Math.round(+r.fact);
+      const plan = Math.round(+r.plan);
       return `<div class="wp-row">
         <div class="wp-col wp-col-label"><span class="work-label">${r.label}</span></div>
         <div class="wp-col wp-col-bar">
           <div class="maint-bar-track">
             <div class="maint-bar-fill" style="width:${Math.min(pct, 100)}%;background:${barColor(pct)}"></div>
           </div>
-          <span class="maint-bar-values">${(+r.fact).toLocaleString('ru')} / ${(+r.plan).toLocaleString('ru')}</span>
+          <span class="maint-bar-values">${fact.toLocaleString('ru')} / ${plan.toLocaleString('ru')}</span>
         </div>
         <div class="wp-col wp-col-pct">
           <span class="maint-pct" style="color:${pctColor(pct)}">${pct}%</span>
