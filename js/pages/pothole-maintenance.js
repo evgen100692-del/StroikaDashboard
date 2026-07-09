@@ -6,6 +6,7 @@
 ================================================ */
 const PotholeMaintenance = (() => {
   let _data     = [];  // [{ label, plan, fact, pct }, ...] — текущая загрузка
+  let _prevData = [];  // предыдущая загрузка (для дельты)
   let _initialized = false;
 
   /* ================================================
@@ -33,23 +34,41 @@ const PotholeMaintenance = (() => {
   }
 
   /* ================================================
-     Загрузка текущих данных
+     Загрузка текущих и предыдущих данных
   ================================================ */
   async function loadData() {
     try {
       const datesRes = await fetch('/api/maintenance/upload/dates');
       const dates = datesRes.ok ? await datesRes.json() : [];
 
-      if (!dates.length) { _data = []; return; }
+      if (!dates.length) { _data = []; _prevData = []; return; }
 
-      const curDate = dates[0].report_date;
+      const curDate  = dates[0].report_date;
+      const prevDate = dates.length > 1 ? dates[1].report_date : null;
+
       const curRes = await fetch('/api/maintenance/upload/by-date?date=' + encodeURIComponent(curDate));
       if (!curRes.ok) throw new Error('HTTP ' + curRes.status);
       const curJson = await curRes.json();
       _data = Array.isArray(curJson.data_json) ? curJson.data_json : [];
+
+      if (prevDate) {
+        try {
+          const prevRes = await fetch('/api/maintenance/upload/by-date?date=' + encodeURIComponent(prevDate));
+          if (prevRes.ok) {
+            const prevJson = await prevRes.json();
+            _prevData = Array.isArray(prevJson.data_json) ? prevJson.data_json : [];
+          } else {
+            _prevData = [];
+          }
+        } catch (e) {
+          _prevData = [];
+        }
+      } else {
+        _prevData = [];
+      }
     } catch (e) {
       console.warn('PotholeMaintenance: не удалось загрузить данные', e);
-      _data = [];
+      _data = []; _prevData = [];
     }
   }
 
@@ -67,6 +86,21 @@ const PotholeMaintenance = (() => {
       return;
     }
 
+    // Карта предыдущих значений: label → pct
+    const prevMap = {};
+    _prevData.forEach(r => { prevMap[r.label] = calcPct(r); });
+
+    const makeDelta = (label, curPct) => {
+      if (!_prevData.length) return '';
+      const prev = prevMap[label];
+      if (prev === undefined) return '';
+      const diff = Math.round((curPct - prev) * 10) / 10;
+      if (Math.abs(diff) < 0.05) return '<span class="maint-delta neu">±0</span>';
+      const sign = diff > 0 ? '+' : '';
+      const cls  = diff > 0 ? 'up' : 'down';
+      return `<span class="maint-delta ${cls}">${sign}${diff} п.п.</span>`;
+    };
+
     const makeRow = r => {
       const pct = calcPct(r);
       return `<div class="wp-row">
@@ -79,6 +113,7 @@ const PotholeMaintenance = (() => {
         </div>
         <div class="wp-col wp-col-pct">
           <span class="maint-pct" style="color:${pctColor(pct)}">${pct}%</span>
+          ${makeDelta(r.label, pct)}
         </div>
       </div>`;
     };
