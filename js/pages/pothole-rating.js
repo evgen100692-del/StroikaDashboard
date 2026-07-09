@@ -4,6 +4,13 @@
 const PotholeRating = (() => {
   'use strict';
 
+  // Явное сопоставление имён МО → имена в справочнике жалоб
+  const MO_COMPLAINT_ALIASES = {
+    'Коломенский го': 'Коломна',
+    'Щёлково го':     'Щелково',
+    'Королев го':     'Королёв',
+  };
+
   let _meta      = [];
   let _ruadNames = [];
   let _moNames   = [];
@@ -439,6 +446,14 @@ const PotholeRating = (() => {
         const registered = munRow ? (munRow.registeredTotal ?? munRow.registered ?? 0) : 0;
         const repaired   = munRow ? (munRow.fixedTotal       ?? munRow.fixed       ?? 0) : 0;
         let complaints = compByName[name] != null ? compByName[name] : null;
+        // 1) Явный alias-словарь для несовпадающих названий МО и справочника жалоб
+        if (complaints == null) {
+          const aliasName = MO_COMPLAINT_ALIASES[name];
+          if (aliasName && compByName[aliasName] != null) {
+            complaints = compByName[aliasName];
+          }
+        }
+        // 2) Fallback: нормализация имени (отбрасываем суффикс "го"/"г.о.")
         if (complaints == null) {
           const normName = _normalizeName(name);
           const found = Object.entries(compByName).find(([k]) => _normalizeName(k) === normName);
