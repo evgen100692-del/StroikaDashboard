@@ -533,7 +533,24 @@ const PotholePage = (() => {
     if (!btn) return;
     btn.addEventListener('click', async () => {
       const sel = document.getElementById('ph-rep-date-select');
-      const id  = sel ? sel.value : '';
+      if (!sel) return;
+
+      if (_repActiveType === 'maintenance_upload') {
+        const opt = sel.selectedOptions[0];
+        const id  = opt ? opt.dataset.id : '';
+        if (!id) return;
+        if (!confirm('Удалить этот отчёт?')) return;
+        try {
+          await fetch('/api/maintenance/reports/' + id, { method: 'DELETE' });
+          Toast.success('Отчёт удалён');
+          await _reload();
+        } catch (e) {
+          Toast.error('Ошибка при удалении: ' + e.message);
+        }
+        return;
+      }
+
+      const id = sel.value;
       if (!id) return;
       if (!confirm('Удалить этот отчёт?')) return;
       try {
@@ -574,9 +591,9 @@ const PotholePage = (() => {
     }
     sel.disabled  = false;
     sel.innerHTML = dates
-      .map(r => `<option value="${r.report_date}">${_fmtDate(r.report_date)}</option>`)
+      .map(r => `<option value="${r.report_date}" data-id="${r.id}">${_fmtDate(r.report_date)}</option>`)
       .join('');
-    if (delBtn) delBtn.style.display = 'none';
+    if (delBtn) delBtn.style.display = '';
     sel.onchange = () => { if (sel.value) _showMaintenanceUploadDetail(sel.value); };
     _showMaintenanceUploadDetail(dates[0].report_date);
   }

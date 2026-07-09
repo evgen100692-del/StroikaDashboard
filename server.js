@@ -807,6 +807,17 @@ const server = http.createServer(async (req, res) => {
   }
 
   // ============================================================
+  // DELETE /api/maintenance/reports/:id — удаление загрузки содержания
+  // ============================================================
+  if (url.startsWith('/api/maintenance/reports/') && req.method === 'DELETE') {
+    const id = parseInt(url.split('/').pop(), 10);
+    if (isNaN(id)) { json(res, 400, { error: 'bad id' }); return; }
+    dbRun('DELETE FROM maintenance_uploads WHERE id = ?', [id]);
+    json(res, 200, { ok: true });
+    return;
+  }
+
+  // ============================================================
   // POST /api/maintenance/upload — загрузка Excel
   // ============================================================
   if (url === '/api/maintenance/upload' && req.method === 'POST') {
