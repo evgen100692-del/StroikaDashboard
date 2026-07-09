@@ -851,7 +851,7 @@ const server = http.createServer(async (req, res) => {
   }
   // GET /api/maintenance/upload/by-date?date=YYYY-MM-DD — данные содержания по дате
   if (url.startsWith('/api/maintenance/upload/by-date') && req.method === 'GET') {
-    const params = new URL('http://x' + url).searchParams;
+    const params = new URL('http://x' + req.url).searchParams;
     const date = params.get('date');
     if (!date) { json(res, 400, { error: 'Не указана дата' }); return; }
     const row = dbAll('SELECT * FROM maintenance_uploads WHERE report_date = ? ORDER BY uploaded_at DESC LIMIT 1', [date])[0];
