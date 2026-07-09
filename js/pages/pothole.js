@@ -487,7 +487,7 @@ const PotholePage = (() => {
   // ════════════════════════════════════════════════════════════════════════════
 
   function _renderReportsPage() {
-    _updateRepCounts();
+    _updateRepCounts();     fetch('/api/maintenance/upload/dates').then(r=>r.json()).then(dates=>{ const el=document.getElementById('ph-rep-count-maintenance_upload'); if(el) el.textContent=Array.isArray(dates)?dates.length:0; }).catch(()=>{});
 
     if (!_repTypeBound) {
       _bindRepTypeButtons();
