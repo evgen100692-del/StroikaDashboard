@@ -2,7 +2,7 @@
    MAINT MODAL — красивое центрированное модальное окно
 ══════════════════════════════════════════════════ */
 
-/* ── Оверлей ──────────────────────────────────────── */
+/* ── Оверлей ──────────────────────────────────────────── */
 .maint-drawer-overlay {
   position: fixed;
   inset: 0;
@@ -19,7 +19,7 @@
   display: flex;
 }
 
-/* ── Модальная карточка ───────────────────────────── */
+/* ── Модальная карточка ───────────────────────────────────── */
 .maint-drawer {
   position: relative;
   width: 100%;
@@ -45,7 +45,7 @@
   opacity: 1;
 }
 
-/* ── Шапка ────────────────────────────────────────── */
+/* ── Шапка ────────────────────────────────────────────────── */
 .maint-drawer__header {
   padding: var(--space-5) var(--space-6);
   border-bottom: 1px solid var(--color-border);
@@ -96,7 +96,7 @@
   color: var(--color-text);
 }
 
-/* ── Тело ─────────────────────────────────────────── */
+/* ── Тело ──────────────────────────────────────────────────── */
 .maint-drawer__body {
   flex: 1;
   overflow-y: auto;
@@ -104,7 +104,7 @@
   overscroll-behavior: contain;
 }
 
-/* ── Подвал ───────────────────────────────────────── */
+/* ── Подвал ─────────────────────────────────────────────────── */
 .maint-drawer__footer {
   flex-shrink: 0;
   padding: var(--space-4) var(--space-6);
@@ -124,7 +124,7 @@
   gap: var(--space-2);
 }
 
-/* ── Форма загрузки ───────────────────────────────── */
+/* ── Форма загрузки ─────────────────────────────────────────────── */
 .maint-form-group {
   display: flex;
   flex-direction: column;
@@ -229,9 +229,22 @@ body.drawer-open { overflow: hidden; }
 .wp-row    { display: flex; align-items: center; padding: 8px var(--space-3); border-radius: var(--radius-md); gap: 8px; transition: background var(--transition-interactive); }
 .wp-row:hover { background: var(--color-surface-hover, #f5f4f0); }
 
-.wp-col-label { flex: 0 0 220px; width: 220px; font-size: var(--text-sm, 13px); font-weight: 500; color: var(--color-text-main, #1f2937); white-space: normal; word-break: break-word; line-height: 1.35; }
+.wp-col-label { flex: 0 0 200px; width: 200px; font-size: var(--text-sm, 13px); font-weight: 500; color: var(--color-text-main, #1f2937); white-space: normal; word-break: break-word; line-height: 1.35; }
 .wp-col-bar   { flex: 1 1 0; min-width: 0; padding-right: 8px; }
-.wp-col-pct   { flex: 0 0 52px; width: 52px; text-align: center; font-weight: 700; font-size: var(--text-sm, 13px); white-space: nowrap; }
+
+/* Колонка % + дельта: флекс по вертикали, центр по горизонтали */
+.wp-col-pct {
+  flex: 0 0 90px;
+  width: 90px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  text-align: center;
+  font-weight: 700;
+  font-size: var(--text-sm, 13px);
+  white-space: nowrap;
+}
 
 .wp-head .wp-col-label,
 .wp-head .wp-col-bar,
@@ -248,10 +261,22 @@ body.drawer-open { overflow: hidden; }
 .work-label { display: inline; font-weight: 500; color: var(--color-text-main, #1f2937); font-size: var(--text-sm, 13px); }
 .work-unit  { display: inline; font-size: 11px; color: var(--color-text-faint, #9ca3af); margin-left: 4px; font-weight: 400; }
 
-.maint-pct   { font-size: var(--text-sm, 13px); font-weight: 700; letter-spacing: -0.01em; }
+.maint-pct { font-size: var(--text-sm, 13px); font-weight: 700; letter-spacing: -0.01em; line-height: 1; }
+
+/* Дельта изменения % */
+.maint-delta {
+  font-size: 11px;
+  font-weight: 600;
+  line-height: 1;
+  white-space: nowrap;
+}
+.maint-delta.up   { color: #2d6a4f; }
+.maint-delta.down { color: #c0392b; }
+.maint-delta.neu  { color: var(--color-text-faint, #9ca3af); }
+
 .wp-empty    { padding: var(--space-4) var(--space-3); color: var(--color-text-faint); font-size: var(--text-sm); text-align: center; }
 
-/* ── Mobile ───────────────────────────────────────── */
+/* ── Mobile ─────────────────────────────────────────────────── */
 @media (max-width: 600px) {
   .maint-drawer {
     max-width: 100%;
