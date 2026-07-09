@@ -262,3 +262,18 @@ body.drawer-open { overflow: hidden; }
   .maint-drawer__header,
   .maint-drawer__footer { padding: var(--space-4); }
 }
+
+
+/* — wp-group: группировка видов работ — */
+.wp-group { margin-bottom: 12px; }
+.wp-group-header {
+  padding: 5px 12px 4px;
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: .06em;
+  color: var(--color-text-faint, #9ca3af);
+  background: var(--color-surface-2, #f3f4f6);
+  border-radius: 4px;
+  margin-bottom: 4px;
+}
