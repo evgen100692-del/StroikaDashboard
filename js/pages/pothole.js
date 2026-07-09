@@ -11,6 +11,7 @@ const PotholePage = (() => {
   let _initialized = false;
   let _filter = { ruad: '', mo: '', org: 'all' };
   let _filterBarBound = false;
+      let _maintDates     = [];  // список дат загрузок техобслуживания
 
   // ── состояние страницы Отчёты ──────────────────────────────────────────────────────
   let _repActiveType = 'complaints';
@@ -595,6 +596,7 @@ const PotholePage = (() => {
       .join('');
     if (delBtn) delBtn.style.display = '';
     sel.onchange = () => { if (sel.value) _showMaintenanceUploadDetail(sel.value); };
+        _maintDates = dates;
     _showMaintenanceUploadDetail(dates[0].report_date);
   }
 
@@ -607,6 +609,16 @@ const PotholePage = (() => {
       const res = await fetch('/api/maintenance/upload/by-date?date=' + encodeURIComponent(date));
       if (!res.ok) throw new Error('HTTP ' + res.status);
       data = await res.json();
+          // Загрузить предыдущий отчёт для вычисления дельты
+          const curIdx = _maintDates.findIndex(r => r.report_date === date);
+          const prevDate = curIdx < _maintDates.length - 1 ? _maintDates[curIdx + 1].report_date : null;
+          let prevRows = null;
+          if (prevDate) {
+                  try {
+                            const prevRes = await fetch('/api/maintenance/upload/by-date?date=' + encodeURIComponent(prevDate));
+                            if (prevRes.ok) { const prevData = await prevRes.json(); prevRows = prevData.data_json; }
+                          } catch(e) {}
+                }
     } catch(e) {
       detail.innerHTML = `<div style="padding:var(--space-6);color:var(--color-error)">Ошибка загрузки: ${e.message}</div>`;
       return;
@@ -614,13 +626,41 @@ const PotholePage = (() => {
     const html = `<article class="card"><div class="card-header"><div>
       <div class="card-title">Содержание дорог — ${_fmtDate(data.report_date)}</div>
       <div class="card-subtitle">Загружено: ${_fmtDatetime(data.uploaded_at)}</div>
-    </div></div><div class="card-body" style="padding:0">${_tableMaintenance(data.data_json)}</div></article>`;
+    </div></div><div class="card-body" style="padding:0">${_tableMaintenance(data.data_json, prevRows)}</div></article>`;
     detail.innerHTML = html;
   }
 
-  function _tableMaintenance(rows) {   const CYCLIC = ['Мойка остановок, шт','Покраска остановок, шт','Уборка смета из прибордюрной части, км','Уборка мусора в полосе отвода, км','Мойка ограждений, км','Мойка проезжей части, км','Мойка тротуаров, км','Окос травы, км'];   const ANNUAL = ['Линейная разметка, км','Разметка пешеходных переходов, шт','Ликвидация борщевика, га'];   if (!rows || !rows.length) return '<p style="padding:var(--space-4);color:var(--color-text-muted)">Нет данных</p>';   const bar = (pct) => { const color = pct>=90?'#2d6a4f':pct>=60?'#40916c':pct>=30?'#52b788':'#74c69d'; return `<div style="width:100%;background:#e9ecef;border-radius:4px;height:8px;margin-top:4px"><div style="width:${Math.min(pct,100)}%;background:${color};height:8px;border-radius:4px"></div></div>`; };   const makeRow = r => `<tr><td>${r.label||''}</td><td>${(r.plan||0).toLocaleString('ru')}</td><td>${(r.fact||0).toLocaleString('ru')}</td><td><span style="font-weight:600;color:${r.pct>=60?'#2d6a4f':'#d62828'}">${r.pct||0}%</span>${bar(r.pct||0)}</td></tr>`;   const makeGroup = (title, keys) => { const gr = rows.filter(r=>keys.includes(r.label)); if(!gr.length) return ''; return `<tr class="maint-group-header-row"><td colspan="4" style="background:var(--color-surface-2);font-weight:700;font-size:var(--text-sm);color:var(--color-text-muted);padding:6px 12px;letter-spacing:.05em">${title}</td></tr>${gr.map(makeRow).join('')}`; };   const other = rows.filter(r=>!CYCLIC.includes(r.label)&&!ANNUAL.includes(r.label));   return `<div class="data-table-wrap"><table class="data-table"><thead><tr><th>Наименование</th><th>План</th><th>Факт</th><th>% выполнения</th></tr></thead><tbody>${makeGroup('Цикличные',CYCLIC)}${makeGroup('План на год',ANNUAL)}${other.length?other.map(makeRow).join(''):''}</tbody></table></div>`;
+function _tableMaintenance(rows, prevRows) {
+  const CYCLIC = ['Мойка остановок, шт','Покраска остановок, шт','Уборка смета из прибордюрной части, км','Уборка мусора в полосе отвода, км','Мойка ограждений, км','Мойка проезжей части, км','Мойка тротуаров, км','Окос травы, км'];
+  const ANNUAL = ['Линейная разметка, км','Разметка пешеходных переходов, шт','Ликвидация борщевика, га'];
+  if (!rows || !rows.length) return '<p style="padding:var(--space-4);color:var(--color-text-muted)">Нет данных</p>';
+  const bar = (pct) => {
+    const color = pct>=90?'#2d6a4f':pct>=60?'#40916c':pct>=30?'#52b788':'#74c69d';
+    return `<div style="width:100%;background:#e9ecef;border-radius:4px;height:8px;margin-top:4px"><div style="width:${Math.min(pct,100)}%;background:${color};height:8px;border-radius:4px"></div></div>`;
+  };
+  const prevMap = {};
+  if (prevRows && prevRows.length) {
+    prevRows.forEach(r => { prevMap[r.label] = r.pct || 0; });
   }
-
+  const delta = (r) => {
+    if (!prevRows) return '';
+    const prev = prevMap[r.label];
+    if (prev === undefined) return '';
+    const diff = (r.pct || 0) - prev;
+    if (diff === 0) return ' <span style="color:#6c757d;font-size:.85em">(0)</span>';
+    const sign = diff > 0 ? '+' : '';
+    const col = diff > 0 ? '#2d6a4f' : '#d62828';
+    return ` <span style="color:${col};font-size:.85em">(${sign}${diff.toFixed(1)}%)</span>`;
+  };
+  const makeRow = r => `<tr><td>${r.label||''}</td><td>${(r.plan||0).toLocaleString('ru')}</td><td>${(r.fact||0).toLocaleString('ru')}</td><td><span style="font-weight:600;color:${r.pct>=60?'#2d6a4f':'#d62828'}">${r.pct||0}%${delta(r)}</span>${bar(r.pct||0)}</td></tr>`;
+  const makeGroup = (title, keys) => {
+    const gr = rows.filter(r=>keys.includes(r.label));
+    if(!gr.length) return '';
+    return `<tr class="maint-group-header-row"><td colspan="4" style="background:var(--color-surface-2);font-weight:700;font-size:var(--text-sm);color:var(--color-text-muted);padding:6px 12px;letter-spacing:.05em">${title}</td></tr>${gr.map(makeRow).join('')}`;
+  };
+  const other = rows.filter(r=>!CYCLIC.includes(r.label)&&!ANNUAL.includes(r.label));
+  return `<div class="data-table-wrap"><table class="data-table"><thead><tr><th>Наименование</th><th>План</th><th>Факт</th><th>% выполнения</th></tr></thead><tbody>${makeGroup('Цикличные',CYCLIC)}${makeGroup('План на год',ANNUAL)}${other.length?other.map(makeRow).join(''):''}</tbody></table></div>`;
+}
   function _updateRepDateSelect(type) {
         if (type === 'maintenance_upload') { _updateRepDateSelectMaintenance(); return; }
     const sel    = document.getElementById('ph-rep-date-select');
