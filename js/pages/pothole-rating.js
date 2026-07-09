@@ -545,7 +545,7 @@ const PotholeRating = (() => {
     const comp = complaints  != null ? complaints  : 0;
     const part1 = (reg  / netLength) * 0.2;
     const part2 = (rep  / netLength) * 0.3;
-    const part3 = Math.max(0, (1 - (comp / population) * 1000)) * 0.5;
+    const part3 = (1 - (comp / population) * 1000) * 0.5;
     return part1 + part2 + part3;
   }
 
