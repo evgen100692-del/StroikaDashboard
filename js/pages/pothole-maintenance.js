@@ -42,33 +42,8 @@ const PotholeMaintenance = (() => {
   /* ================================================
      Рендер таблицы видов работ
   ================================================ */
-  function renderChart() {
-    const body = document.querySelector('#maint-wp-body');
-    if (!body) return;
-    if (!_data.length) {
-      body.innerHTML = '<div class="wp-empty">Загрузите Excel-файл через кнопку «Актуализация»</div>';
-      return;
+  function renderChart() {   const CYCLIC = ['Мойка остановок, шт','Покраска остановок, шт','Уборка смета из прибордюрной части, км','Уборка мусора в полосе отвода, км','Мойка ограждений, км','Мойка проезжей части, км','Мойка тротуаров, км','Окос травы, км'];   const ANNUAL = ['Линейная разметка, км','Разметка пешеходных переходов, шт','Ликвидация борщевика, га'];   const body = document.querySelector('#maint-wp-body');   if (!body) return;   if (!_data.length) { body.innerHTML = '<div class="wp-empty">Загрузите Excel-файл через кнопку «Актуализация»</div>'; return; }   const makeRow = r => {     const pct = r.pct !== undefined ? r.pct : (r.plan > 0 ? Math.min(100, Math.round(r.fact / r.plan * 100)) : 0);     return `<div class="wp-row"><div class="wp-col wp-col-label"><span class="work-label">${r.label}</span></div><div class="wp-col wp-col-bar"><div class="maint-bar-track"><div class="maint-bar-fill" style="width:${pct}%;background:${barColor(pct)}"></div></div><span class="maint-bar-values">${(+r.fact).toLocaleString('ru')} / ${(+r.plan).toLocaleString('ru')}</span></div><div class="wp-col wp-col-pct"><span class="maint-pct" style="color:${pctColor(pct)}">${pct}%</span></div></div>`;   };   const makeGroup = (title, keys) => {     const rows = _data.filter(r => keys.includes(r.label));     if (!rows.length) return '';     return `<div class="wp-group"><div class="wp-group-header">${title}</div>${rows.map(makeRow).join('')}</div>`;   };   const other = _data.filter(r => !CYCLIC.includes(r.label) && !ANNUAL.includes(r.label));   body.innerHTML = makeGroup('Цикличные', CYCLIC) + makeGroup('План на год', ANNUAL) + (other.length ? `<div class="wp-group">${other.map(makeRow).join('')}</div>` : '');
     }
-    body.innerHTML = _data.map(r => {
-      const pct = r.pct !== undefined ? r.pct
-                 : (r.plan > 0 ? Math.min(100, Math.round(r.fact / r.plan * 100)) : 0);
-      return `
-        <div class="wp-row">
-          <div class="wp-col wp-col-label">
-            <span class="work-label">${r.label}</span>
-          </div>
-          <div class="wp-col wp-col-bar">
-            <div class="maint-bar-track">
-              <div class="maint-bar-fill" style="width:${pct}%;background:${barColor(pct)}"></div>
-            </div>
-            <span class="maint-bar-values">${(+r.fact).toLocaleString('ru')} / ${(+r.plan).toLocaleString('ru')}</span>
-          </div>
-          <div class="wp-col wp-col-pct">
-            <span class="maint-pct" style="color:${pctColor(pct)}">${pct}%</span>
-          </div>
-        </div>`;
-    }).join('');
-  }
 
   /* ================================================
      Дравер загрузки Excel
