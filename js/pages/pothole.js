@@ -609,27 +609,11 @@ const PotholePage = (() => {
     if (!detail) return;
     detail.innerHTML = '<div style="padding:var(--space-6);color:var(--color-text-muted)">Загрузка...</div>';
 
-    // ВАЖНО: prevRows объявляется здесь — вне try — чтобы быть доступной при сборке html
     let data;
-    let prevRows = null;
-
     try {
       const res = await fetch('/api/maintenance/upload/by-date?date=' + encodeURIComponent(date));
       if (!res.ok) throw new Error('HTTP ' + res.status);
       data = await res.json();
-
-      // Загружаем предыдущий отчёт для вычисления дельты
-      const curIdx  = _maintDates.findIndex(r => r.report_date === date);
-      const prevDate = curIdx < _maintDates.length - 1 ? _maintDates[curIdx + 1].report_date : null;
-      if (prevDate) {
-        try {
-          const prevRes = await fetch('/api/maintenance/upload/by-date?date=' + encodeURIComponent(prevDate));
-          if (prevRes.ok) {
-            const prevData = await prevRes.json();
-            prevRows = prevData.data_json;
-          }
-        } catch(e) {}
-      }
     } catch(e) {
       detail.innerHTML = `<div style="padding:var(--space-6);color:var(--color-error)">Ошибка загрузки: ${e.message}</div>`;
       return;
@@ -638,46 +622,24 @@ const PotholePage = (() => {
     const html = `<article class="card"><div class="card-header"><div>
       <div class="card-title">Содержание дорог — ${_fmtDate(data.report_date)}</div>
       <div class="card-subtitle">Загружено: ${_fmtDatetime(data.uploaded_at)}</div>
-    </div></div><div class="card-body" style="padding:0">${_tableMaintenance(data.data_json, prevRows)}</div></article>`;
+    </div></div><div class="card-body" style="padding:0">${_tableMaintenance(data.data_json)}</div></article>`;
     detail.innerHTML = html;
   }
 
-  function _tableMaintenance(rows, prevRows) {
+  function _tableMaintenance(rows) {
     const CYCLIC = ['Мойка остановок, шт','Покраска остановок, шт','Уборка смета из прибордюрной части, км','Уборка мусора в полосе отвода, км','Мойка ограждений, км','Мойка проезжей части, км','Мойка тротуаров, км','Окос травы, км'];
     const ANNUAL = ['Линейная разметка, км','Разметка пешеходных переходов, шт','Ликвидация борщевика, га'];
     if (!rows || !rows.length) return '<p style="padding:var(--space-4);color:var(--color-text-muted)">Нет данных</p>';
 
-    const bar = (pct) => {
-      const color = pct >= 90 ? '#2d6a4f' : pct >= 60 ? '#40916c' : pct >= 30 ? '#52b788' : '#74c69d';
-      return `<div style="width:100%;background:#e9ecef;border-radius:4px;height:8px;margin-top:4px"><div style="width:${Math.min(pct, 100)}%;background:${color};height:8px;border-radius:4px"></div></div>`;
-    };
-
-    // Строим карту предыдущих значений: label → процент выполнения (вычисляем из plan/fact)
-    const prevMap = {};
-    if (prevRows && prevRows.length) {
-      prevRows.forEach(r => {
-        const plan = r.plan || 0;
-        const fact = r.fact || 0;
-        prevMap[r.label] = plan > 0 ? Math.round((fact / plan) * 1000) / 10 : 0;
-      });
-    }
-
-    // Вычисляем pct для текущей строки и дельту с предыдущим отчётом
     const getPct = (r) => {
       const plan = r.plan || 0;
       const fact = r.fact || 0;
       return plan > 0 ? Math.round((fact / plan) * 1000) / 10 : (r.pct || 0);
     };
 
-    const delta = (r) => {
-      if (!prevRows) return '';
-      const prevPct = prevMap[r.label];
-      if (prevPct === undefined) return '';
-      const diff = getPct(r) - prevPct;
-      if (Math.abs(diff) < 0.05) return ' <span style="color:#6c757d;font-size:.85em">(0)</span>';
-      const sign = diff > 0 ? '+' : '';
-      const col  = diff > 0 ? '#2d6a4f' : '#d62828';
-      return ` <span style="color:${col};font-size:.85em">(${sign}${diff.toFixed(1)} п.п.)</span>`;
+    const bar = (pct) => {
+      const color = pct >= 90 ? '#2d6a4f' : pct >= 60 ? '#40916c' : pct >= 30 ? '#52b788' : '#74c69d';
+      return `<div style="width:100%;background:#e9ecef;border-radius:4px;height:8px;margin-top:4px"><div style="width:${Math.min(pct, 100)}%;background:${color};height:8px;border-radius:4px"></div></div>`;
     };
 
     const makeRow = r => {
@@ -686,7 +648,7 @@ const PotholePage = (() => {
         <td>${r.label || ''}</td>
         <td>${(r.plan || 0).toLocaleString('ru')}</td>
         <td>${(r.fact || 0).toLocaleString('ru')}</td>
-        <td><span style="font-weight:600;color:${pct >= 60 ? '#2d6a4f' : '#d62828'}">${pct}%${delta(r)}</span>${bar(pct)}</td>
+        <td><span style="font-weight:600;color:${pct >= 60 ? '#2d6a4f' : '#d62828'}">${pct}%</span>${bar(pct)}</td>
       </tr>`;
     };
 
