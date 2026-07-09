@@ -11,6 +11,13 @@ const PotholeRating = (() => {
     'Королев го':     'Королёв',
   };
 
+  // ОМС, для которых зарегистрировано/отремонтировано суммируется с дополнительными МО
+  const MO_COMBINED_NAMES = {
+    'Люберцы го':          ['Дзержинский го'],
+    'Павловский Посад го': ['Электрогорск го'],
+    'Серпухов го':          ['Протвино го', 'Пущино го'],
+  };
+
   let _meta      = [];
   let _ruadNames = [];
   let _moNames   = [];
@@ -443,8 +450,23 @@ const PotholeRating = (() => {
       .map(name => {
         const munRow = munData.find(r => r.name === name);
         const meta   = _meta.find(m => m.org_type === 'mo' && m.name === name);
-        const registered = munRow ? (munRow.registeredTotal ?? munRow.registered ?? 0) : 0;
-        const repaired   = munRow ? (munRow.fixedTotal       ?? munRow.fixed       ?? 0) : 0;
+
+        // Базовые значения основного МО
+        let registered = munRow ? (munRow.registeredTotal ?? munRow.registered ?? 0) : 0;
+        let repaired   = munRow ? (munRow.fixedTotal       ?? munRow.fixed       ?? 0) : 0;
+
+        // Добавляем значения дополнительных МО из MO_COMBINED_NAMES
+        const extraNames = MO_COMBINED_NAMES[name];
+        if (extraNames) {
+          for (const extraName of extraNames) {
+            const extraRow = munData.find(r => r.name === extraName);
+            if (extraRow) {
+              registered += extraRow.registeredTotal ?? extraRow.registered ?? 0;
+              repaired   += extraRow.fixedTotal       ?? extraRow.fixed       ?? 0;
+            }
+          }
+        }
+
         let complaints = compByName[name] != null ? compByName[name] : null;
         // 1) Явный alias-словарь для несовпадающих названий МО и справочника жалоб
         if (complaints == null) {
