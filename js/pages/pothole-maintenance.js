@@ -53,6 +53,17 @@ const PotholeMaintenance = (() => {
   }
 
   /* ================================================
+     Получить svodFact для динамики (из листа СВОД), или fact если svodFact отсутствует
+  ================================================ */
+  function getSvodFactByLabel(reportData, label) {
+    if (!reportData) return null;
+    const row = reportData.find(r => r.label === label);
+    if (!row) return null;
+    const val = row.svodFact !== undefined ? row.svodFact : row.fact;
+    return parseFloat(val);
+  }
+
+  /* ================================================
      Получить день недели (сокращённо, рус)
   ================================================ */
   const DAY_NAMES = ['вс', 'пн', 'вт', 'ср', 'чт', 'пт', 'сб'];
@@ -225,10 +236,10 @@ const PotholeMaintenance = (() => {
       const curDate  = sortedDates[i];
       const prevDate = i > 0 ? sortedDates[i - 1] : null;
 
-      const curMusor  = getFactByLabel(_allReports[curDate],  LABEL_MUSOR);
-      const prevMusor = prevDate ? getFactByLabel(_allReports[prevDate], LABEL_MUSOR) : null;
-      const curSmet   = getFactByLabel(_allReports[curDate],  LABEL_SMET);
-      const prevSmet  = prevDate ? getFactByLabel(_allReports[prevDate], LABEL_SMET) : null;
+      const curMusor  = getSvodFactByLabel(_allReports[curDate],  LABEL_MUSOR);
+      const prevMusor = prevDate ? getSvodFactByLabel(_allReports[prevDate], LABEL_MUSOR) : null;
+      const curSmet   = getSvodFactByLabel(_allReports[curDate],  LABEL_SMET);
+      const prevSmet  = prevDate ? getSvodFactByLabel(_allReports[prevDate], LABEL_SMET) : null;
 
         let deltaMusor = null;
         if (curMusor !== null) {
