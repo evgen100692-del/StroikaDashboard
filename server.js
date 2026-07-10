@@ -198,7 +198,19 @@ function _parseComplaintsForDate(workbook, reportDate) {
 
   const sheet = workbook.Sheets[sheetName];
   if (!sheet) return null;
-  const rows = XLSX.utils.sheet_to_json(sheet, { header: 1, defval: null });
+
+  // ВАЖНО: sheet_to_json({header:1}) выравнивает индексы массива по началу
+  // диапазона !ref. У этого листа !ref начинается со столбца B (напр. "B1:AQ354"),
+  // поэтому без нормализации row[0] = столбец B и все индексы сдвинуты на −1.
+  // Принудительно расширяем начало диапазона до A1, чтобы числовые индексы
+  // соответствовали реальным столбцам Excel (B=1, J=9, AB=27).
+  let range;
+  if (sheet['!ref']) {
+    range = XLSX.utils.decode_range(sheet['!ref']);
+    range.s.c = 0;
+    range.s.r = 0;
+  }
+  const rows = XLSX.utils.sheet_to_json(sheet, { header: 1, defval: null, range });
 
   const target = _cellDateToISO(reportDate);
   if (!target) return null;
