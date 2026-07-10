@@ -7,6 +7,8 @@
 const PotholeMaintenance = (() => {
   let _data     = [];  // [{ label, plan, fact, pct }, ...] — текущая загрузка
   let _prevData = [];  // предыдущая загрузка (для дельты)
+  let _allDates = [];  // все даты загрузок (отсортированы DESC)
+  let _allReports = {}; // { 'YYYY-MM-DD': [{label,plan,fact,pct},...] }
   let _initialized = false;
 
   /* ================================================
@@ -34,23 +36,74 @@ const PotholeMaintenance = (() => {
   }
 
   /* ================================================
-     Загрузка текущих и предыдущих данных
+     Округление по условию задачи:
+     дробная часть 0-4 → вниз, 5-9 → вверх
+  ================================================ */
+  function roundHalfUp(val) {
+    return Math.floor(val + 0.5);
+  }
+
+  /* ================================================
+     Получить значение факта по метке из массива отчёта
+  ================================================ */
+  function getFactByLabel(reportData, label) {
+    if (!reportData) return null;
+    const row = reportData.find(r => r.label === label);
+    return row ? parseFloat(row.fact) : null;
+  }
+
+  /* ================================================
+     Получить день недели (сокращённо, рус)
+  ================================================ */
+  const DAY_NAMES = ['вс', 'пн', 'вт', 'ср', 'чт', 'пт', 'сб'];
+  function getDayName(dateStr) {
+    // dateStr: 'YYYY-MM-DD'
+    const d = new Date(dateStr + 'T00:00:00');
+    return DAY_NAMES[d.getDay()];
+  }
+
+  /* ================================================
+     Форматировать дату из YYYY-MM-DD в DD.MM.YYYY
+  ================================================ */
+  function formatDate(dateStr) {
+    const [y, m, d] = dateStr.split('-');
+    return `${d}.${m}.${y}`;
+  }
+
+  /* ================================================
+     Получить номер дня недели (0=вс,1=пн,...,4=чт,3=ср)
+     Неделя: чт(4) → ср(3), т.е. чт = начало
+     Возвращает «позицию» дня в рамках недели (0=чт,...,6=ср)
+  ================================================ */
+  function weekPos(dateStr) {
+    const d = new Date(dateStr + 'T00:00:00');
+    const dow = d.getDay(); // 0=вс,1=пн,2=вт,3=ср,4=чт,5=пт,6=сб
+    // Смещение: чт=0, пт=1, сб=2, вс=3, пн=4, вт=5, ср=6
+    return (dow + 3) % 7; // чт(4): (4+3)%7=0, пт(5):1, сб(6):2, вс(0):3, пн(1):4, вт(2):5, ср(3):6
+  }
+
+  /* ================================================
+     Загрузка ВСЕХ дат и данных
   ================================================ */
   async function loadData() {
     try {
       const datesRes = await fetch('/api/maintenance/upload/dates');
       const dates = datesRes.ok ? await datesRes.json() : [];
 
-      if (!dates.length) { _data = []; _prevData = []; return; }
+      _allDates = dates; // [{id, report_date, uploaded_at}, ...]
+
+      if (!dates.length) { _data = []; _prevData = []; _allReports = {}; return; }
 
       const curDate  = dates[0].report_date;
       const prevDate = dates.length > 1 ? dates[1].report_date : null;
 
+      // Загружаем текущие данные
       const curRes = await fetch('/api/maintenance/upload/by-date?date=' + encodeURIComponent(curDate));
       if (!curRes.ok) throw new Error('HTTP ' + curRes.status);
       const curJson = await curRes.json();
       _data = Array.isArray(curJson.data_json) ? curJson.data_json : [];
 
+      // Загружаем предыдущие данные
       if (prevDate) {
         try {
           const prevRes = await fetch('/api/maintenance/upload/by-date?date=' + encodeURIComponent(prevDate));
@@ -66,9 +119,24 @@ const PotholeMaintenance = (() => {
       } else {
         _prevData = [];
       }
+
+      // Загружаем ВСЕ отчёты для таблицы динамики
+      _allReports = {};
+      // Загружаем параллельно, но не более 20 дат чтобы не перегружать
+      const datesToLoad = dates.slice(0, 60);
+      await Promise.all(datesToLoad.map(async (d) => {
+        try {
+          const r = await fetch('/api/maintenance/upload/by-date?date=' + encodeURIComponent(d.report_date));
+          if (r.ok) {
+            const j = await r.json();
+            _allReports[d.report_date] = Array.isArray(j.data_json) ? j.data_json : [];
+          }
+        } catch (_) {}
+      }));
+
     } catch (e) {
       console.warn('PotholeMaintenance: не удалось загрузить данные', e);
-      _data = []; _prevData = [];
+      _data = []; _prevData = []; _allReports = {};
     }
   }
 
@@ -83,6 +151,7 @@ const PotholeMaintenance = (() => {
     if (!body) return;
     if (!_data.length) {
       body.innerHTML = '<div class="wp-empty">Загрузите Excel-файл через кнопку «Актуализация»</div>';
+      renderDynamicsTable();
       return;
     }
 
@@ -130,6 +199,129 @@ const PotholeMaintenance = (() => {
       makeGroup('Цикличные', CYCLIC) +
       makeGroup('План на год', ANNUAL) +
       (other.length ? `<div class="wp-group">${other.map(makeRow).join('')}</div>` : '');
+
+    // Рендерим таблицу динамики
+    renderDynamicsTable();
+  }
+
+  /* ================================================
+     Рендер таблицы динамики уборки мусора и смёта
+  ================================================ */
+  function renderDynamicsTable() {
+    const LABEL_MUSOR = 'Уборка мусора в полосе отвода, км';
+    const LABEL_SMET  = 'Уборка смета из прибордюрной части, км';
+
+    const wrap = document.getElementById('maint-dynamics-wrap');
+    if (!wrap) return;
+
+    // Получаем все даты в хронологическом порядке (ASC)
+    const sortedDates = Object.keys(_allReports).sort();
+
+    if (sortedDates.length === 0) {
+      wrap.innerHTML = '<div class="wp-empty">Нет данных для отображения динамики</div>';
+      return;
+    }
+
+    // Строим массив строк таблицы
+    const rows = [];
+    for (let i = 0; i < sortedDates.length; i++) {
+      const curDate  = sortedDates[i];
+      const prevDate = i > 0 ? sortedDates[i - 1] : null;
+
+      const curMusor  = getFactByLabel(_allReports[curDate],  LABEL_MUSOR);
+      const prevMusor = prevDate ? getFactByLabel(_allReports[prevDate], LABEL_MUSOR) : null;
+      const curSmet   = getFactByLabel(_allReports[curDate],  LABEL_SMET);
+      const prevSmet  = prevDate ? getFactByLabel(_allReports[prevDate], LABEL_SMET) : null;
+
+      let deltaMusor = null;
+      if (curMusor !== null && prevMusor !== null) {
+        const raw = curMusor - prevMusor;
+        deltaMusor = raw >= 0 ? roundHalfUp(raw) : null;
+      }
+
+      let deltaSmet = null;
+      if (curSmet !== null && prevSmet !== null) {
+        const raw = curSmet - prevSmet;
+        deltaSmet = raw >= 0 ? roundHalfUp(raw) : null;
+      }
+
+      rows.push({
+        date:       curDate,
+        dayName:    getDayName(curDate),
+        deltaMusor,
+        deltaSmet,
+        weekPos:    weekPos(curDate),
+      });
+    }
+
+    // Вычисляем суммы за неделю (чт–ср)
+    // Проходим по строкам и накапливаем сумму с начала недели (когда weekPos === 0, сбрасываем)
+    let weekSumMusor = 0;
+    let weekSumSmet  = 0;
+
+    for (let i = 0; i < rows.length; i++) {
+      const r = rows[i];
+
+      // Начало новой недели (четверг)
+      if (r.weekPos === 0) {
+        weekSumMusor = 0;
+        weekSumSmet  = 0;
+      }
+
+      if (r.deltaMusor !== null) weekSumMusor += r.deltaMusor;
+      if (r.deltaSmet  !== null) weekSumSmet  += r.deltaSmet;
+
+      // Показываем сумму только в конце недели (среда, weekPos===6) или в последний день
+      const isLastRow    = i === rows.length - 1;
+      const isWeekEnd    = r.weekPos === 6;
+
+      r.weekSumMusor = (isWeekEnd || isLastRow) ? weekSumMusor : null;
+      r.weekSumSmet  = (isWeekEnd || isLastRow) ? weekSumSmet  : null;
+    }
+
+    // Рендер
+    const rowsHtml = rows.map(r => {
+      const musorCell  = r.deltaMusor !== null ? r.deltaMusor : '—';
+      const smetCell   = r.deltaSmet  !== null ? r.deltaSmet  : '—';
+      const weekMusor  = r.weekSumMusor !== null ? r.weekSumMusor : '';
+      const weekSmet   = r.weekSumSmet  !== null ? r.weekSumSmet  : '';
+
+      // Подсветка строки-начала недели
+      const trClass = r.weekPos === 0 ? ' class="dyn-week-start"' : '';
+
+      return `<tr${trClass}>
+        <td class="dyn-td dyn-td-date">${formatDate(r.date)}</td>
+        <td class="dyn-td dyn-td-day">${r.dayName}</td>
+        <td class="dyn-td dyn-td-num">${musorCell}</td>
+        <td class="dyn-td dyn-td-week">${weekMusor}</td>
+        <td class="dyn-td dyn-td-num">${smetCell}</td>
+        <td class="dyn-td dyn-td-week">${weekSmet}</td>
+      </tr>`;
+    }).join('');
+
+    wrap.innerHTML = `
+      <div class="dyn-table-scroll">
+        <table class="dyn-table">
+          <thead>
+            <tr>
+              <th class="dyn-th" rowspan="2">Дата</th>
+              <th class="dyn-th" rowspan="2">День<br>недели</th>
+              <th class="dyn-th dyn-th-group" colspan="2">Выполнение уборки мусора</th>
+              <th class="dyn-th dyn-th-group" colspan="2">Выполнение уборки смета</th>
+            </tr>
+            <tr>
+              <th class="dyn-th dyn-th-sub">Всего за день</th>
+              <th class="dyn-th dyn-th-sub">Всего за неделю</th>
+              <th class="dyn-th dyn-th-sub">Всего за день</th>
+              <th class="dyn-th dyn-th-sub">Всего за неделю</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${rowsHtml}
+          </tbody>
+        </table>
+      </div>
+    `;
   }
 
   /* ================================================
