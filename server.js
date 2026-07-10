@@ -122,20 +122,34 @@ if (!isMainThread) {
   }
 
 function _parseMaintSheet(workbook) {
-  // Лист № 4 — "МАД Итог" (индекс 3)
+// Лист № 4 — "МАД Итог" (индекс 3)
   const sheetName = workbook.SheetNames[3];
   if (!sheetName) return [];
   const sheet = workbook.Sheets[sheetName];
-  const rows  = XLSX.utils.sheet_to_json(sheet, { header: 1, defval: null });
+  const rows = XLSX.utils.sheet_to_json(sheet, { header: 1, defval: null });
+
+  // Лист "СВОД" (индекс 2) — D5 (смет), D6 (мусор)
+  const svodSheetName = workbook.SheetNames[2];
+  const svodSheet = svodSheetName ? workbook.Sheets[svodSheetName] : null;
+  const svodD5 = svodSheet && svodSheet['D5'] ? toNum(svodSheet['D5'].v) : 0;
+  const svodD6 = svodSheet && svodSheet['D6'] ? toNum(svodSheet['D6'].v) : 0;
+
   const result = [];
-  for (let i = 2; i < rows.length; i++) {  // с 3-й строки (0-based = 2)
-    const row  = rows[i];
+  for (let i = 2; i < rows.length; i++) { // с 3-й строки (0-based = 2)
+    const row = rows[i];
     if (!row || row.length < 3) continue;
     const label = row[1] != null ? String(row[1]).trim() : '';
     if (!label) continue;
-    const plan  = toNum(row[2]);
-    const fact  = toNum(row[3] ?? 0);
-    const pct   = plan > 0 ? Math.round(fact / plan * 100) : 0;
+    const plan = toNum(row[2]);
+    let fact;
+    if (label === 'Уборка мусора в полосе отвода, км') {
+      fact = svodD6; // СВОД D6
+    } else if (label === 'Уборка смета из прибордюрной части, км') {
+      fact = svodD5; // СВОД D5
+    } else {
+      fact = toNum(row[3] ?? 0);
+    }
+    const pct = plan > 0 ? Math.round(fact / plan * 100) : 0;
     result.push({ label, plan, fact, pct });
   }
   return result;
