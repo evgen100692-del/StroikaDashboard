@@ -75,13 +75,12 @@ const PotholeMaintenance = (() => {
   ================================================ */
   function weekPos(dateStr) {
     const d = new Date(dateStr + 'T00:00:00');
-    const dow = d.getDay(); // 0=вс,1=пн,2=вт,3=ср,4=чт,5=пт,6=сб
+    const dow = d.getDay();
     return (dow + 3) % 7;
   }
 
   /* ================================================
-     Является ли дата выходным (сб или вс)
-     wp: сб=2, вс=3
+     Является ли дата выходным (сб или вс): wp=2 или 3
   ================================================ */
   function isWeekend(wp) {
     return wp === 2 || wp === 3;
@@ -200,17 +199,19 @@ const PotholeMaintenance = (() => {
 
   /* ================================================
      Рендер таблицы динамики уборки мусора и смёта
-     Колонки 4 и 6 («Всего за неделю») — объединённые
-     ячейки через rowspan на всю неделю чт–ср.
-     Выходные (сб/вс) — строки с классом dyn-week-weekend.
+     Максимум 6 недель (чт–ср). Старые недели выталкиваются.
+     Колонки 4 и 6 — объединённые ячейки через rowspan.
+     Выходные (сб/вс) — класс dyn-week-weekend.
   ================================================ */
   function renderDynamicsTable() {
+    const MAX_WEEKS    = 6;
     const LABEL_MUSOR = 'Уборка мусора в полосе отвода, км';
     const LABEL_SMET  = 'Уборка смета из прибордюрной части, км';
 
     const wrap = document.getElementById('maint-dynamics-wrap');
     if (!wrap) return;
 
+    // Все даты в хронологическом порядке (ASC)
     const sortedDates = Object.keys(_allReports).sort();
 
     if (sortedDates.length === 0) {
@@ -218,8 +219,8 @@ const PotholeMaintenance = (() => {
       return;
     }
 
-    // ── Шаг 1: базовый массив строк ──
-    const rows = [];
+    // ── Шаг 1: базовый массив строк по всем датам ──
+    const allRows = [];
     for (let i = 0; i < sortedDates.length; i++) {
       const curDate  = sortedDates[i];
       const prevDate = i > 0 ? sortedDates[i - 1] : null;
@@ -242,7 +243,7 @@ const PotholeMaintenance = (() => {
       }
 
       const wp = weekPos(curDate);
-      rows.push({
+      allRows.push({
         date: curDate,
         dayName: getDayName(curDate),
         deltaMusor,
@@ -252,19 +253,30 @@ const PotholeMaintenance = (() => {
       });
     }
 
-    // ── Шаг 2: группируем по неделям (чт = начало) ──
-    const weeks = [];
+    // ── Шаг 2: группируем все недели (чт = начало) ──
+    const allWeeks = [];
     let curWeek = [];
-    for (const r of rows) {
+    for (const r of allRows) {
       if (r.wp === 0 && curWeek.length > 0) {
-        weeks.push(curWeek);
+        allWeeks.push(curWeek);
         curWeek = [];
       }
       curWeek.push(r);
     }
-    if (curWeek.length > 0) weeks.push(curWeek);
+    if (curWeek.length > 0) allWeeks.push(curWeek);
 
-    // ── Шаг 3: итоги за неделю + rowspan ──
+    // ── Шаг 3: ограничиваем до последних MAX_WEEKS недель ──
+    const weeks = allWeeks.slice(-MAX_WEEKS);
+
+    // ── Шаг 4: фикс дельты для первой видимой строки ──
+    // Если первая строка была обрезана (не первая в allRows),
+    // её дельта уже правильно вычислена в шаге 1 относительно
+    // предыдущей даты в sortedDates — ничего дополнительно делать не нужно.
+
+    // Собираем плоский массив из отфильтрованных недель
+    const rows = weeks.flat();
+
+    // ── Шаг 5: итоги за неделю + rowspan ──
     for (const week of weeks) {
       let sumMusor = 0;
       let sumSmet  = 0;
@@ -282,15 +294,14 @@ const PotholeMaintenance = (() => {
       }
     }
 
-    // ── Шаг 4: рендер строк ──
+    // ── Шаг 6: рендер строк ──
     const rowsHtml = rows.map(r => {
       const musorCell = r.deltaMusor !== null ? r.deltaMusor : '—';
       const smetCell  = r.deltaSmet  !== null ? r.deltaSmet  : '—';
 
-      // Классы строки: начало недели и/или выходной
       const classes = [];
-      if (r.wp === 0)  classes.push('dyn-week-start');
-      if (r.weekend)   classes.push('dyn-week-weekend');
+      if (r.wp === 0) classes.push('dyn-week-start');
+      if (r.weekend)  classes.push('dyn-week-weekend');
       const trClass = classes.length ? ` class="${classes.join(' ')}"` : '';
 
       let weekMusorTd = '';
