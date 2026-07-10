@@ -123,13 +123,13 @@ if (!isMainThread) {
 
 function _parseMaintSheet(workbook) {
 // Лист № 4 — "МАД Итог" (индекс 3)
-  const sheetName = workbook.SheetNames[3];
+  const sheetName = workbook.SheetNames.find(n => /мад.*итог/i.test(n)) || workbook.SheetNames[3];
   if (!sheetName) return [];
   const sheet = workbook.Sheets[sheetName];
   const rows = XLSX.utils.sheet_to_json(sheet, { header: 1, defval: null });
 
 // Лист "СВОД" (индекс 2) — row[4][3]=мусор (D5), row[3][3]=смет (D4)
-  const svodSheetName = workbook.SheetNames[2];
+  const svodSheetName = workbook.SheetNames.find(n => /свод/i.test(n));
   const svodSheet = svodSheetName ? workbook.Sheets[svodSheetName] : null;
   const svodRows = svodSheet ? XLSX.utils.sheet_to_json(svodSheet, { header: 1, defval: null }) : [];
   // row[3] = строка 4 в Excel (D4) = смет, row[4] = строка 5 (D5) = мусор
