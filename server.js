@@ -133,8 +133,8 @@ function _parseMaintSheet(workbook) {
   const svodSheet = svodSheetName ? workbook.Sheets[svodSheetName] : null;
   const svodRows = svodSheet ? XLSX.utils.sheet_to_json(svodSheet, { header: 1, defval: null }) : [];
   // row[3] = строка 4 в Excel (D4) = смет, row[4] = строка 5 (D5) = мусор
-  const svodMusor = (svodRows[4] && svodRows[4][3] != null) ? toNum(svodRows[4][3]) : 0;
-  const svodSmet  = (svodRows[3] && svodRows[3][3] != null) ? toNum(svodRows[3][3]) : 0;
+  const svodMusor = (svodRows[5] && svodRows[5][3] != null) ? toNum(svodRows[5][3]) : 0;
+  const svodSmet  = (svodRows[4] && svodRows[4][3] != null) ? toNum(svodRows[4][3]) : 0;
 
   const result = [];
   for (let i = 2; i < rows.length; i++) { // с 3-й строки (0-based = 2)
