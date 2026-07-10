@@ -122,7 +122,7 @@ const PotholeMaintenance = (() => {
 
       // Загружаем ВСЕ отчёты для таблицы динамики
       _allReports = {};
-      // Загружаем параллельно, но не более 20 дат чтобы не перегружать
+      // Загружаем параллельно, но не более 60 дат чтобы не перегружать
       const datesToLoad = dates.slice(0, 60);
       await Promise.all(datesToLoad.map(async (d) => {
         try {
@@ -206,6 +206,8 @@ const PotholeMaintenance = (() => {
 
   /* ================================================
      Рендер таблицы динамики уборки мусора и смёта
+     Колонки 4 и 6 («Всего за неделю») — объединённые
+     ячейки через rowspan на всю неделю чт–ср.
   ================================================ */
   function renderDynamicsTable() {
     const LABEL_MUSOR = 'Уборка мусора в полосе отвода, км';
@@ -222,7 +224,7 @@ const PotholeMaintenance = (() => {
       return;
     }
 
-    // Строим массив строк таблицы
+    // ── Шаг 1: строим базовый массив строк ──
     const rows = [];
     for (let i = 0; i < sortedDates.length; i++) {
       const curDate  = sortedDates[i];
@@ -250,52 +252,67 @@ const PotholeMaintenance = (() => {
         dayName:    getDayName(curDate),
         deltaMusor,
         deltaSmet,
-        weekPos:    weekPos(curDate),
+        wp:         weekPos(curDate),
       });
     }
 
-    // Вычисляем суммы за неделю (чт–ср)
-    // Проходим по строкам и накапливаем сумму с начала недели (когда weekPos === 0, сбрасываем)
-    let weekSumMusor = 0;
-    let weekSumSmet  = 0;
-
-    for (let i = 0; i < rows.length; i++) {
-      const r = rows[i];
-
-      // Начало новой недели (четверг)
-      if (r.weekPos === 0) {
-        weekSumMusor = 0;
-        weekSumSmet  = 0;
+    // ── Шаг 2: группируем строки по неделям ──
+    // Каждая «неделя» начинается когда wp === 0 (четверг)
+    // или это первая строка (неполная начальная неделя)
+    const weeks = [];
+    let curWeek = [];
+    for (const r of rows) {
+      if (r.wp === 0 && curWeek.length > 0) {
+        weeks.push(curWeek);
+        curWeek = [];
       }
+      curWeek.push(r);
+    }
+    if (curWeek.length > 0) weeks.push(curWeek);
 
-      if (r.deltaMusor !== null) weekSumMusor += r.deltaMusor;
-      if (r.deltaSmet  !== null) weekSumSmet  += r.deltaSmet;
-
-      // Показываем сумму только в конце недели (среда, weekPos===6) или в последний день
-      const isLastRow    = i === rows.length - 1;
-      const isWeekEnd    = r.weekPos === 6;
-
-      r.weekSumMusor = (isWeekEnd || isLastRow) ? weekSumMusor : null;
-      r.weekSumSmet  = (isWeekEnd || isLastRow) ? weekSumSmet  : null;
+    // ── Шаг 3: для каждой недели вычисляем итоговые суммы ──
+    for (const week of weeks) {
+      let sumMusor = 0;
+      let sumSmet  = 0;
+      for (const r of week) {
+        if (r.deltaMusor !== null) sumMusor += r.deltaMusor;
+        if (r.deltaSmet  !== null) sumSmet  += r.deltaSmet;
+      }
+      // Записываем в первую строку недели rowspan и итог
+      week[0].weekRowspan  = week.length;
+      week[0].weekSumMusor = sumMusor;
+      week[0].weekSumSmet  = sumSmet;
+      // Остальные строки — ячейки «за неделю» не рендерим (rowspan)
+      for (let i = 1; i < week.length; i++) {
+        week[i].weekRowspan  = 0; // 0 = не рисовать td
+        week[i].weekSumMusor = null;
+        week[i].weekSumSmet  = null;
+      }
     }
 
-    // Рендер
+    // ── Шаг 4: рендер строк ──
     const rowsHtml = rows.map(r => {
-      const musorCell  = r.deltaMusor !== null ? r.deltaMusor : '—';
-      const smetCell   = r.deltaSmet  !== null ? r.deltaSmet  : '—';
-      const weekMusor  = r.weekSumMusor !== null ? r.weekSumMusor : '';
-      const weekSmet   = r.weekSumSmet  !== null ? r.weekSumSmet  : '';
+      const musorCell = r.deltaMusor !== null ? r.deltaMusor : '—';
+      const smetCell  = r.deltaSmet  !== null ? r.deltaSmet  : '—';
+      const trClass   = r.wp === 0 ? ' class="dyn-week-start"' : '';
 
-      // Подсветка строки-начала недели
-      const trClass = r.weekPos === 0 ? ' class="dyn-week-start"' : '';
+      // Ячейки «Всего за неделю» — только для первой строки недели
+      let weekMusorTd = '';
+      let weekSmetTd  = '';
+      if (r.weekRowspan > 0) {
+        const rs = r.weekRowspan > 1 ? ` rowspan="${r.weekRowspan}"` : '';
+        weekMusorTd = `<td class="dyn-td dyn-td-week"${rs}>${r.weekSumMusor}</td>`;
+        weekSmetTd  = `<td class="dyn-td dyn-td-week"${rs}>${r.weekSumSmet}</td>`;
+      }
+      // weekRowspan === 0 → td уже покрыт rowspan выше, ничего не рисуем
 
       return `<tr${trClass}>
         <td class="dyn-td dyn-td-date">${formatDate(r.date)}</td>
         <td class="dyn-td dyn-td-day">${r.dayName}</td>
         <td class="dyn-td dyn-td-num">${musorCell}</td>
-        <td class="dyn-td dyn-td-week">${weekMusor}</td>
+        ${weekMusorTd}
         <td class="dyn-td dyn-td-num">${smetCell}</td>
-        <td class="dyn-td dyn-td-week">${weekSmet}</td>
+        ${weekSmetTd}
       </tr>`;
     }).join('');
 
