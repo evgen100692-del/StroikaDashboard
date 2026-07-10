@@ -489,6 +489,80 @@
     .maint-td-pct { font-weight:700; color:var(--color-primary); text-align:center; }
     .maint-input { width:100%; padding:var(--space-1) var(--space-2); border:1px solid var(--color-border); border-radius:var(--radius-md); background:var(--color-surface-2); color:var(--color-text); font-size:var(--text-sm); text-align:center; }
     .maint-input:focus { outline:none; border-color:var(--color-primary); box-shadow:0 0 0 3px oklch(from var(--color-primary) l c h / 0.15); }
+
+    /* ══════════════════════════════════════════════════
+       DYNAMICS TABLE — таблица динамики уборки
+    ══════════════════════════════════════════════════ */
+    .dyn-table-scroll {
+      overflow-x: auto;
+      -webkit-overflow-scrolling: touch;
+    }
+    .dyn-table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: var(--text-sm);
+      font-variant-numeric: tabular-nums;
+    }
+    .dyn-th {
+      background: var(--color-surface-offset);
+      color: var(--color-text-muted);
+      font-size: var(--text-xs);
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: .05em;
+      padding: var(--space-2) var(--space-3);
+      border: 1px solid var(--color-border);
+      text-align: center;
+      white-space: nowrap;
+    }
+    .dyn-th-group {
+      background: var(--color-primary-highlight);
+      color: var(--color-primary);
+    }
+    .dyn-th-sub {
+      background: var(--color-surface-2);
+      color: var(--color-text-muted);
+      font-size: 10px;
+    }
+    .dyn-td {
+      padding: var(--space-2) var(--space-3);
+      border: 1px solid var(--color-border);
+      color: var(--color-text);
+      vertical-align: middle;
+    }
+    .dyn-td-date {
+      white-space: nowrap;
+      font-weight: 500;
+    }
+    .dyn-td-day {
+      text-align: center;
+      color: var(--color-text-muted);
+      font-size: var(--text-xs);
+      font-weight: 600;
+      text-transform: uppercase;
+    }
+    .dyn-td-num {
+      text-align: right;
+      font-variant-numeric: tabular-nums;
+    }
+    .dyn-td-week {
+      text-align: right;
+      font-weight: 700;
+      color: var(--color-primary);
+      font-variant-numeric: tabular-nums;
+      background: var(--color-primary-highlight);
+    }
+    /* Строка начала недели (четверг) */
+    .dyn-week-start td {
+      border-top: 2px solid var(--color-primary) !important;
+    }
+    /* Чередование строк */
+    .dyn-table tbody tr:nth-child(even):not(.dyn-week-start) td {
+      background: var(--color-surface-offset);
+    }
+    .dyn-table tbody tr:hover td {
+      background: var(--color-primary-highlight);
+    }
   </style>
 </head>
 <body>
@@ -802,7 +876,9 @@
               Загрузить отчёт
             </button>
           </div>
-          <article class="card">
+
+          <!-- Карточка: Выполнение видов работ -->
+          <article class="card" style="margin-bottom:var(--space-5)">
             <div class="card-header">
               <div>
                 <div class="card-title">Выполнение видов работ</div>
@@ -811,6 +887,19 @@
             </div>
             <div class="card-body">
               <div id="maint-chart-wrap" class="maint-chart-wrap"><div class="wp-head"><span class="wp-col-label">Вид работ</span><span class="wp-col-bar">Выполнение</span><span class="wp-col-pct">%</span></div><div id="maint-wp-body"></div></div>
+            </div>
+          </article>
+
+          <!-- Карточка: Динамика уборки мусора и смёта -->
+          <article class="card">
+            <div class="card-header">
+              <div>
+                <div class="card-title">Динамика уборки мусора и смёта</div>
+                <div class="card-subtitle">Ежедневный прирост и недельные итоги (неделя: чт – ср)</div>
+              </div>
+            </div>
+            <div class="card-body" style="padding: var(--space-3) 0;">
+              <div id="maint-dynamics-wrap"></div>
             </div>
           </article>
         </section>
@@ -969,7 +1058,7 @@
               </div>
               <div class="maint-drop-zone__file" id="maint-file-name"></div>
             </div>
-            <p class="maint-form-hint">Лист «МАД Итог» — кол. B: вид работ, C: план, D: факт (c 3-й строки)</p>
+            <p class="maint-form-hint">Лист «МАД Итог» — кол. B: вид работ, C: план, D: факт (c 3-й строки)</p>
           </div>
           <div id="maint-upload-status" class="maint-upload-status"></div>
         </form>
