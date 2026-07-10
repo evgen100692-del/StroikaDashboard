@@ -129,13 +129,8 @@ function _parseMaintSheet(workbook) {
   const rows = XLSX.utils.sheet_to_json(sheet, { header: 1, defval: null });
 
 // Лист "СВОД" (индекс 2) — row[4][3]=мусор (D5), row[3][3]=смет (D4)
-  const svodSheetName = workbook.SheetNames.find(n => /свод/i.test(n));
-  const svodSheet = svodSheetName ? workbook.Sheets[svodSheetName] : null;
-  const svodRows = svodSheet ? XLSX.utils.sheet_to_json(svodSheet, { header: 1, defval: null }) : [];
-  // row[3] = строка 4 в Excel (D4) = смет, row[4] = строка 5 (D5) = мусор
-  const svodMusor = (svodRows[5] && svodRows[5][3] != null) ? toNum(svodRows[5][3]) : 0;
-  const svodSmet  = (svodRows[4] && svodRows[4][3] != null) ? toNum(svodRows[4][3]) : 0;
-
+  let svodMusor = 0, svodSmet = 0;   for (const sn of workbook.SheetNames) {     if (sn === sheetName) continue;     const sr = XLSX.utils.sheet_to_json(workbook.Sheets[sn], { header: 1, defval: null });     for (const row of sr) {       if (!row) continue;       const lbl = String(row[0] || row[1] || '').trim();       const val = row[3];       if (/мусор/i.test(lbl) && val != null && svodMusor === 0) svodMusor = toNum(val);       if (/смет/i.test(lbl) && val != null && svodSmet === 0) svodSmet = toNum(val);     }     if (svodMusor !== 0 && svodSmet !== 0) break;   }
+  
   const result = [];
   for (let i = 2; i < rows.length; i++) { // с 3-й строки (0-based = 2)
     const row = rows[i];
