@@ -147,17 +147,15 @@ function _parseMaintSheet(workbook) {
     const svodRows  = XLSX.utils.sheet_to_json(svodSheet, { header: 1, defval: null });
     const svodD5 = svodRows[4] ? toNum(svodRows[4][3]) : null; // D5 — смет
     const svodD6 = svodRows[5] ? toNum(svodRows[5][3]) : null; // D6 — мусор
-    for (const r of result) {
-      const lc = r.label.toLowerCase();
-      if (svodD6 !== null && lc.includes('мусор')) {
-        r.fact = svodD6;
-        r.pct  = r.plan > 0 ? Math.round(r.fact / r.plan * 100) : 0;
+        for (const r of result) {
+        const lc = r.label.toLowerCase();
+        if (svodD6 !== null && lc.includes('мусор')) {
+          r.svodFact = svodD6; // D6 — мусор (не заменяет fact из МАД Итог)
+        }
+        if (svodD5 !== null && lc.includes('смет')) {
+          r.svodFact = svodD5; // D5 — смет (не заменяет fact из МАД Итог)
+        }
       }
-      if (svodD5 !== null && lc.includes('смет')) {
-        r.fact = svodD5;
-        r.pct  = r.plan > 0 ? Math.round(r.fact / r.plan * 100) : 0;
-      }
-    }
   }
 
   return result;
