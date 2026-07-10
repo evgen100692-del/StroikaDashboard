@@ -20,9 +20,9 @@ if (!fs.existsSync(path.join(__dirname, 'data'))) {
 // ══════════════════════════════════════════════════════════════════════════════
 if (!isMainThread) {
   try {
-    const { fileBuffer, reportType } = workerData;
+    const { fileBuffer, reportType, reportDate } = workerData;
     const buf    = Buffer.from(fileBuffer);
-    const result = parseExcelInWorker(buf, reportType);
+    const result = parseExcelInWorker(buf, reportType, reportDate);
     parentPort.postMessage({ ok: true, result });
   } catch (e) {
     parentPort.postMessage({ ok: false, error: e.message });
@@ -33,7 +33,7 @@ if (!isMainThread) {
     return isNaN(n) ? 0 : n;
   }
 
-  function parseExcelInWorker(buffer, reportType) {
+  function parseExcelInWorker(buffer, reportType, reportDate) {
     // Для complaints читаем только первые 3 листа — 4-й лист не используется
     // и содержит слишком много данных, что критически замедляет загрузку
     const sheetsToLoad = (reportType === 'complaints') ? [0, 1, 2] : undefined;
@@ -94,7 +94,7 @@ if (!isMainThread) {
     }
 
     if (reportType === 'maintenance') {
-      return _parseMaintSheet(workbook);
+      return _parseMaintSheet(workbook, reportDate);
     }
 
     return {};
@@ -121,10 +121,10 @@ if (!isMainThread) {
     return result;
   }
 
-function _parseMaintSheet(workbook) {
+function _parseMaintSheet(workbook, reportDate) {
   // Лист № 4 — "МАД Итог" (индекс 3)
   const sheetName = workbook.SheetNames[3];
-  if (!sheetName) return [];
+  if (!sheetName) return { rows: [], complaints: null };
   const sheet = workbook.Sheets[sheetName];
   const rows  = XLSX.utils.sheet_to_json(sheet, { header: 1, defval: null });
   const result = [];
@@ -158,7 +158,59 @@ function _parseMaintSheet(workbook) {
       }
   }
 
-  return result;
+  // Лист № 5 — "Динамика по уборке" (индекс 4): жалобы на содержание.
+  // Столбец B (индекс 1) — дата, столбец J (индекс 9) и AB (индекс 27) — числа.
+  // Для даты отчёта находим строку с этой датой в столбце B и берём J + AB.
+  const complaints = _parseComplaintsForDate(workbook, reportDate);
+
+  return { rows: result, complaints };
+}
+
+// Преобразование значения ячейки-даты в строку 'YYYY-MM-DD'
+function _cellDateToISO(v) {
+  if (v == null || v === '') return null;
+  if (typeof v === 'number') {
+    const o = XLSX.SSF.parse_date_code(v);
+    if (!o || !o.y) return null;
+    const p = n => String(n).padStart(2, '0');
+    return `${o.y}-${p(o.m)}-${p(o.d)}`;
+  }
+  const s = String(v).trim();
+  let m = s.match(/^(\d{4})-(\d{1,2})-(\d{1,2})/);
+  if (m) return `${m[1]}-${m[2].padStart(2, '0')}-${m[3].padStart(2, '0')}`;
+  m = s.match(/^(\d{1,2})[.\/](\d{1,2})[.\/](\d{4})/);
+  if (m) return `${m[3]}-${m[2].padStart(2, '0')}-${m[1].padStart(2, '0')}`;
+  return null;
+}
+
+// Жалобы на содержание за дату отчёта: лист "Динамика по уборке" (5-й),
+// столбец B — дата, J + AB — числа. Возвращает сумму J+AB или null.
+function _parseComplaintsForDate(workbook, reportDate) {
+  if (!reportDate) return null;
+  const COL_DATE = 1;   // B
+  const COL_J    = 9;   // J
+  const COL_AB   = 27;  // AB
+
+  // Ищем лист по названию (динамика/уборк), иначе — по индексу 4
+  let sheetName = workbook.SheetNames.find(n => /динамик/i.test(n) && /убор/i.test(n));
+  if (!sheetName) sheetName = workbook.SheetNames[4];
+  if (!sheetName) return null;
+
+  const sheet = workbook.Sheets[sheetName];
+  if (!sheet) return null;
+  const rows = XLSX.utils.sheet_to_json(sheet, { header: 1, defval: null });
+
+  const target = _cellDateToISO(reportDate);
+  if (!target) return null;
+
+  for (const row of rows) {
+    if (!row) continue;
+    const iso = _cellDateToISO(row[COL_DATE]);
+    if (iso && iso === target) {
+      return toNum(row[COL_J]) + toNum(row[COL_AB]);
+    }
+  }
+  return null;
 }
   return;
 }
@@ -269,9 +321,12 @@ async function initDb() {
       id          INTEGER PRIMARY KEY AUTOINCREMENT,
       report_date TEXT    NOT NULL,
       uploaded_at TEXT    NOT NULL DEFAULT (datetime('now','localtime')),
-      data_json   TEXT    NOT NULL
+      data_json   TEXT    NOT NULL,
+      complaints  REAL
     );
   `);
+  // Миграция для ранее созданных БД: добавляем колонку complaints, если её нет
+  try { db.run('ALTER TABLE maintenance_uploads ADD COLUMN complaints REAL'); } catch (_) {}
   }
 
 // ── Сохранение БД на диск ─────────────────────────────────────────────────────
@@ -414,7 +469,7 @@ function parseMultipart(buffer, boundary) {
   return parts;
 }
 
-function parseExcelInWorker(fileBuffer, reportType) {
+function parseExcelInWorker(fileBuffer, reportType, reportDate) {
   return new Promise((resolve, reject) => {
     const worker = new Worker(__filename, {
       workerData: {
@@ -423,6 +478,7 @@ function parseExcelInWorker(fileBuffer, reportType) {
           fileBuffer.byteOffset + fileBuffer.byteLength
         ),
         reportType,
+        reportDate,
       },
       transferList: [
         fileBuffer.buffer.slice(
@@ -652,16 +708,17 @@ const server = http.createServer(async (req, res) => {
       const reportType = reportTypePart.text.trim();
       const reportDate = reportDatePart.text.trim();
 
-      const parsed = await parseExcelInWorker(filePart.body, reportType);
+      const parsed = await parseExcelInWorker(filePart.body, reportType, reportDate);
 
-      const rowCount = Array.isArray(parsed)
-        ? parsed.length
+      const maintRows = (parsed && !Array.isArray(parsed) && Array.isArray(parsed.rows)) ? parsed.rows : parsed;
+      const rowCount = Array.isArray(maintRows)
+        ? maintRows.length
         : (parsed.total ? parsed.total.length : 0);
 
       if (reportType === 'maintenance') {
     dbInsert(
-      'INSERT INTO maintenance_uploads (report_date, data_json) VALUES (?, ?)',
-      [reportDate, JSON.stringify(Array.isArray(parsed) ? parsed : parsed.total || [])]
+      'INSERT INTO maintenance_uploads (report_date, data_json, complaints) VALUES (?, ?, ?)',
+      [reportDate, JSON.stringify(Array.isArray(maintRows) ? maintRows : []), parsed && parsed.complaints != null ? parsed.complaints : null]
     );
             saveDbDeferred();
   } else {
@@ -854,12 +911,14 @@ const server = http.createServer(async (req, res) => {
         return;
       }
       const reportDate = datePart.text.trim();
-      const parsed     = await parseExcelInWorker(filePart.body, 'maintenance');
+      const parsed     = await parseExcelInWorker(filePart.body, 'maintenance', reportDate);
+      const rows       = (parsed && Array.isArray(parsed.rows)) ? parsed.rows : (Array.isArray(parsed) ? parsed : []);
+      const complaints = (parsed && parsed.complaints != null) ? parsed.complaints : null;
       const newId = dbInsert(
-        'INSERT INTO maintenance_uploads (report_date, data_json) VALUES (?, ?)',
-        [reportDate, JSON.stringify(parsed)]
+        'INSERT INTO maintenance_uploads (report_date, data_json, complaints) VALUES (?, ?, ?)',
+        [reportDate, JSON.stringify(rows), complaints]
       );
-      json(res, 200, { ok: true, id: newId, rows: parsed.length });
+      json(res, 200, { ok: true, id: newId, rows: rows.length });
     } catch (e) {
       json(res, 500, { error: e.message });
     }
@@ -886,7 +945,7 @@ const server = http.createServer(async (req, res) => {
     if (!date) { json(res, 400, { error: 'Не указана дата' }); return; }
     const row = dbAll('SELECT * FROM maintenance_uploads WHERE report_date = ? ORDER BY uploaded_at DESC LIMIT 1', [date])[0];
     if (!row) { json(res, 404, { error: 'Данные не найдены' }); return; }
-    json(res, 200, { id: row.id, report_date: row.report_date, uploaded_at: row.uploaded_at, data_json: JSON.parse(row.data_json) });
+    json(res, 200, { id: row.id, report_date: row.report_date, uploaded_at: row.uploaded_at, data_json: JSON.parse(row.data_json), complaints: row.complaints != null ? row.complaints : null });
     return;
   }
   // ════════════════════════════════════════════════════════════════════════════
