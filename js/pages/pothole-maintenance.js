@@ -57,7 +57,6 @@ const PotholeMaintenance = (() => {
   ================================================ */
   const DAY_NAMES = ['вс', 'пн', 'вт', 'ср', 'чт', 'пт', 'сб'];
   function getDayName(dateStr) {
-    // dateStr: 'YYYY-MM-DD'
     const d = new Date(dateStr + 'T00:00:00');
     return DAY_NAMES[d.getDay()];
   }
@@ -71,15 +70,21 @@ const PotholeMaintenance = (() => {
   }
 
   /* ================================================
-     Получить номер дня недели (0=вс,1=пн,...,4=чт,3=ср)
-     Неделя: чт(4) → ср(3), т.е. чт = начало
-     Возвращает «позицию» дня в рамках недели (0=чт,...,6=ср)
+     Получить позицию дня в неделе чт–ср:
+     чт=0, пт=1, сб=2, вс=3, пн=4, вт=5, ср=6
   ================================================ */
   function weekPos(dateStr) {
     const d = new Date(dateStr + 'T00:00:00');
     const dow = d.getDay(); // 0=вс,1=пн,2=вт,3=ср,4=чт,5=пт,6=сб
-    // Смещение: чт=0, пт=1, сб=2, вс=3, пн=4, вт=5, ср=6
-    return (dow + 3) % 7; // чт(4): (4+3)%7=0, пт(5):1, сб(6):2, вс(0):3, пн(1):4, вт(2):5, ср(3):6
+    return (dow + 3) % 7;
+  }
+
+  /* ================================================
+     Является ли дата выходным (сб или вс)
+     wp: сб=2, вс=3
+  ================================================ */
+  function isWeekend(wp) {
+    return wp === 2 || wp === 3;
   }
 
   /* ================================================
@@ -90,39 +95,29 @@ const PotholeMaintenance = (() => {
       const datesRes = await fetch('/api/maintenance/upload/dates');
       const dates = datesRes.ok ? await datesRes.json() : [];
 
-      _allDates = dates; // [{id, report_date, uploaded_at}, ...]
+      _allDates = dates;
 
       if (!dates.length) { _data = []; _prevData = []; _allReports = {}; return; }
 
       const curDate  = dates[0].report_date;
       const prevDate = dates.length > 1 ? dates[1].report_date : null;
 
-      // Загружаем текущие данные
       const curRes = await fetch('/api/maintenance/upload/by-date?date=' + encodeURIComponent(curDate));
       if (!curRes.ok) throw new Error('HTTP ' + curRes.status);
       const curJson = await curRes.json();
       _data = Array.isArray(curJson.data_json) ? curJson.data_json : [];
 
-      // Загружаем предыдущие данные
       if (prevDate) {
         try {
           const prevRes = await fetch('/api/maintenance/upload/by-date?date=' + encodeURIComponent(prevDate));
           if (prevRes.ok) {
             const prevJson = await prevRes.json();
             _prevData = Array.isArray(prevJson.data_json) ? prevJson.data_json : [];
-          } else {
-            _prevData = [];
-          }
-        } catch (e) {
-          _prevData = [];
-        }
-      } else {
-        _prevData = [];
-      }
+          } else { _prevData = []; }
+        } catch (e) { _prevData = []; }
+      } else { _prevData = []; }
 
-      // Загружаем ВСЕ отчёты для таблицы динамики
       _allReports = {};
-      // Загружаем параллельно, но не более 60 дат чтобы не перегружать
       const datesToLoad = dates.slice(0, 60);
       await Promise.all(datesToLoad.map(async (d) => {
         try {
@@ -200,7 +195,6 @@ const PotholeMaintenance = (() => {
       makeGroup('План на год', ANNUAL) +
       (other.length ? `<div class="wp-group">${other.map(makeRow).join('')}</div>` : '');
 
-    // Рендерим таблицу динамики
     renderDynamicsTable();
   }
 
@@ -208,6 +202,7 @@ const PotholeMaintenance = (() => {
      Рендер таблицы динамики уборки мусора и смёта
      Колонки 4 и 6 («Всего за неделю») — объединённые
      ячейки через rowspan на всю неделю чт–ср.
+     Выходные (сб/вс) — строки с классом dyn-week-weekend.
   ================================================ */
   function renderDynamicsTable() {
     const LABEL_MUSOR = 'Уборка мусора в полосе отвода, км';
@@ -216,7 +211,6 @@ const PotholeMaintenance = (() => {
     const wrap = document.getElementById('maint-dynamics-wrap');
     if (!wrap) return;
 
-    // Получаем все даты в хронологическом порядке (ASC)
     const sortedDates = Object.keys(_allReports).sort();
 
     if (sortedDates.length === 0) {
@@ -224,7 +218,7 @@ const PotholeMaintenance = (() => {
       return;
     }
 
-    // ── Шаг 1: строим базовый массив строк ──
+    // ── Шаг 1: базовый массив строк ──
     const rows = [];
     for (let i = 0; i < sortedDates.length; i++) {
       const curDate  = sortedDates[i];
@@ -247,18 +241,18 @@ const PotholeMaintenance = (() => {
         deltaSmet = raw >= 0 ? roundHalfUp(raw) : null;
       }
 
+      const wp = weekPos(curDate);
       rows.push({
-        date:       curDate,
-        dayName:    getDayName(curDate),
+        date: curDate,
+        dayName: getDayName(curDate),
         deltaMusor,
         deltaSmet,
-        wp:         weekPos(curDate),
+        wp,
+        weekend: isWeekend(wp),
       });
     }
 
-    // ── Шаг 2: группируем строки по неделям ──
-    // Каждая «неделя» начинается когда wp === 0 (четверг)
-    // или это первая строка (неполная начальная неделя)
+    // ── Шаг 2: группируем по неделям (чт = начало) ──
     const weeks = [];
     let curWeek = [];
     for (const r of rows) {
@@ -270,7 +264,7 @@ const PotholeMaintenance = (() => {
     }
     if (curWeek.length > 0) weeks.push(curWeek);
 
-    // ── Шаг 3: для каждой недели вычисляем итоговые суммы ──
+    // ── Шаг 3: итоги за неделю + rowspan ──
     for (const week of weeks) {
       let sumMusor = 0;
       let sumSmet  = 0;
@@ -278,13 +272,11 @@ const PotholeMaintenance = (() => {
         if (r.deltaMusor !== null) sumMusor += r.deltaMusor;
         if (r.deltaSmet  !== null) sumSmet  += r.deltaSmet;
       }
-      // Записываем в первую строку недели rowspan и итог
       week[0].weekRowspan  = week.length;
       week[0].weekSumMusor = sumMusor;
       week[0].weekSumSmet  = sumSmet;
-      // Остальные строки — ячейки «за неделю» не рендерим (rowspan)
       for (let i = 1; i < week.length; i++) {
-        week[i].weekRowspan  = 0; // 0 = не рисовать td
+        week[i].weekRowspan  = 0;
         week[i].weekSumMusor = null;
         week[i].weekSumSmet  = null;
       }
@@ -294,9 +286,13 @@ const PotholeMaintenance = (() => {
     const rowsHtml = rows.map(r => {
       const musorCell = r.deltaMusor !== null ? r.deltaMusor : '—';
       const smetCell  = r.deltaSmet  !== null ? r.deltaSmet  : '—';
-      const trClass   = r.wp === 0 ? ' class="dyn-week-start"' : '';
 
-      // Ячейки «Всего за неделю» — только для первой строки недели
+      // Классы строки: начало недели и/или выходной
+      const classes = [];
+      if (r.wp === 0)  classes.push('dyn-week-start');
+      if (r.weekend)   classes.push('dyn-week-weekend');
+      const trClass = classes.length ? ` class="${classes.join(' ')}"` : '';
+
       let weekMusorTd = '';
       let weekSmetTd  = '';
       if (r.weekRowspan > 0) {
@@ -304,7 +300,6 @@ const PotholeMaintenance = (() => {
         weekMusorTd = `<td class="dyn-td dyn-td-week"${rs}>${r.weekSumMusor}</td>`;
         weekSmetTd  = `<td class="dyn-td dyn-td-week"${rs}>${r.weekSumSmet}</td>`;
       }
-      // weekRowspan === 0 → td уже покрыт rowspan выше, ничего не рисуем
 
       return `<tr${trClass}>
         <td class="dyn-td dyn-td-date">${formatDate(r.date)}</td>
