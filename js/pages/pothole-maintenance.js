@@ -9,6 +9,7 @@ const PotholeMaintenance = (() => {
   let _prevData = [];  // предыдущая загрузка (для дельты)
   let _allDates = [];  // все даты загрузок (отсортированы DESC)
   let _allReports = {}; // { 'YYYY-MM-DD': [{label,plan,fact,pct},...] }
+  let _allComplaints = {}; // { 'YYYY-MM-DD': number } — жалобы на содержание (J+AB) за дату
   let _initialized = false;
 
   /* ================================================
@@ -107,7 +108,7 @@ const PotholeMaintenance = (() => {
 
       _allDates = dates;
 
-      if (!dates.length) { _data = []; _prevData = []; _allReports = {}; return; }
+      if (!dates.length) { _data = []; _prevData = []; _allReports = {}; _allComplaints = {}; return; }
 
       const curDate  = dates[0].report_date;
       const prevDate = dates.length > 1 ? dates[1].report_date : null;
@@ -128,6 +129,7 @@ const PotholeMaintenance = (() => {
       } else { _prevData = []; }
 
       _allReports = {};
+      _allComplaints = {};
       const datesToLoad = dates.slice(0, 60);
       await Promise.all(datesToLoad.map(async (d) => {
         try {
@@ -135,13 +137,14 @@ const PotholeMaintenance = (() => {
           if (r.ok) {
             const j = await r.json();
             _allReports[d.report_date] = Array.isArray(j.data_json) ? j.data_json : [];
+            _allComplaints[d.report_date] = (j.complaints !== undefined && j.complaints !== null) ? j.complaints : null;
           }
         } catch (_) {}
       }));
 
     } catch (e) {
       console.warn('PotholeMaintenance: не удалось загрузить данные', e);
-      _data = []; _prevData = []; _allReports = {};
+      _data = []; _prevData = []; _allReports = {}; _allComplaints = {};
     }
   }
 
@@ -243,12 +246,18 @@ const PotholeMaintenance = (() => {
       const deltaMusor = (curMusor !== null && !isNaN(curMusor)) ? roundHalfUp(curMusor) : null;
       const deltaSmet  = (curSmet  !== null && !isNaN(curSmet))  ? roundHalfUp(curSmet)  : null;
 
+      // Жалобы на содержание (лист «Динамика по уборке», J + AB) — уже дневное значение
+      const curComplaints = _allComplaints[curDate];
+      const deltaComplaints = (curComplaints !== undefined && curComplaints !== null && !isNaN(curComplaints))
+        ? roundHalfUp(curComplaints) : null;
+
       const wp = weekPos(curDate);
       allRows.push({
         date: curDate,
         dayName: getDayName(curDate),
         deltaMusor,
         deltaSmet,
+        deltaComplaints,
         wp,
         weekend: isWeekend(wp),
       });
@@ -281,17 +290,21 @@ const PotholeMaintenance = (() => {
     for (const week of weeks) {
       let sumMusor = 0;
       let sumSmet  = 0;
+      let sumComplaints = 0;
       for (const r of week) {
         if (r.deltaMusor !== null) sumMusor += r.deltaMusor;
         if (r.deltaSmet  !== null) sumSmet  += r.deltaSmet;
+        if (r.deltaComplaints !== null) sumComplaints += r.deltaComplaints;
       }
       week[0].weekRowspan  = week.length;
       week[0].weekSumMusor = sumMusor;
       week[0].weekSumSmet  = sumSmet;
+      week[0].weekSumComplaints = sumComplaints;
       for (let i = 1; i < week.length; i++) {
         week[i].weekRowspan  = 0;
         week[i].weekSumMusor = null;
         week[i].weekSumSmet  = null;
+        week[i].weekSumComplaints = null;
       }
     }
 
@@ -299,6 +312,7 @@ const PotholeMaintenance = (() => {
     const rowsHtml = rows.map(r => {
       const musorCell = r.deltaMusor !== null ? r.deltaMusor : '—';
       const smetCell  = r.deltaSmet  !== null ? r.deltaSmet  : '—';
+      const complaintsCell = r.deltaComplaints !== null ? r.deltaComplaints : '—';
 
       const classes = [];
       if (r.wp === 0) classes.push('dyn-week-start');
@@ -307,10 +321,12 @@ const PotholeMaintenance = (() => {
 
       let weekMusorTd = '';
       let weekSmetTd  = '';
+      let weekComplaintsTd = '';
       if (r.weekRowspan > 0) {
         const rs = r.weekRowspan > 1 ? ` rowspan="${r.weekRowspan}"` : '';
         weekMusorTd = `<td class="dyn-td dyn-td-week"${rs}>${r.weekSumMusor}</td>`;
         weekSmetTd  = `<td class="dyn-td dyn-td-week"${rs}>${r.weekSumSmet}</td>`;
+        weekComplaintsTd = `<td class="dyn-td dyn-td-week"${rs}>${r.weekSumComplaints}</td>`;
       }
 
       return `<tr${trClass}>
@@ -320,6 +336,8 @@ const PotholeMaintenance = (() => {
         ${weekMusorTd}
         <td class="dyn-td dyn-td-num">${smetCell}</td>
         ${weekSmetTd}
+        <td class="dyn-td dyn-td-num">${complaintsCell}</td>
+        ${weekComplaintsTd}
       </tr>`;
     }).join('');
 
@@ -332,8 +350,11 @@ const PotholeMaintenance = (() => {
               <th class="dyn-th" rowspan="2">День<br>недели</th>
               <th class="dyn-th dyn-th-group" colspan="2">Выполнение уборки мусора</th>
               <th class="dyn-th dyn-th-group" colspan="2">Выполнение уборки смета</th>
+              <th class="dyn-th dyn-th-group" colspan="2">Жалобы на содержание</th>
             </tr>
             <tr>
+              <th class="dyn-th dyn-th-sub">Всего за день</th>
+              <th class="dyn-th dyn-th-sub">Всего за неделю</th>
               <th class="dyn-th dyn-th-sub">Всего за день</th>
               <th class="dyn-th dyn-th-sub">Всего за неделю</th>
               <th class="dyn-th dyn-th-sub">Всего за день</th>
