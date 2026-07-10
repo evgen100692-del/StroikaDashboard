@@ -128,11 +128,13 @@ function _parseMaintSheet(workbook) {
   const sheet = workbook.Sheets[sheetName];
   const rows = XLSX.utils.sheet_to_json(sheet, { header: 1, defval: null });
 
-  // Лист "СВОД" (индекс 2) — D5 (смет), D6 (мусор)
+// Лист "СВОД" (индекс 2) — row[4][3]=мусор (D5), row[3][3]=смет (D4)
   const svodSheetName = workbook.SheetNames[2];
   const svodSheet = svodSheetName ? workbook.Sheets[svodSheetName] : null;
-  const svodD5 = svodSheet && svodSheet['D5'] ? toNum(svodSheet['D5'].v) : 0;
-  const svodD6 = svodSheet && svodSheet['D6'] ? toNum(svodSheet['D6'].v) : 0;
+  const svodRows = svodSheet ? XLSX.utils.sheet_to_json(svodSheet, { header: 1, defval: null }) : [];
+  // row[3] = строка 4 в Excel (D4) = смет, row[4] = строка 5 (D5) = мусор
+  const svodMusor = (svodRows[4] && svodRows[4][3] != null) ? toNum(svodRows[4][3]) : 0;
+  const svodSmet  = (svodRows[3] && svodRows[3][3] != null) ? toNum(svodRows[3][3]) : 0;
 
   const result = [];
   for (let i = 2; i < rows.length; i++) { // с 3-й строки (0-based = 2)
@@ -143,9 +145,9 @@ function _parseMaintSheet(workbook) {
     const plan = toNum(row[2]);
     let fact;
     if (label === 'Уборка мусора в полосе отвода, км') {
-      fact = svodD6; // СВОД D6
+      fact = svodMusor; // СВОД D6
     } else if (label === 'Уборка смета из прибордюрной части, км') {
-      fact = svodD5; // СВОД D5
+      fact = svodSmet; // СВОД D5
     } else {
       fact = toNum(row[3] ?? 0);
     }
