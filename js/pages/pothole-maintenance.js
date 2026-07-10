@@ -231,35 +231,17 @@ const PotholeMaintenance = (() => {
     }
 
     // ── Шаг 1: базовый массив строк по всем датам ──
+    // svodFact (лист СВОД, D6/D5) — это уже дневное значение уборки,
+    // поэтому «Всего за день» берём напрямую, без вычитания предыдущего дня.
     const allRows = [];
     for (let i = 0; i < sortedDates.length; i++) {
-      const curDate  = sortedDates[i];
-      const prevDate = i > 0 ? sortedDates[i - 1] : null;
+      const curDate = sortedDates[i];
 
-      const curMusor  = getSvodFactByLabel(_allReports[curDate],  LABEL_MUSOR);
-      const prevMusor = prevDate ? getSvodFactByLabel(_allReports[prevDate], LABEL_MUSOR) : null;
-      const curSmet   = getSvodFactByLabel(_allReports[curDate],  LABEL_SMET);
-      const prevSmet  = prevDate ? getSvodFactByLabel(_allReports[prevDate], LABEL_SMET) : null;
+      const curMusor = getSvodFactByLabel(_allReports[curDate], LABEL_MUSOR);
+      const curSmet  = getSvodFactByLabel(_allReports[curDate], LABEL_SMET);
 
-        let deltaMusor = null;
-        if (curMusor !== null) {
-          if (prevMusor !== null) {
-            const raw = curMusor - prevMusor;
-            deltaMusor = raw >= 0 ? roundHalfUp(raw) : null;
-          } else {
-            deltaMusor = roundHalfUp(curMusor);
-          }
-        }
-
-                let deltaSmet = null;
-        if (curSmet !== null) {
-          if (prevSmet !== null) {
-            const raw = curSmet - prevSmet;
-            deltaSmet = raw >= 0 ? roundHalfUp(raw) : null;
-          } else {
-            deltaSmet = roundHalfUp(curSmet);
-          }
-        }
+      const deltaMusor = (curMusor !== null && !isNaN(curMusor)) ? roundHalfUp(curMusor) : null;
+      const deltaSmet  = (curSmet  !== null && !isNaN(curSmet))  ? roundHalfUp(curSmet)  : null;
 
       const wp = weekPos(curDate);
       allRows.push({
