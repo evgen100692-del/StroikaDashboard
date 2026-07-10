@@ -230,17 +230,25 @@ const PotholeMaintenance = (() => {
       const curSmet   = getFactByLabel(_allReports[curDate],  LABEL_SMET);
       const prevSmet  = prevDate ? getFactByLabel(_allReports[prevDate], LABEL_SMET) : null;
 
-      let deltaMusor = null;
-      if (curMusor !== null && prevMusor !== null) {
-        const raw = curMusor - prevMusor;
-        deltaMusor = raw >= 0 ? roundHalfUp(raw) : null;
-      }
+        let deltaMusor = null;
+        if (curMusor !== null) {
+          if (prevMusor !== null) {
+            const raw = curMusor - prevMusor;
+            deltaMusor = raw >= 0 ? roundHalfUp(raw) : null;
+          } else {
+            deltaMusor = roundHalfUp(curMusor);
+          }
+        }
 
-      let deltaSmet = null;
-      if (curSmet !== null && prevSmet !== null) {
-        const raw = curSmet - prevSmet;
-        deltaSmet = raw >= 0 ? roundHalfUp(raw) : null;
-      }
+                let deltaSmet = null;
+        if (curSmet !== null) {
+          if (prevSmet !== null) {
+            const raw = curSmet - prevSmet;
+            deltaSmet = raw >= 0 ? roundHalfUp(raw) : null;
+          } else {
+            deltaSmet = roundHalfUp(curSmet);
+          }
+        }
 
       const wp = weekPos(curDate);
       allRows.push({
