@@ -128,19 +128,40 @@ function _parseMaintSheet(workbook) {
   const sheet = workbook.Sheets[sheetName];
   const rows  = XLSX.utils.sheet_to_json(sheet, { header: 1, defval: null });
   const result = [];
-  for (let i = 2; i < rows.length; i++) {  // с 3-й строки (0-based = 2)
-    const row  = rows[i];
+  for (let i = 2; i < rows.length; i++) { // с 3-й строки (0-based = 2)
+    const row = rows[i];
     if (!row || row.length < 3) continue;
     const label = row[1] != null ? String(row[1]).trim() : '';
     if (!label) continue;
-    const plan  = toNum(row[2]);
-    const fact  = toNum(row[3] ?? 0);
-    const pct   = plan > 0 ? Math.round(fact / plan * 100) : 0;
+    const plan = toNum(row[2]);
+    const fact = toNum(row[3] ?? 0);
+    const pct  = plan > 0 ? Math.round(fact / plan * 100) : 0;
     result.push({ label, plan, fact, pct });
   }
+
+  // Лист СВОД (индекс 2): D5 = смет (строка 5, 0-based=4), D6 = мусор (строка 6, 0-based=5)
+  // Колонка D = индекс 3
+  const svodSheetName = workbook.SheetNames[2];
+  if (svodSheetName) {
+    const svodSheet = workbook.Sheets[svodSheetName];
+    const svodRows  = XLSX.utils.sheet_to_json(svodSheet, { header: 1, defval: null });
+    const svodD5 = svodRows[4] ? toNum(svodRows[4][3]) : null; // D5 — смет
+    const svodD6 = svodRows[5] ? toNum(svodRows[5][3]) : null; // D6 — мусор
+    for (const r of result) {
+      const lc = r.label.toLowerCase();
+      if (svodD6 !== null && lc.includes('мусор')) {
+        r.fact = svodD6;
+        r.pct  = r.plan > 0 ? Math.round(r.fact / r.plan * 100) : 0;
+      }
+      if (svodD5 !== null && lc.includes('смет')) {
+        r.fact = svodD5;
+        r.pct  = r.plan > 0 ? Math.round(r.fact / r.plan * 100) : 0;
+      }
+    }
+  }
+
   return result;
 }
-
   return;
 }
 
